@@ -1,0 +1,81 @@
+<html>
+    <style>
+    .vote-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+    }
+    .vote-buttons {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+    }
+    </style>
+<script >
+    const renderVoting = () => {
+        var poll = window.location.hash.split('#')[1];
+        if (poll.length < 1) {
+                console.error("Invalid vote: " + poll);
+                return
+            }
+        const isOrVote = poll.includes("_or_");
+        let options = [];
+        if (isOrVote) {
+            options = poll.split("_or_");
+            if (options.length != 2) {
+                console.error("Invalid vote: " + poll);
+                return
+            }
+        }
+        if (isOrVote) {
+            const buttons = '<button class="vote-button" onclick="vote(\''+poll+'\',\''+options[0]+'\')">'+options[0]+'</button>'+
+                            '<button class="vote-button" onclick="vote(\''+poll+'\',\''+options[1]+'\')">'+options[1]+'</button>'
+            document.getElementById('vote-buttons').innerHTML = buttons;
+        } else {
+            const buttons = '<button class="vote-button" onclick="vote(yes)">Yes</button>'+
+                            '<button class="vote-button" onclick="vote(no)">No</button>'
+            document.getElementById('vote-buttons').innerHTML = buttons;
+        }
+
+        fetch('https://d33uprguld846d.cloudfront.net/' + poll + '/votes.csv?t=' + new Date().getTime())
+            .then(response => response.text())
+            .then(text => {
+                const votes = text.split('\n');
+                const option1Votes = votes.filter(vote => vote.split(',')[2] === options[0]).length;
+                const option2Votes = votes.filter(vote => vote.split(',')[2]  === options[1]).length;
+                const totalVotes = option1Votes + option2Votes;
+                const voteResults = '<div class="vote-result">'+options[0]+': ' + option1Votes + ' (' + (option1Votes / totalVotes * 100).toFixed(2) + '%)</div>'+
+                                '<div class="vote-result">'+options[1]+': ' + option2Votes + ' (' + (option2Votes / totalVotes * 100).toFixed(2) + '%)</div>'
+                document.getElementById('results').innerHTML = voteResults;
+            });
+
+        fetch('https://rudno6667jmowgyjqruw7dkd2i0bhcpo.lambda-url.us-east-1.on.aws/').then(response => response.json()).then(res => {
+            document.getElementById('your-ip').innerHTML = "Your IP: " + res.ip;
+        });
+    }
+    window.onload = renderVoting;
+
+    const vote = (poll, vote) => {
+        // https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/\?poll\=a_or_b\&vote\=a
+        fetch('https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll='+poll+'&vote='+vote)
+            .then(response => response.text())
+            .then(text => {
+                document.getElementById('message').innerHTML = text;
+                renderVoting();
+            });
+    }
+</script>
+<body>
+    <div class="vote-container">
+        <h1>Vote</h1>
+        <div id="results"></div>
+        <div id="vote-buttons"></div>
+        <div id="your-ip"></div>
+        <div id="message"></div>
+    </div>
+</body>
+
+</html>
