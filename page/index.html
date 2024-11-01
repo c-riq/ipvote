@@ -14,10 +14,14 @@
         justify-content: center;
     }
     </style>
+
 <script >
     const renderVoting = () => {
+        document.getElementById('defined-vote').style.display = 'none';
         var poll = window.location.hash.split('#')[1];
-        if (poll.length < 1) {
+        poll = poll && poll.replace(/-\w/g, '_');
+        poll = poll && poll.replace(/[^a-zA-Z0-9_]/g, '');
+        if (poll?.length < 1) {
                 console.error("Invalid vote: " + poll);
                 return
             }
@@ -29,32 +33,66 @@
                 console.error("Invalid vote: " + poll);
                 return
             }
-        }
-        if (isOrVote) {
+            if (options[0].length < 1 || options[1].length < 1) {
+                console.error("Invalid vote: " + poll);
+                return
+            }
+            if (options[0] == options[1]){
+                console.error("Invalid vote: " + poll);
+                return
+            }
+            // sort options alphabetically
+            options.sort();
+            poll = options.join("_or_");
             const buttons = '<button class="vote-button" onclick="vote(\''+poll+'\',\''+options[0]+'\')">'+options[0]+'</button>'+
                             '<button class="vote-button" onclick="vote(\''+poll+'\',\''+options[1]+'\')">'+options[1]+'</button>'
             document.getElementById('vote-buttons').innerHTML = buttons;
         } else {
-            const buttons = '<button class="vote-button" onclick="vote(yes)">Yes</button>'+
-                            '<button class="vote-button" onclick="vote(no)">No</button>'
+            if (!poll) {
+                console.error("Invalid vote: " + poll);
+                return
+            }
+            const buttons = `<button class="vote-button" onclick="vote('yes')">Yes</button>
+                            <button class="vote-button" onclick="vote('no')">No</button>`
             document.getElementById('vote-buttons').innerHTML = buttons;
         }
+        document.getElementById('defined-vote').style.display = 'block';
 
         fetch('https://d33uprguld846d.cloudfront.net/' + poll + '/votes.csv?t=' + new Date().getTime())
             .then(response => response.text())
             .then(text => {
-                const votes = text.split('\n');
-                const option1Votes = votes.filter(vote => vote.split(',')[2] === options[0]).length;
-                const option2Votes = votes.filter(vote => vote.split(',')[2]  === options[1]).length;
-                const totalVotes = option1Votes + option2Votes;
-                const voteResults = '<div class="vote-result">'+options[0]+': ' + option1Votes + ' (' + (option1Votes / totalVotes * 100).toFixed(2) + '%)</div>'+
-                                '<div class="vote-result">'+options[1]+': ' + option2Votes + ' (' + (option2Votes / totalVotes * 100).toFixed(2) + '%)</div>'
-                document.getElementById('results').innerHTML = voteResults;
+                let votes = text.split('\n');
+                totalVotes = 0;
+                if (isOrVote){
+                    const option1Votes = votes.filter(vote => vote.split(',')[2] === options[0]).length;
+                    const option2Votes = votes.filter(vote => vote.split(',')[2]  === options[1]).length;
+                    totalVotes = option1Votes + option2Votes;
+                    const voteResults = '<div class="vote-result">'+options[0]+': ' + option1Votes + ' (' + (totalVotes > 0 ? (option1Votes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'+
+                                    '<div class="vote-result">'+options[1]+': ' + option2Votes + ' (' + (totalVotes > 0 ? (option2Votes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'
+                    document.getElementById('results').innerHTML = voteResults;
+                } else {
+                    const yesVotes = votes.filter(vote => vote.split(',')[2] === 'yes').length;
+                    const noVotes = votes.filter(vote => vote.split(',')[2] === 'no').length;
+                    totalVotes = yesVotes + noVotes;
+                    const voteResults = '<div class="vote-result">Yes: ' + yesVotes + ' (' + (totalVotes > 0 ? (yesVotes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'+
+                                    '<div class="vote-result">No: ' + noVotes + ' (' + (totalVotes > 0 ? (noVotes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'
+                }
+
+                if (totalVotes > 0) {
+                    const csv = 'data:text/csv;charset=utf-8,' + votes.join('\n');
+                    const download = '<a href="'+csv+'" download="'+poll+'.csv?t=' + new Date().getTime() + '>Download votes</a>';
+                    document.getElementById('download').innerHTML = download;
+                }
             });
 
         fetch('https://rudno6667jmowgyjqruw7dkd2i0bhcpo.lambda-url.us-east-1.on.aws/').then(response => response.json()).then(res => {
             document.getElementById('your-ip').innerHTML = "Your IP: " + res.ip;
         });
+        document.getElementById('newPollOptionA').value = "";
+        document.getElementById('newPollOptionB').value = "";
+        document.getElementById('share-url').value = window.location.href;
+        document.getElementById('vote-title').innerText = (isOrVote ? `Let the internet vote: ${options[0]} or ${options[1]}` : `Let the internet vote: ${poll} Yes or No`);
+        document.title = `ip-vote.com let the internet vote`;
     }
     window.onload = renderVoting;
 
@@ -63,18 +101,44 @@
         fetch('https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll='+poll+'&vote='+vote)
             .then(response => response.text())
             .then(text => {
-                document.getElementById('message').innerHTML = text;
+                const message = JSON.stringify(JSON.parse(text), null, 4).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;');
+                document.getElementById('message').innerHTML = message
                 renderVoting();
             });
+    }
+
+    const createPoll = () => {
+        const optionA = document.getElementById('newPollOptionA').value;
+        const optionB = document.getElementById('newPollOptionB').value;
+        if (optionA.length < 1 || optionB.length < 1) {
+            document.getElementById('message').innerHTML = "Please enter both options";
+            return
+        }
+        window.location.hash = optionA + "_or_" + optionB;
+        renderVoting();
     }
 </script>
 <body>
     <div class="vote-container">
-        <h1>Vote</h1>
-        <div id="results"></div>
-        <div id="vote-buttons"></div>
-        <div id="your-ip"></div>
-        <div id="message"></div>
+        <div id="defined-vote">
+            <h1 id="vote-title">Vote</h1>
+            <div id="results"></div>
+            <div id="vote-buttons"></div>
+            <div id="your-ip"></div>
+            <div id="message"></div>
+            <div id="download"></div>
+            <div style="height: 100px"></div>
+            <h2>Share</h2>
+            <div id="share-buttons">
+                <input type="text" id="share-url" value="" style="width: 300px">
+                <button onclick="document.getElementById('share-url').select();document.execCommand('copy');">Copy</button>
+            <div style="height: 100px"></div>
+        </div>
+    </div>
+        <h2>Create new poll</h2>
+        <input type="text" id="newPollOptionA" placeholder="Option A">
+        <input type="text" id="newPollOptionB" placeholder="Option B">
+        <button onclick="createPoll()" class="vote-button">Create new poll</button>
     </div>
 </body>
 
