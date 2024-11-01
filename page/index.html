@@ -79,9 +79,8 @@
                 }
 
                 if (totalVotes > 0) {
-                    const csv = 'data:text/csv;charset=utf-8,' + votes.join('\n');
-                    const download = '<a href="'+csv+'" download="'+poll+'.csv?t=' + new Date().getTime() + '>Download votes</a>';
-                    document.getElementById('download').innerHTML = download;
+                    const downloadLink = 'https://d33uprguld846d.cloudfront.net/' + poll + '/votes.csv?t=' + new Date().getTime()
+                    document.getElementById('download').innerHTML = '<a href="'+downloadLink+'">Download votes data</a>'
                 }
             });
 
