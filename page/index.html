@@ -21,7 +21,7 @@
         var poll = window.location.hash.split('#')[1];
         poll = poll && poll.replace(/-\w/g, '_');
         poll = poll && poll.replace(/[^a-zA-Z0-9_]/g, '');
-        if (poll?.length < 1) {
+        if (!poll || poll.length < 1) {
                 console.error("Invalid vote: " + poll);
                 return
             }
