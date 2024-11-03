@@ -101,6 +101,7 @@
 
     const vote = (poll, vote) => {
         // https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/\?poll\=a_or_b\&vote\=a
+        document.getElementById('vote-buttons').innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
         fetch('https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll='+poll+'&vote='+vote)
             .then(response => response.text())
             .then(text => {
