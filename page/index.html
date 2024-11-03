@@ -90,7 +90,7 @@
             });
 
         fetch('https://rudno6667jmowgyjqruw7dkd2i0bhcpo.lambda-url.us-east-1.on.aws/').then(response => response.json()).then(res => {
-            document.getElementById('your-ip').innerHTML = "Your IP: " + res.ip + " (" + res.geo?.country + ")";
+            document.getElementById('your-ip').innerHTML = "Your IP: " + res.ip + (res.geo?.country ? " (" + res.geo.country + ")" : "");
         });
         document.getElementById('newPollOptionA').value = "";
         document.getElementById('newPollOptionB').value = "";
