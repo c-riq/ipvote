@@ -125,21 +125,21 @@
 <body>
     <div class="vote-container">
         <div class="col-sm-6 col-xs-8 col-md-4">
-        <div id="defined-vote">
-            <h1 id="vote-title">Vote</h1>
-            <div id="results"></div>
-            <div id="vote-buttons"></div>
-            <div id="your-ip"></div>
-            <div id="message"></div>
-            <div id="download"></div>
-            <div style="height: 100px"></div>
-            <h2>Share</h2>
-            <div id="share-buttons">
-                <input type="text" id="share-url" value="" class="form-control input-sm m-2">
-                <button onclick="document.getElementById('share-url').select();document.execCommand('copy');" class="btn btn-primary m-2">Copy</button>
-            <div style="height: 100px"></div>
-        </div>
-        <div>
+            <div id="defined-vote">
+                <h1 id="vote-title">Vote</h1>
+                <div id="results"></div>
+                <div id="vote-buttons"></div>
+                <div id="your-ip"></div>
+                <div id="message"></div>
+                <div id="download"></div>
+                <div style="height: 100px"></div>
+                <h2>Share</h2>
+                <div id="share-buttons">
+                        <input type="text" id="share-url" value="" class="form-control input-sm m-2">
+                        <button onclick="document.getElementById('share-url').select();document.execCommand('copy');" class="btn btn-primary m-2">Copy</button>
+                    <div style="height: 100px"></div>
+                </div>
+            </div>
             <h2>Create new poll</h2>
             <input type="text" id="newPollOptionA" placeholder="Option A" class="form-control input-sm m-2">
             <input type="text" id="newPollOptionB" placeholder="Option B" class="form-control input-sm m-2">
@@ -151,6 +151,7 @@
     </div>
     <div style="position: fixed; bottom: 0; left: 0; padding: 10px; background-color: #f0f0f0; color: #666; font-size: 10px;">
         <a href="https://ip-vote.com/privacy_policy.html">Privacy Policy</a>
+    </div>
 </body>
 
 </html>
