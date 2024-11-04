@@ -94,11 +94,14 @@ module.exports.handler = async (event) => {
     if (!isIPv6) {
         for (let i = 0; i < lines.length; i++) {
             const [t, ip, v] = lines[i].split(',');
+            if (!ip || !v || !t || !parseInt(t)) {
+                continue;
+            }
             if (requestIp === ip) {
                 return {
                     statusCode: 400,
                     body: JSON.stringify({
-                        message: 'IP address already voted for ' + v + ' at ' + (new Date(t)).toISOString(),
+                        message: 'IP address already voted for ' + v + ' at ' + (new Date(parseInt(t))).toISOString(),
                         time: new Date()
                     }),
                 };
@@ -108,12 +111,15 @@ module.exports.handler = async (event) => {
         const fullRequestIp = expandIPv6(requestIp);
         for (let i = 0; i < lines.length; i++) {
             const [t, ip, v] = lines[i].split(',');
+            if (!ip || !v || !t || !parseInt(t)) {
+                continue;
+            }
             const fullIp = expandIPv6(ip);
             if (_64bitMask(fullRequestIp) === _64bitMask(fullIp)) {
                 return {
                     statusCode: 400,
                     body: JSON.stringify({
-                        message: 'IP within same /64 block ' + ip + ' already voted for ' + v + ' at ' + (new Date(t)).toISOString(),
+                        message: 'IP within same /64 block ' + ip + ' already voted for ' + v + ' at ' + (new Date(parseInt(t))).toISOString(),
                         time: new Date()
                     }),
                 };
@@ -132,7 +138,23 @@ module.exports.handler = async (event) => {
     // Send the upload command to S3
     const command = new PutObjectCommand(putParams);
     const response = await s3Client.send(command);
-    
+
+    // validate that vote was not overwritten
+    // TODO: fix architecture
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    data = await fetchFileFromS3(bucketName, fileName)
+
+    if (!data.includes(newVote)) {
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'An error occurred',
+                time: new Date()
+            }),
+        };
+    }
     
     return {
         statusCode: 200,
