@@ -30,7 +30,7 @@ const expandIPv6 = (ip) => {
 
 const _64bitMask = (ip) => {
     const parts = ip.split(':');
-    const mask = parts.slice(0, 4).join(':');
+    const mask = parts.slice(0, 4).map(i => i.padStart(4, '0')).join(':');
     return mask;
 }
 
