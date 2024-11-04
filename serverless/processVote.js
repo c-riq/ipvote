@@ -16,6 +16,24 @@ const fetchFileFromS3 = async (bucketName, key) => {
 
 };
 
+const expandIPv6 = (ip) => {
+    if (ip.includes('::')) {
+        const [prefix, suffix] = ip.split('::');
+        const prefixParts = prefix.split(':');
+        const suffixParts = suffix.split(':');
+        const missingParts = 8 - prefixParts.length - suffixParts.length;
+        const expanded = prefixParts.concat(Array(missingParts).fill('0000')).concat(suffixParts);
+        return expanded.join(':');
+    }
+    return ip;
+}
+
+const _64bitMask = (ip) => {
+    const parts = ip.split(':');
+    const mask = parts.slice(0, 4).join(':');
+    return mask;
+}
+
 // Helper function to convert stream to string
 const streamToString = (stream) =>
     new Promise((resolve, reject) => {
@@ -60,7 +78,7 @@ module.exports.handler = async (event) => {
     } catch (error) {
         if (error.name === 'NoSuchKey') {
             // File does not exist, create a new one
-            data = 't,ip,vote\n';
+            data = 'time,ip,vote\n';
         } else {
             return {
                 statusCode: 500,
@@ -72,16 +90,34 @@ module.exports.handler = async (event) => {
         }
     }
     const lines = data.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-        const [t, ip, v] = lines[i].split(',');
-        if (requestIp === ip) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({
-                    message: 'IP address already voted: ' + lines[i],
-                    time: new Date()
-                }),
-            };
+    const isIPv6 = requestIp.includes(':');
+    if (!isIPv6) {
+        for (let i = 0; i < lines.length; i++) {
+            const [t, ip, v] = lines[i].split(',');
+            if (requestIp === ip) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: 'IP address already voted for ' + v + ' at ' + (new Date(t)).toISOString(),
+                        time: new Date()
+                    }),
+                };
+            }
+        }
+    } else {
+        const fullRequestIp = expandIPv6(requestIp);
+        for (let i = 0; i < lines.length; i++) {
+            const [t, ip, v] = lines[i].split(',');
+            const fullIp = expandIPv6(ip);
+            if (_64bitMask(fullRequestIp) === _64bitMask(fullIp)) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: 'IP within same /64 block ' + ip + ' already voted for ' + v + ' at ' + (new Date(t)).toISOString(),
+                        time: new Date()
+                    }),
+                };
+            }
         }
     }
     const newVote = `${timestamp},${requestIp},${vote}\n`;
