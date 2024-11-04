@@ -17,6 +17,10 @@
     align-items: center;
     justify-content: center;
 }
+.message-container {
+    max-width: 90vw;
+    overflow-wrap: break-word;
+}
 </style>
 
 <script >
@@ -105,8 +109,8 @@
         fetch('https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll='+poll+'&vote='+vote)
             .then(response => response.text())
             .then(text => {
-                const message = JSON.stringify(JSON.parse(text), null, 4).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;');
-                document.getElementById('message').innerHTML = message
+                const message = JSON.parse(text)?.message || text;
+                document.getElementById('message').innerHTML = `<div class="alert alert-primary" role="alert">${message}</div>`;
                 renderVoting();
             });
     }
@@ -125,25 +129,25 @@
 <body>
     <div style="height: 5vh"></div>
     <div class="vote-container">
-        <div class="col-sm-6 col-xs-8 col-md-4">
+        <div class="col-sm-6 col-xs-8 col-md-4" style="max-width: 90vw;">
             <div id="defined-vote">
                 <h1 id="vote-title">Vote</h1>
                 <div id="results"></div>
                 <div id="vote-buttons"></div>
                 <div id="your-ip"></div>
-                <div id="message"></div>
+                <div id="message" class="message-container"></div>
                 <div id="download"></div>
                 <div style="height: 100px"></div>
                 <h2>Share</h2>
                 <div id="share-buttons">
-                        <input type="text" id="share-url" value="" class="form-control input-sm m-2">
+                        <input type="text" id="share-url" value="" class="form-control input-sm m-2" style="max-width: 90vw;">
                         <button onclick="document.getElementById('share-url').select();document.execCommand('copy');" class="btn btn-primary m-2">Copy</button>
                     <div style="height: 100px"></div>
                 </div>
             </div>
             <h2>Create new poll</h2>
-            <input type="text" id="newPollOptionA" placeholder="Option A" class="form-control input-sm m-2">
-            <input type="text" id="newPollOptionB" placeholder="Option B" class="form-control input-sm m-2">
+            <input type="text" id="newPollOptionA" placeholder="Option A" class="form-control input-sm m-2" style="max-width: 90vw;">
+            <input type="text" id="newPollOptionB" placeholder="Option B" class="form-control input-sm m-2" style="max-width: 90vw;">
             <button onclick="createPoll()" class="vote-button btn btn-primary m-2">Create new poll</button>
         </div>
     </div>
