@@ -141,17 +141,17 @@
         }
         let hourlyChunks = {}
         for (let i = 0; i < rows.length; i++) {
-        const t = parseInt(rows[i].t)
+        const t = parseInt(rows[i].time)
         const hour = Math.floor(t / 3600 / 1000)
         if (!hourlyChunks[hour]) {
-            hourlyChunks[hour] = {t: new Date(hour * 3600 * 1000), [option1]: 0, [option2]: 0}
+            hourlyChunks[hour] = {time: new Date(hour * 3600 * 1000), [option1]: 0, [option2]: 0}
         } if (rows[i].vote === option1) {
             hourlyChunks[hour][option1] += 1
         } else if (rows[i].vote === option2){
             hourlyChunks[hour][option2] += 1
         }
         }
-        hourlyChunks = Object.values(hourlyChunks).sort((a, b) => a.t - b.t)
+        hourlyChunks = Object.values(hourlyChunks).sort((a, b) => a.time - b.time)
 
         const unpack = (hourlyChunks, key) => {
         return hourlyChunks.map(function(row) { return row[key]; });
@@ -161,7 +161,7 @@
         type: "scatter",
         mode: "lines",
         name: option1,
-        x: unpack(hourlyChunks, 't'),
+        x: unpack(hourlyChunks, 'time'),
         y: unpack(hourlyChunks, option1),
         line: {color: '#17BECF'}
         }
@@ -170,7 +170,7 @@
         type: "scatter",
         mode: "lines",
         name: option2,
-        x: unpack(hourlyChunks, 't'),
+        x: unpack(hourlyChunks, 'time'),
         y: unpack(hourlyChunks, option2),
         line: {color: '#7F7F7F'}
         }
@@ -202,7 +202,7 @@
         totalVotes += hourlyChunks[i].harris + hourlyChunks[i].trump
         option1Votes += hourlyChunks[i].harris
         option2Votes += hourlyChunks[i].trump
-        cummulativePercentages.push({t: hourlyChunks[i].t, 
+        cummulativePercentages.push({t: hourlyChunks[i].time, 
             harris: totalVotes ?  (100 * option1Votes / totalVotes).toFixed(2) : 0, 
             trump: totalVotes ? (100 * option2Votes / totalVotes).toFixed(2) : 0})
         }
