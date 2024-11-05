@@ -10,6 +10,7 @@
     flex-direction: row;
     align-items: top;
     justify-content: center;
+    text-align: center;
 }
 .vote-buttons {
     display: flex;
@@ -22,6 +23,9 @@
     overflow-wrap: break-word;
 }
 </style>
+
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
 <script >
     const renderVoting = () => {
@@ -78,6 +82,7 @@
                     const voteResults = '<div class="vote-result">'+options[0]+': ' + option1Votes + ' (' + (totalVotes > 0 ? (option1Votes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'+
                                     '<div class="vote-result">'+options[1]+': ' + option2Votes + ' (' + (totalVotes > 0 ? (option2Votes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'
                     document.getElementById('results').innerHTML = voteResults;
+                    plotCharts(poll, options[0], options[1])
                 } else {
                     const yesVotes = votes.filter(vote => vote.split(',')[2] === 'yes').length;
                     const noVotes = votes.filter(vote => vote.split(',')[2] === 'no').length;
@@ -125,6 +130,119 @@
         window.location.hash = optionA + "_or_" + optionB;
         renderVoting();
     }
+
+// charts
+    const plotCharts = (poll, option1, option2) => {
+
+    d3.csv(`https://d33uprguld846d.cloudfront.net/${poll}/votes.csv?t=${(new Date()).getTime()}`, function(err, rows){
+
+        if (err || !rows || rows.length < 1) {
+            return
+        }
+        let hourlyChunks = {}
+        for (let i = 0; i < rows.length; i++) {
+        const t = parseInt(rows[i].t)
+        const hour = Math.floor(t / 3600 / 1000)
+        if (!hourlyChunks[hour]) {
+            hourlyChunks[hour] = {t: new Date(hour * 3600 * 1000), [option1]: 0, [option2]: 0}
+        } if (rows[i].vote === option1) {
+            hourlyChunks[hour][option1] += 1
+        } else if (rows[i].vote === option2){
+            hourlyChunks[hour][option2] += 1
+        }
+        }
+        hourlyChunks = Object.values(hourlyChunks).sort((a, b) => a.t - b.t)
+
+        const unpack = (hourlyChunks, key) => {
+        return hourlyChunks.map(function(row) { return row[key]; });
+        }
+
+        var trace1 = {
+        type: "scatter",
+        mode: "lines",
+        name: option1,
+        x: unpack(hourlyChunks, 't'),
+        y: unpack(hourlyChunks, option1),
+        line: {color: '#17BECF'}
+        }
+
+        var trace2 = {
+        type: "scatter",
+        mode: "lines",
+        name: option2,
+        x: unpack(hourlyChunks, 't'),
+        y: unpack(hourlyChunks, option2),
+        line: {color: '#7F7F7F'}
+        }
+
+
+        var data = [trace1, trace2];
+
+        console.log(data)
+
+        var layout = {
+            title: 'Hourly Votes',
+            margin: {
+                l: 30,
+                r: 10,
+                t: 30, 
+                b: 30  
+            },
+        };
+
+        Plotly.newPlot('voteChart', data, layout, {displayModeBar: false});
+
+
+        const cummulativePercentages = []
+        let totalVotes = 0
+        let option1Votes = 0
+        let option2Votes = 0
+
+        for (let i = 0; i < hourlyChunks.length; i++) {
+        totalVotes += hourlyChunks[i].harris + hourlyChunks[i].trump
+        option1Votes += hourlyChunks[i].harris
+        option2Votes += hourlyChunks[i].trump
+        cummulativePercentages.push({t: hourlyChunks[i].t, 
+            harris: totalVotes ?  (100 * option1Votes / totalVotes).toFixed(2) : 0, 
+            trump: totalVotes ? (100 * option2Votes / totalVotes).toFixed(2) : 0})
+        }
+
+        var trace3 = {
+        type: "scatter",
+        mode: "lines",
+        name: option1,
+        x: unpack(cummulativePercentages, 't'),
+        y: unpack(cummulativePercentages, option1),
+        line: {color: '#17BECF'}
+        }
+
+        var trace4 = {
+        type: "scatter",
+        mode: "lines",
+        name: option2,
+        x: unpack(cummulativePercentages, 't'),
+        y: unpack(cummulativePercentages, option2),
+        line: {color: '#7F7F7F'}
+        }
+
+        var data2 = [trace3, trace4];
+
+        var layout2 = {
+            title: 'Cummulative Percentage',
+            margin: {
+                l: 30,
+                r: 10,
+                t: 30, 
+                b: 30  
+            },
+        };
+
+        Plotly.newPlot('percentageChart', data2, layout2, {displayModeBar: false});
+
+    })
+}
+
+
 </script>
 <body>
     <div style="height: 5vh"></div>
@@ -132,17 +250,24 @@
         <div class="col-sm-6 col-xs-8 col-md-4" style="max-width: 90vw;">
             <div id="defined-vote">
                 <h1 id="vote-title">Vote</h1>
-                <div id="results"></div>
-                <div id="vote-buttons"></div>
                 <div id="your-ip"></div>
                 <div id="message" class="message-container"></div>
+                <div id="vote-buttons"></div>
+                <div style="height: 60px"></div>
+
+                <h2>Results</h2>
+                <div id="results"></div>
+
+                <div id="voteChart" style="max-height: 20vh; margin-top: 20px;"></div>
+                <div id="percentageChart" style="max-height: 20vh; margin-top: 20px;"></div>
+
                 <div id="download"></div>
-                <div style="height: 100px"></div>
+                <div style="height: 60px"></div>
                 <h2>Share</h2>
                 <div id="share-buttons">
                         <input type="text" id="share-url" value="" class="form-control input-sm m-2" style="max-width: 90vw;">
                         <button onclick="document.getElementById('share-url').select();document.execCommand('copy');" class="btn btn-primary m-2">Copy</button>
-                    <div style="height: 100px"></div>
+                    <div style="height: 60px"></div>
                 </div>
             </div>
             <h2>Create new poll</h2>
