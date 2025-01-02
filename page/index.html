@@ -39,6 +39,7 @@
             }
         const isOrVote = poll.includes("_or_");
         let options = [];
+        const isPrivacyChecked = document.getElementById('privacyCheck').checked;
         if (isOrVote) {
             options = poll.split("_or_");
             if (options.length != 2) {
@@ -56,18 +57,28 @@
             // sort options alphabetically
             options.sort();
             poll = options.join("_or_");
-            const buttons = '<button class="vote-button btn btn-primary m-2" onclick="vote(\''+poll+'\',\''+options[0]+'\')">'+options[0]+'</button>'+
-                            '<button class="vote-button btn btn-primary m-2" onclick="vote(\''+poll+'\',\''+options[1]+'\')">'+options[1]+'</button>'
+            const buttons = 
+                          '<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote(\''+poll+'\',\''+options[0]+'\')" '+ (isPrivacyChecked ? '' : 'disabled')+'>'+options[0]+'</button>'+
+                          '<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote(\''+poll+'\',\''+options[1]+'\')" '+ (isPrivacyChecked ? '' : 'disabled')+'>'+options[1]+'</button>';
             document.getElementById('vote-buttons').innerHTML = buttons;
         } else {
             if (!poll) {
                 console.error("Invalid vote: " + poll);
                 return
             }
-            const buttons = `<button class="vote-button" onclick="vote('yes')">Yes</button>
-                            <button class="vote-button" onclick="vote('no')">No</button>`
+            const buttons = `<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote('${poll}','yes')" ${isPrivacyChecked ? '' : 'disabled'}>Yes</button>
+                            <button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote('${poll}','no')" ${isPrivacyChecked ? '' : 'disabled'}>No</button>`
             document.getElementById('vote-buttons').innerHTML = buttons;
         }
+        
+        // Add event listener for checkbox
+        document.getElementById('privacyCheck').addEventListener('change', function() {
+            const voteButtons = document.querySelectorAll('.vote-button');
+            voteButtons.forEach(button => {
+                button.disabled = !this.checked;
+            });
+        });
+
         document.getElementById('defined-vote').style.display = 'block';
 
         fetch('https://d33uprguld846d.cloudfront.net/' + poll + '/votes.csv?t=' + new Date().getTime())
@@ -118,6 +129,14 @@
                 document.getElementById('message').innerHTML = `<div class="alert alert-primary" role="alert">${message}</div>`;
                 renderVoting();
             });
+    }
+
+    const checkPrivacyAndVote = (poll, option) => {
+        if (!document.getElementById('privacyCheck').checked) {
+            document.getElementById('message').innerHTML = '<div class="alert alert-danger" role="alert">Please accept the privacy policy first</div>';
+            return;
+        }
+        vote(poll, option);
     }
 
     const createPoll = () => {
@@ -242,7 +261,6 @@
     })
 }
 
-
 </script>
 <body>
     <div style="height: 5vh"></div>
@@ -252,7 +270,15 @@
                 <h1 id="vote-title">Vote</h1>
                 <div id="your-ip"></div>
                 <div id="message" class="message-container"></div>
-                <div id="vote-buttons"></div>
+                <div id="vote-button-containers">
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="privacyCheck">
+                        <label class="form-check-label" for="privacyCheck">
+                            I accept the <a href="privacy_policy.html" target="_blank">privacy policy</a> and I constent to the public sharing of my IP address.
+                        </label>
+                    </div>
+                    <div id="vote-buttons"></div>
+                </div>
                 <div style="height: 60px"></div>
 
                 <h2>Results</h2>
