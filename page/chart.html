@@ -1,0 +1,109 @@
+<!--d3 plotly cdn draw line chart from csv time series-->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IPVote</title>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div id="voteChart"></div>
+    <div id="percentageChart"></div>
+    <script>
+        d3.csv("https://d33uprguld846d.cloudfront.net/harris_or_trump/votes.csv?t=1730771552900", function(err, rows){
+
+
+let hourlyChunks = {}
+for (let i = 0; i < rows.length; i++) {
+    const t = parseInt(rows[i].t)
+    const hour = Math.floor(t / 3600 / 1000)
+    if (!hourlyChunks[hour]) {
+        hourlyChunks[hour] = {t: new Date(hour * 3600 * 1000), trump: 0, harris: 0}
+    } if (rows[i].vote === 'trump') {
+        hourlyChunks[hour].trump += 1
+    } else if (rows[i].vote === 'harris'){
+        hourlyChunks[hour].harris += 1
+    }
+}
+hourlyChunks = Object.values(hourlyChunks).sort((a, b) => a.t - b.t)
+
+const unpack = (hourlyChunks, key) => {
+    return hourlyChunks.map(function(row) { return row[key]; });
+}
+
+var trace1 = {
+    type: "scatter",
+    mode: "lines",
+    name: 'harris',
+    x: unpack(hourlyChunks, 't'),
+    y: unpack(hourlyChunks, 'harris'),
+    line: {color: '#17BECF'}
+}
+
+var trace2 = {
+    type: "scatter",
+    mode: "lines",
+    name: 'trump',
+    x: unpack(hourlyChunks, 't'),
+    y: unpack(hourlyChunks, 'trump'),
+    line: {color: '#7F7F7F'}
+}
+
+
+var data = [trace1, trace2];
+
+console.log(data)
+
+var layout = {
+title: 'Hourly Votes',
+};
+
+Plotly.newPlot('voteChart', data, layout);
+
+
+const cummulativePercentages = []
+let totalVotes = 0
+let harrisVotes = 0
+let trumpVotes = 0
+
+for (let i = 0; i < hourlyChunks.length; i++) {
+    totalVotes += hourlyChunks[i].harris + hourlyChunks[i].trump
+    harrisVotes += hourlyChunks[i].harris
+    trumpVotes += hourlyChunks[i].trump
+    cummulativePercentages.push({t: hourlyChunks[i].t, 
+        harris: totalVotes ?  (100 * harrisVotes / totalVotes).toFixed(2) : 0, 
+        trump: totalVotes ? (100 * trumpVotes / totalVotes).toFixed(2) : 0})
+}
+
+var trace3 = {
+    type: "scatter",
+    mode: "lines",
+    name: 'harris',
+    x: unpack(cummulativePercentages, 't'),
+    y: unpack(cummulativePercentages, 'harris'),
+    line: {color: '#17BECF'}
+}
+
+var trace4 = {
+    type: "scatter",
+    mode: "lines",
+    name: 'trump',
+    x: unpack(cummulativePercentages, 't'),
+    y: unpack(cummulativePercentages, 'trump'),
+    line: {color: '#7F7F7F'}
+}
+
+var data2 = [trace3, trace4];
+
+var layout2 = {
+title: 'Cummulative Percentage',
+};
+
+Plotly.newPlot('percentageChart', data2, layout2);
+
+})
+
+
+    </script>
+</body>
+</html>
