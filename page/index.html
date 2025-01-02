@@ -22,13 +22,44 @@
     max-width: 90vw;
     overflow-wrap: break-word;
 }
+.card {
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+.card-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+.card-text {
+    font-size: 1rem;
+}
+.card-body {
+    padding: 10px;
+}
 </style>
 
 <script src="https://d3js.org/d3.v4.min.js"></script>
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
 <script >
+    const renderPopularPolls = () => {
+        fetch('https://iqpemyqp6lwvg7x6ds3osrs6nm0fcjwy.lambda-url.us-east-1.on.aws/')
+            .then(response => response.json())
+            .then(res => {
+                document.getElementById('popular-polls').innerHTML = `<h2>Popular polls</h2>`;
+                document.getElementById('popular-polls').innerHTML += res.data.map(poll => {
+                    const [pollName, votes] = poll;
+                    const pollNameParsed = pollName.replace(/_or_/g, ' or ');
+                    return `<div class="card" onclick="window.location.hash='#${pollName}';window.scrollTo(0, 0);renderVoting();"><div class="card-body"><h5 class="card-title">${pollNameParsed}</h5><p class="card-text">${poll[1]} votes</p></div></div>`
+                }).join('');
+            });
+    }
+
     const renderVoting = () => {
+        renderPopularPolls();
         document.getElementById('defined-vote').style.display = 'none';
         var poll = window.location.hash.split('#')[1];
         poll = poll && poll.replace(/-\w/g, '_');
@@ -116,6 +147,7 @@
         document.getElementById('share-url').value = window.location.href;
         document.getElementById('vote-title').innerText = (isOrVote ? `Let the internet vote: ${options[0]} or ${options[1]}` : `Let the internet vote: ${poll} Yes or No`);
         document.title = `ip-vote.com let the internet vote`;
+
     }
     window.onload = renderVoting;
 
@@ -296,6 +328,7 @@
                     <div style="height: 60px"></div>
                 </div>
             </div>
+            <div id="popular-polls"></div>
             <h2>Create new poll</h2>
             <input type="text" id="newPollOptionA" placeholder="Option A" class="form-control input-sm m-2" style="max-width: 90vw;">
             <input type="text" id="newPollOptionB" placeholder="Option B" class="form-control input-sm m-2" style="max-width: 90vw;">
