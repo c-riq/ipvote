@@ -80,6 +80,7 @@ module.exports.handler = async (event) => {
             // File does not exist, create a new one
             data = 'time,ip,vote\n';
         } else {
+            console.log(error);
             return {
                 statusCode: 500,
                 body: JSON.stringify({
@@ -98,6 +99,7 @@ module.exports.handler = async (event) => {
                 continue;
             }
             if (requestIp === ip) {
+                console.log('IP address already voted for ' + v + ' at ' + (new Date(parseInt(t))).toISOString());
                 return {
                     statusCode: 400,
                     body: JSON.stringify({
@@ -147,6 +149,7 @@ module.exports.handler = async (event) => {
     data = await fetchFileFromS3(bucketName, fileName)
 
     if (!data.includes(newVote)) {
+        console.log('Vote was not registered');
         return {
             statusCode: 500,
             body: JSON.stringify({
