@@ -115,7 +115,15 @@
         document.getElementById('defined-vote').style.display = 'block';
 
         fetch('https://d33uprguld846d.cloudfront.net/' + poll + '/votes.csv?t=' + new Date().getTime())
-            .then(response => response.text())
+            .then(response => {
+                if (response.status != 200) {
+                    document.getElementById('results').innerHTML = '<div class="alert alert-warning" role="warning">No votes found</div>';
+                    document.getElementById('voteChart').innerHTML = '';
+                    document.getElementById('percentageChart').innerHTML = '';
+                    throw new Error('Error downloading votes data');
+                }
+                return response.text()
+            })
             .then(text => {
                 let votes = text.split('\n');
                 totalVotes = 0;
@@ -139,6 +147,9 @@
                     const downloadLink = 'https://d33uprguld846d.cloudfront.net/' + poll + '/votes.csv?t=' + new Date().getTime()
                     document.getElementById('download').innerHTML = '<a href="'+downloadLink+'">Download votes data</a>'
                 }
+            })
+            .catch(error => {
+                document.getElementById('download').innerHTML = '';
             });
 
         fetch('https://rudno6667jmowgyjqruw7dkd2i0bhcpo.lambda-url.us-east-1.on.aws/').then(response => response.json()).then(res => {
@@ -181,8 +192,8 @@
             return
         }
         window.location.hash = optionA + "_or_" + optionB;
-        renderVoting();
         window.scrollTo(0, 0);
+        renderVoting();
     }
 
 // charts
