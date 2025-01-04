@@ -39,6 +39,9 @@
 .card-body {
     padding: 10px;
 }
+#popular-polls {
+    margin-bottom: 60px;
+}
 </style>
 
 <script src="https://d3js.org/d3.v4.min.js"></script>
@@ -49,8 +52,7 @@
         fetch('https://iqpemyqp6lwvg7x6ds3osrs6nm0fcjwy.lambda-url.us-east-1.on.aws/')
             .then(response => response.json())
             .then(res => {
-                document.getElementById('popular-polls').innerHTML = `<h2>Popular polls</h2>`;
-                document.getElementById('popular-polls').innerHTML += res.data.map(poll => {
+                document.getElementById('popular-polls-container').innerHTML = res.data.map(poll => {
                     const [pollName, votes] = poll;
                     const pollNameParsed = pollName.replace(/_or_/g, ' or ');
                     return `<div class="card" onclick="window.location.hash='#${pollName}';window.scrollTo(0, 0);renderVoting();"><div class="card-body"><h5 class="card-title">${pollNameParsed}</h5><p class="card-text">${poll[1]} votes</p></div></div>`
@@ -180,6 +182,7 @@
         }
         window.location.hash = optionA + "_or_" + optionB;
         renderVoting();
+        window.scrollTo(0, 0);
     }
 
 // charts
@@ -328,7 +331,12 @@
                     <div style="height: 60px"></div>
                 </div>
             </div>
-            <div id="popular-polls"></div>
+            <div id="popular-polls">
+                <h2>Popular polls</h2>
+                <div id="popular-polls-container">
+                    <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+                </div>
+            </div>
             <h2>Create new poll</h2>
             <input type="text" id="newPollOptionA" placeholder="Option A" class="form-control input-sm m-2" style="max-width: 90vw;">
             <input type="text" id="newPollOptionB" placeholder="Option B" class="form-control input-sm m-2" style="max-width: 90vw;">
