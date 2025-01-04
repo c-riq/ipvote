@@ -47,12 +47,22 @@ const streamToString = (stream) =>
 module.exports.handler = async (event) => {
     const vote = event.queryStringParameters.vote;
     const poll = event.queryStringParameters.poll;
+    const country = event.queryStringParameters.country;
     const forbiddenStringsRegex = /,|\\n|\\r|\\t|>|</;
     if (!vote || !poll) {
         return {
             statusCode: 400,
             body: JSON.stringify({
                 message: 'Missing vote or poll parameters',
+                time: new Date()
+            }),
+        };
+    }
+    if (country && !country.match(/^[A-Z]{2}$/)) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Invalid country code',
                 time: new Date()
             }),
         };
@@ -78,7 +88,7 @@ module.exports.handler = async (event) => {
     } catch (error) {
         if (error.name === 'NoSuchKey') {
             // File does not exist, create a new one
-            data = 'time,ip,vote\n';
+            data = 'time,ip,vote,country\n';
         } else {
             console.log(error);
             return {
@@ -94,7 +104,7 @@ module.exports.handler = async (event) => {
     const isIPv6 = requestIp.includes(':');
     if (!isIPv6) {
         for (let i = 0; i < lines.length; i++) {
-            const [t, ip, v] = lines[i].split(',');
+            const [t, ip, v, c] = lines[i].split(',');
             if (!ip || !v || !t || !parseInt(t)) {
                 continue;
             }
@@ -112,7 +122,7 @@ module.exports.handler = async (event) => {
     } else {
         const fullRequestIp = expandIPv6(requestIp);
         for (let i = 0; i < lines.length; i++) {
-            const [t, ip, v] = lines[i].split(',');
+            const [t, ip, v, c] = lines[i].split(',');
             if (!ip || !v || !t || !parseInt(t)) {
                 continue;
             }
@@ -128,7 +138,7 @@ module.exports.handler = async (event) => {
             }
         }
     }
-    const newVote = `${timestamp},${requestIp},${vote}\n`;
+    const newVote = `${timestamp},${requestIp},${vote},${country}\n`;
     const newVotes = data + newVote;
     const putParams = {
         Bucket: 'ipvotes',
