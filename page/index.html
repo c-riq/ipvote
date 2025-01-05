@@ -265,12 +265,12 @@
         let option2Votes = 0
 
         for (let i = 0; i < hourlyChunks.length; i++) {
-        totalVotes += hourlyChunks[i].harris + hourlyChunks[i].trump
-        option1Votes += hourlyChunks[i].harris
-        option2Votes += hourlyChunks[i].trump
+        totalVotes += hourlyChunks[i][option1] + hourlyChunks[i][option2]
+        option1Votes += hourlyChunks[i][option1]
+        option2Votes += hourlyChunks[i][option2]
         cummulativePercentages.push({t: hourlyChunks[i].time, 
-            harris: totalVotes ?  (100 * option1Votes / totalVotes).toFixed(2) : 0, 
-            trump: totalVotes ? (100 * option2Votes / totalVotes).toFixed(2) : 0})
+            [option1]: totalVotes ?  (100 * option1Votes / totalVotes).toFixed(2) : 0, 
+            [option2]: totalVotes ? (100 * option2Votes / totalVotes).toFixed(2) : 0})
         }
 
         var trace3 = {
