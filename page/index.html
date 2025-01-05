@@ -114,7 +114,7 @@
 
         document.getElementById('defined-vote').style.display = 'block';
 
-        fetch('https://a2vumsmadhabjdleyviy3rqixu0jqssj.lambda-url.us-east-1.on.aws/?poll=' + poll)
+        fetch(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}`)
             .then(response => {
                 if (response.status != 200) {
                     document.getElementById('results').innerHTML = '<div class="alert alert-warning" role="warning">No votes found</div>';
@@ -128,23 +128,23 @@
                 let votes = text.split('\n');
                 totalVotes = 0;
                 if (isOrVote){
-                    const option1Votes = votes.filter(vote => vote.split(',')[2] === options[0]).length;
-                    const option2Votes = votes.filter(vote => vote.split(',')[2]  === options[1]).length;
+                    const option1Votes = votes.filter(vote => vote.split(',')[3] === options[0]).length;
+                    const option2Votes = votes.filter(vote => vote.split(',')[3]  === options[1]).length;
                     totalVotes = option1Votes + option2Votes;
                     const voteResults = '<div class="vote-result">'+options[0]+': ' + option1Votes + ' (' + (totalVotes > 0 ? (option1Votes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'+
                                     '<div class="vote-result">'+options[1]+': ' + option2Votes + ' (' + (totalVotes > 0 ? (option2Votes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'
                     document.getElementById('results').innerHTML = voteResults;
                     plotCharts(poll, options[0], options[1])
                 } else {
-                    const yesVotes = votes.filter(vote => vote.split(',')[2] === 'yes').length;
-                    const noVotes = votes.filter(vote => vote.split(',')[2] === 'no').length;
+                    const yesVotes = votes.filter(vote => vote.split(',')[3] === 'yes').length;
+                    const noVotes = votes.filter(vote => vote.split(',')[3] === 'no').length;
                     totalVotes = yesVotes + noVotes;
                     const voteResults = '<div class="vote-result">Yes: ' + yesVotes + ' (' + (totalVotes > 0 ? (yesVotes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'+
                                     '<div class="vote-result">No: ' + noVotes + ' (' + (totalVotes > 0 ? (noVotes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'
                 }
 
                 if (totalVotes > 0) {
-                    const downloadLink = 'https://a2vumsmadhabjdleyviy3rqixu0jqssj.lambda-url.us-east-1.on.aws/?poll=' + poll
+                    const downloadLink = `https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}`
                     document.getElementById('download').innerHTML = '<a href="'+downloadLink+'" target="_blank">Download votes data</a>'
                 }
             })
@@ -200,7 +200,7 @@
 // charts
     const plotCharts = (poll, option1, option2) => {
 
-    d3.csv(`https://a2vumsmadhabjdleyviy3rqixu0jqssj.lambda-url.us-east-1.on.aws/?poll=${poll}`, function(err, rows){
+    d3.csv(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}`, function(err, rows){
 
         if (err || !rows || rows.length < 1) {
             return
