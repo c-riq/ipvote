@@ -60,7 +60,7 @@
             });
     }
 
-    const renderVoting = () => {
+    const renderVoting = (refresh = false) => {
         renderPopularPolls();
         document.getElementById('defined-vote').style.display = 'none';
         var poll = window.location.hash.split('#')[1];
@@ -114,7 +114,7 @@
 
         document.getElementById('defined-vote').style.display = 'block';
 
-        fetch(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}`)
+        fetch(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=${refresh}`)
             .then(response => {
                 if (response.status != 200) {
                     document.getElementById('results').innerHTML = '<div class="alert alert-warning" role="warning">No votes found</div>';
@@ -134,7 +134,7 @@
                     const voteResults = '<div class="vote-result">'+options[0]+': ' + option1Votes + ' (' + (totalVotes > 0 ? (option1Votes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'+
                                     '<div class="vote-result">'+options[1]+': ' + option2Votes + ' (' + (totalVotes > 0 ? (option2Votes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'
                     document.getElementById('results').innerHTML = voteResults;
-                    plotCharts(poll, options[0], options[1])
+                    plotCharts(poll, options[0], options[1], refresh)
                 } else {
                     const yesVotes = votes.filter(vote => vote.split(',')[3] === 'yes').length;
                     const noVotes = votes.filter(vote => vote.split(',')[3] === 'no').length;
@@ -172,7 +172,7 @@
             .then(text => {
                 const message = JSON.parse(text)?.message || text;
                 document.getElementById('message').innerHTML = `<div class="alert alert-primary" role="alert">${message}</div>`;
-                renderVoting();
+                renderVoting(true);
             });
     }
 
@@ -198,9 +198,9 @@
     }
 
 // charts
-    const plotCharts = (poll, option1, option2) => {
+    const plotCharts = (poll, option1, option2, refresh = false) => {
 
-    d3.csv(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}`, function(err, rows){
+    d3.csv(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=${refresh}`, function(err, rows){
 
         if (err || !rows || rows.length < 1) {
             return

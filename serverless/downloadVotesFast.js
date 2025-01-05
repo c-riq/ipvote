@@ -5,6 +5,8 @@ const s3Client = new S3Client();
 exports.handler = async (event) => {
     const bucket = 'ipvotes';
     const poll = event?.queryStringParameters?.poll;
+    const forceRefresh = event?.queryStringParameters?.refresh === 'true';
+    
     if (!poll) {
         return {
             statusCode: 400,
@@ -14,21 +16,51 @@ exports.handler = async (event) => {
             }),
         };
     }
-    const prefix = `votes/poll=${poll}/ip_prefix=`;
+
+    const cacheKey = `votes_aggregated_and_masked/poll=${poll}.csv`;
     
     try {
-        // List all CSV files in the bucket with the given prefix
+        // Check cache first if not forcing refresh
+        if (!forceRefresh) {
+            try {
+                const cachedData = await s3Client.send(new GetObjectCommand({
+                    Bucket: bucket,
+                    Key: cacheKey
+                }));
+                const data = await cachedData.Body.transformToString();
+                console.log('Cache hit - returning cached data');
+                return {
+                    statusCode: 200,
+                    body: data,
+                    headers: {
+                        'Content-Type': 'text/csv',
+                        'X-Cache': 'HIT'
+                    }
+                };
+            } catch (error) {
+                console.log('Cache miss or error:', error.message);
+            }
+        }
+
+        // Proceed with original aggregation logic
+        const prefix = `votes/poll=${poll}/ip_prefix=`;
         const files = await listAllS3Files(bucket, prefix);
-        console.log(files)
-        
-        // Read and aggregate all CSV data
         const aggregatedData = await aggregateCSVFiles(bucket, files);
-        
+
+        // Cache the results
+        await s3Client.send(new PutObjectCommand({
+            Bucket: bucket,
+            Key: cacheKey,
+            Body: aggregatedData,
+            ContentType: 'text/csv'
+        }));
+
         return {
             statusCode: 200,
             body: aggregatedData,
             headers: {
-                'Content-Type': 'text/csv'
+                'Content-Type': 'text/csv',
+                'X-Cache': 'MISS'
             }
         };
     } catch (error) {
@@ -47,7 +79,6 @@ async function listAllS3Files(bucket, prefix) {
             Prefix: prefix
         });
         const response = await s3Client.send(command);
-        console.log('ListObjectsV2Command response:', response);
         return response.Contents?.map(file => file.Key);
     } catch (error) {
         console.error('Error in listAllS3Files:', error);
