@@ -114,7 +114,7 @@
 
         document.getElementById('defined-vote').style.display = 'block';
 
-        fetch('https://d33uprguld846d.cloudfront.net/' + poll + '/votes.csv?t=' + new Date().getTime())
+        fetch('https://a2vumsmadhabjdleyviy3rqixu0jqssj.lambda-url.us-east-1.on.aws/?poll=' + poll)
             .then(response => {
                 if (response.status != 200) {
                     document.getElementById('results').innerHTML = '<div class="alert alert-warning" role="warning">No votes found</div>';
@@ -144,8 +144,8 @@
                 }
 
                 if (totalVotes > 0) {
-                    const downloadLink = 'https://d33uprguld846d.cloudfront.net/' + poll + '/votes.csv?t=' + new Date().getTime()
-                    document.getElementById('download').innerHTML = '<a href="'+downloadLink+'">Download votes data</a>'
+                    const downloadLink = 'https://a2vumsmadhabjdleyviy3rqixu0jqssj.lambda-url.us-east-1.on.aws/?poll=' + poll
+                    document.getElementById('download').innerHTML = '<a href="'+downloadLink+'" target="_blank">Download votes data</a>'
                 }
             })
             .catch(error => {
@@ -200,7 +200,7 @@
 // charts
     const plotCharts = (poll, option1, option2) => {
 
-    d3.csv(`https://d33uprguld846d.cloudfront.net/${poll}/votes.csv?t=${(new Date()).getTime()}`, function(err, rows){
+    d3.csv(`https://a2vumsmadhabjdleyviy3rqixu0jqssj.lambda-url.us-east-1.on.aws/?poll=${poll}`, function(err, rows){
 
         if (err || !rows || rows.length < 1) {
             return

@@ -5,14 +5,20 @@ const { AthenaClient, StartQueryExecutionCommand, GetQueryExecutionCommand, GetQ
 const athenaClient = new AthenaClient({ region: 'us-east-1' });
 
 const query = `
-select 
-    partition_0 as poll,
+select
+    poll_ as poll,
     sum(1) n
-    from (
-        select * from ipvotes
+from
+    (
+        select
+            *
+        from
+            aggregated_votes
     )
-group by 1
-order by n desc
+group by
+    1
+order by
+    n desc
 `;
 
 const getPopularPolls = async () => {

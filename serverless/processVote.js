@@ -43,6 +43,18 @@ const streamToString = (stream) =>
         stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
     });
 
+const getPartitionKey = (ip) => {
+    if (ip.includes(':')) { 
+        const firstPart = ip.split(':')[0]
+        const paddedIp = firstPart.padStart(4, '0');
+        return paddedIp.substring(0, 2);
+    }
+    if (ip.includes('.')) {
+        const firstPart = ip.split('.')[0]
+        const paddedIp = firstPart.padStart(3, '0');
+        return paddedIp.substring(0, 2);
+    }
+};
 
 module.exports.handler = async (event) => {
     const vote = event.queryStringParameters.vote;
@@ -78,7 +90,8 @@ module.exports.handler = async (event) => {
     }
     const requestIp = event.requestContext.http.sourceIp;
     const timestamp = new Date().getTime();
-    const fileName = poll + '/votes.csv';
+    const partition = getPartitionKey(requestIp);
+    const fileName = `votes/poll=${poll}/ip_prefix=${partition}/votes.csv`;
 
     const bucketName = 'ipvotes';
 
@@ -88,7 +101,7 @@ module.exports.handler = async (event) => {
     } catch (error) {
         if (error.name === 'NoSuchKey') {
             // File does not exist, create a new one
-            data = 'time,ip,vote,country\n';
+            data = 'time,ip,poll_,vote,country\n';
         } else {
             console.log(error);
             return {
@@ -138,7 +151,7 @@ module.exports.handler = async (event) => {
             }
         }
     }
-    const newVote = `${timestamp},${requestIp},${vote},${country}\n`;
+    const newVote = `${timestamp},${requestIp},${poll},${vote},${country}\n`;
     const newVotes = data + newVote;
     const putParams = {
         Bucket: 'ipvotes',
@@ -153,6 +166,7 @@ module.exports.handler = async (event) => {
 
     // validate that vote was not overwritten
     // TODO: fix architecture
+    // Mitigated by partitioning by ip address
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
