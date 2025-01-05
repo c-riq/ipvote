@@ -1,6 +1,5 @@
 const { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 
-
 const s3Client = new S3Client(); 
 
 exports.handler = async (event) => {
@@ -51,6 +50,21 @@ async function listAllS3Files(bucket, prefix) {
     return response.Contents?.map(file => file.Key);
 }
 
+function maskIP(ip) {
+    if (ip.includes('.')) {
+        // IPv4
+        const parts = ip.split('.');
+        return `${parts[0]}.${parts[1]}.${parts[2]}.XXX`;
+    } else {
+        // IPv6
+        const parts = ip.split(':');
+        const thirdOctet = parts[2] || '';
+        const paddedThird = thirdOctet.padStart(4, '0');
+        const maskedThird = paddedThird.substring(0, 2) + 'XX';
+        return `${parts[0]}:${parts[1]}:${maskedThird}:XXXX:XXXX:XXXX`;
+    }
+}
+
 async function aggregateCSVFiles(bucket, files) {
     if (!files || files.length === 0) {
         throw new Error('No files found to aggregate');
@@ -61,15 +75,23 @@ async function aggregateCSVFiles(bucket, files) {
             Bucket: bucket,
             Key: file
         }));
-        console.log(response)
-        const records = await response?.Body?.transformToString();
+        
+        const records = await response.Body.transformToString();
         if (!records) {
             return { header: '', rows: [] };
         }
         
         const lines = records.split('\n');
         const header = lines[0] || '';
-        const rows = lines.slice(1).filter(row => row.trim());  // Remove empty lines
+        const rows = lines.slice(1)
+            .filter(row => row.trim())
+            .map(row => {
+                const columns = row.split(',');
+                if (columns.length >= 2) {
+                    columns[1] = maskIP(columns[1]);
+                }
+                return columns.join(',');
+            });
         return { header, rows };
     });
     
@@ -78,7 +100,7 @@ async function aggregateCSVFiles(bucket, files) {
         throw new Error('No valid data found in files');
     }
     
-    const aggregatedData = results[0].header + '\n' + 
+    const aggregatedData = results[0].header.replace('poll_', 'poll').replace('ip', 'masked_ip') + '\n' + 
         results.flatMap(result => result.rows).join('\n');
     return aggregatedData;
 }
