@@ -25,10 +25,21 @@ rl.on('line', (line) => {
     // Parse IP address from the CSV line
     const columns = line.split(',');
     const ip = columns[1];
-    const ipPrefix = ip.split('.')[0].padStart(2, '0');
+    
+    let ipPrefix;
+    if (ip.includes(':')) {
+        ipPrefix = ip.split(':')[0].padStart(4, '0').slice(0, 2);
+    } else {
+        ipPrefix = ip.split('.')[0].padStart(3, '0').slice(0, 2);
+    }
+    ipPrefix = 'ip_prefix=' + ipPrefix;
 
     // Create directory if it doesn't exist
-    const dirPath = path.join(__dirname, ipPrefix);
+    const resultDir = path.join(__dirname, 'result');
+    if (!fs.existsSync(resultDir)) {
+        fs.mkdirSync(resultDir, { recursive: true });
+    }
+    const dirPath = path.join(resultDir, ipPrefix);
     if (!fs.existsSync(dirPath)) {
         fs.mkdirSync(dirPath, { recursive: true });
     }
