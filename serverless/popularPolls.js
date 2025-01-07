@@ -1,8 +1,10 @@
 // aws lambda function to get the most popular polls using athena
 
 const { AthenaClient, StartQueryExecutionCommand, GetQueryExecutionCommand, GetQueryResultsCommand } = require('@aws-sdk/client-athena');
+const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 const athenaClient = new AthenaClient({ region: 'us-east-1' });
+const s3Client = new S3Client();
 
 const query = `
 select
@@ -51,6 +53,31 @@ const waitForQueryToComplete = async (queryExecutionId) => {
 };
 
 module.exports.handler = async (event) => {
+    const forceRefresh = event?.queryStringParameters?.refresh === 'true';
+    const cacheKey = 'popular_polls/cached_results.json';
+    
+    // Try cache first if not forcing refresh
+    if (!forceRefresh) {
+        try {
+            const cachedData = await s3Client.send(new GetObjectCommand({
+                Bucket: 'ipvotes',
+                Key: cacheKey
+            }));
+            const data = await cachedData.Body.transformToString();
+            console.log('Cache hit - returning cached data');
+            return {
+                statusCode: 200,
+                body: data,
+                headers: {
+                    'X-Cache': 'HIT'
+                }
+            };
+        } catch (error) {
+            console.log('Cache miss or error:', error.message);
+        }
+    }
+
+    // Proceed with original Athena query if cache miss or force refresh
     const startResult = await getPopularPolls();
     const queryExecutionId = startResult.QueryExecutionId;
     
@@ -60,7 +87,6 @@ module.exports.handler = async (event) => {
         QueryExecutionId: queryExecutionId
     }));
 
-    
     const rows = queryResults.ResultSet?.Rows || [];
     const columns = rows[0].Data?.map(cell => cell.VarCharValue);
     const data = []
@@ -69,9 +95,22 @@ module.exports.handler = async (event) => {
         data.push([rowData?.[0], parseInt(rowData?.[1] || "0")])
     }
 
+    const responseBody = JSON.stringify({columns, data});
+
+    // Cache the results
+    await s3Client.send(new PutObjectCommand({
+        Bucket: 'ipvotes',
+        Key: cacheKey,
+        Body: responseBody,
+        ContentType: 'application/json'
+    }));
+
     return {
         statusCode: 200,
-        body: JSON.stringify({columns, data})
+        body: responseBody,
+        headers: {
+            'X-Cache': 'MISS'
+        }
     };
 };
 
