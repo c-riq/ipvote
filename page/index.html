@@ -142,6 +142,8 @@
                     totalVotes = yesVotes + noVotes;
                     const voteResults = '<div class="vote-result">Yes: ' + yesVotes + ' (' + (totalVotes > 0 ? (yesVotes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'+
                                     '<div class="vote-result">No: ' + noVotes + ' (' + (totalVotes > 0 ? (noVotes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'
+                    document.getElementById('results').innerHTML = voteResults;
+                    plotCharts(poll, 'yes', 'no', refresh)
                 }
 
                 if (totalVotes > 0) {
@@ -159,7 +161,8 @@
         document.getElementById('newPollOptionA').value = "";
         document.getElementById('newPollOptionB').value = "";
         document.getElementById('share-url').value = window.location.href;
-        document.getElementById('vote-title').innerText = (isOrVote ? `Let the internet vote: ${options[0]} or ${options[1]}` : `Let the internet vote: ${poll} Yes or No`);
+        document.getElementById('vote-title').innerText = `Let the internet vote:`;
+        document.getElementById('vote-title-poll').innerText = (isOrVote ? `Let the internet vote: ${options[0]} or ${options[1]}` : `${poll.replace(/_/g, ' ')}?`);
         document.title = `ip-vote.com let the internet vote`;
 
     }
@@ -201,7 +204,7 @@
 // charts
     const plotCharts = (poll, option1, option2, refresh = false) => {
         const includeTor = document.getElementById('includeTorCheck').checked;
-        d3.csv(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=${refresh}&excludeTor=${!includeTor}`, function(err, rows){
+        d3.csv(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=${refresh === true ? 'true' : 'false'}&excludeTor=${!includeTor}`, function(err, rows){
 
         if (err || !rows || rows.length < 1) {
             return
@@ -314,8 +317,9 @@
     <div style="height: 5vh"></div>
     <div class="vote-container">
         <div class="col-sm-6 col-xs-8 col-md-4" style="max-width: 90vw;">
+            <h2 id="vote-title" style="margin-bottom: 30px;">Let the internet vote!</h2>
             <div id="defined-vote">
-                <h1 id="vote-title">Vote</h1>
+                <h2 id="vote-title-poll" style="font-weight: bold;"></h2>
                 <div id="your-ip"></div>
                 <div id="message" class="message-container"></div>
                 <div id="vote-button-containers">
