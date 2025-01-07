@@ -312,6 +312,52 @@
     })
 }
 
+const triggerTriangulationMeasurements = () => {
+    console.log("triggerTriangulationMeasurements")
+    const clientStartTimestamp = new Date().getTime();
+    let clientReceivedNonceTimestamp = new Date().getTime();
+    // call to get nonce from https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/ 
+    // call to measure time to proxies
+    // call https://96fldb82t6.execute-api.ap-northeast-1.amazonaws.com/?nonce={nonce}&proxyId=ap-northeast-1
+    // call https://xq5c7ml997.execute-api.eu-central-1.amazonaws.com?...
+    // call https://rq043zaoud.execute-api.sa-east-1.amazonaws.com?...
+    
+    fetch('https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/')
+        .then(response => {
+            clientReceivedNonceTimestamp = new Date().getTime();
+            return response.text()
+        })
+        .then(nonce => {
+            console.log(nonce)
+            const proxyStartTimestamp = new Date().getTime();
+            const promises =[
+            fetch(`https://96fldb82t6.execute-api.ap-northeast-1.amazonaws.com/?nonce=${nonce}&`+
+            `proxyId=ap-northeast-1&clientStartTimestamp=${clientStartTimestamp}&`+
+            `clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`)
+                .then(response => response.text())
+                .then(text => {
+                    console.log(text)
+                }),
+            fetch(`https://xq5c7ml997.execute-api.eu-central-1.amazonaws.com/?nonce=${nonce}&`+
+            `proxyId=eu-central-1&clientStartTimestamp=${clientStartTimestamp}&`+
+            `clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`)
+                .then(response => response.text())
+                .then(text => {
+                    console.log(text)
+                }),
+            fetch(`https://rq043zaoud.execute-api.sa-east-1.amazonaws.com/?nonce=${nonce}&`+
+            `proxyId=sa-east-1&clientStartTimestamp=${clientStartTimestamp}&`+
+            `clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`)
+                .then(response => response.text())
+                .then(text => {
+                    console.log(text)
+                })]
+            Promise.all(promises).then(results => {
+                console.log(results)
+            });
+        });
+}
+//triggerTriangulationMeasurements()
 </script>
 <body>
     <div style="height: 5vh"></div>
