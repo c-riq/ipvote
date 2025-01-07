@@ -63,15 +63,25 @@ module.exports.handler = async (event) => {
                 Bucket: 'ipvotes',
                 Key: cacheKey
             }));
-            const data = await cachedData.Body.transformToString();
-            console.log('Cache hit - returning cached data');
-            return {
-                statusCode: 200,
-                body: data,
-                headers: {
-                    'X-Cache': 'HIT'
-                }
-            };
+            const data = JSON.parse(await cachedData.Body.transformToString());
+            
+            // Check if cache is less than 24 hours old
+            const cacheAge = Date.now() - data.timestamp;
+            const cacheValid = cacheAge < 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+            
+            if (cacheValid) {
+                console.log('Cache hit - returning cached data');
+                return {
+                    statusCode: 200,
+                    body: JSON.stringify(data.results),
+                    headers: {
+                        'X-Cache': 'HIT',
+                        'X-Cache-Age': Math.round(cacheAge / 1000) // age in seconds
+                    }
+                };
+            } else {
+                console.log('Cache expired - regenerating');
+            }
         } catch (error) {
             console.log('Cache miss or error:', error.message);
         }
@@ -96,12 +106,16 @@ module.exports.handler = async (event) => {
     }
 
     const responseBody = JSON.stringify({columns, data});
+    const cacheObject = {
+        timestamp: Date.now(),
+        results: {columns, data}
+    };
 
-    // Cache the results
+    // Cache the results with timestamp
     await s3Client.send(new PutObjectCommand({
         Bucket: 'ipvotes',
         Key: cacheKey,
-        Body: responseBody,
+        Body: JSON.stringify(cacheObject),
         ContentType: 'application/json'
     }));
 
