@@ -114,7 +114,8 @@
 
         document.getElementById('defined-vote').style.display = 'block';
 
-        fetch(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=${refresh}`)
+        const includeTor = document.getElementById('includeTorCheck').checked;
+        fetch(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=${refresh}&excludeTor=${!includeTor}`)
             .then(response => {
                 if (response.status != 200) {
                     document.getElementById('results').innerHTML = '<div class="alert alert-warning" role="warning">No votes found</div>';
@@ -199,8 +200,8 @@
 
 // charts
     const plotCharts = (poll, option1, option2, refresh = false) => {
-
-    d3.csv(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=${refresh}`, function(err, rows){
+        const includeTor = document.getElementById('includeTorCheck').checked;
+        d3.csv(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=${refresh}&excludeTor=${!includeTor}`, function(err, rows){
 
         if (err || !rows || rows.length < 1) {
             return
@@ -583,6 +584,12 @@
                 <div style="height: 60px"></div>
 
                 <h2>Results</h2>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="includeTorCheck" checked onclick="renderVoting(false)">
+                    <label class="form-check-label" for="includeTorCheck">
+                        Include votes from TOR exit nodes
+                    </label>
+                </div>
                 <div id="results"></div>
 
                 <div id="voteChart" style="max-height: 20vh; margin-top: 20px;"></div>

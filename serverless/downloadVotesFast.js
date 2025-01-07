@@ -6,6 +6,7 @@ exports.handler = async (event) => {
     const bucket = 'ipvotes';
     const poll = event?.queryStringParameters?.poll;
     const forceRefresh = event?.queryStringParameters?.refresh === 'true';
+    const excludeTor = event?.queryStringParameters?.excludeTor === 'true';
     
     if (!poll) {
         return {
@@ -17,7 +18,7 @@ exports.handler = async (event) => {
         };
     }
 
-    const cacheKey = `votes_aggregated_and_masked/poll=${poll}.csv`;
+    const cacheKey = `votes_aggregated_and_masked/poll=${poll}/excludeTor=${excludeTor}.csv`;
     
     try {
         // Check cache first if not forcing refresh
@@ -45,7 +46,7 @@ exports.handler = async (event) => {
         // Proceed with original aggregation logic
         const prefix = `votes/poll=${poll}/ip_prefix=`;
         const files = await listAllS3Files(bucket, prefix);
-        const aggregatedData = await aggregateCSVFiles(bucket, files);
+        const aggregatedData = await aggregateCSVFiles(bucket, files, excludeTor);
 
         // Cache the results
         await s3Client.send(new PutObjectCommand({
@@ -106,10 +107,25 @@ function maskIP(ip) {
     }
 }
 
-async function aggregateCSVFiles(bucket, files) {
+async function aggregateCSVFiles(bucket, files, excludeTor) {
     try {
         if (!files || files.length === 0) {
             throw new Error('No files found to aggregate');
+        }
+
+        // Fetch TOR exit nodes if needed
+        let torExitNodes = new Set();
+        if (excludeTor) {
+            try {
+                const torResponse = await s3Client.send(new GetObjectCommand({
+                    Bucket: 'geoiprix',
+                    Key: 'tor-exit-nodes.csv'
+                }));
+                const torData = await torResponse.Body.transformToString();
+                torExitNodes = new Set(torData.split('\n').filter(ip => ip.split(',')[0]));
+            } catch (error) {
+                console.warn('Failed to fetch TOR exit nodes:', error);
+            }
         }
         
         const promises = files.map(async (file) => {
@@ -132,10 +148,15 @@ async function aggregateCSVFiles(bucket, files) {
                     .map(row => {
                         const columns = row.split(',');
                         if (columns.length >= 2) {
+                            // Skip TOR exit nodes if excludeTor is true
+                            if (excludeTor && torExitNodes.has(columns[1])) {
+                                return null;
+                            }
                             columns[1] = maskIP(columns[1]);
                         }
                         return columns.join(',');
-                    });
+                    })
+                    .filter(row => row !== null); // Remove filtered out TOR IPs
                 return { header, rows };
             } catch (error) {
                 console.error('Error processing file:', file, error);
