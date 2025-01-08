@@ -124,7 +124,7 @@
         document.getElementById('percentageChart').innerHTML = '';
         document.getElementById('download').innerHTML = '';
 
-        fetch(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=${refresh}&excludeTor=${!includeTor}`)
+        fetch(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=${refresh === true ? 'true' : 'false'}&excludeTor=${!includeTor}`)
             .then(response => {
                 if (response.status != 200) {
                     document.getElementById('results').innerHTML = '<div class="alert alert-warning" role="warning">No votes found</div>';
@@ -384,6 +384,34 @@ const triggerTriangulationMeasurements = () => {
         });
 }
 //triggerTriangulationMeasurements()
+
+// Add this new function for newsletter subscription
+const subscribeNewsletter = () => {
+    const email = document.getElementById('newsletterEmail').value;
+    const messageElement = document.getElementById('newsletter-message');
+    
+    if (!email) {
+        messageElement.innerHTML = '<div class="alert alert-warning" role="alert">Please enter your email address</div>';
+        return;
+    }
+
+    messageElement.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+    
+    fetch(`https://4c6h4byudhvb77kisfehckmaim0dmswz.lambda-url.us-east-1.on.aws/?email=${encodeURIComponent(email)}`)
+        .then(response => {
+            const isSuccess = response.status === 200;
+            return response.json().then(data => ({ ...data, isSuccess }));
+        })
+        .then(data => {
+            messageElement.innerHTML = `<div class="alert alert-${data.isSuccess ? 'success' : 'warning'}" role="alert">${data.message}</div>`;
+            if (data.isSuccess) {
+                document.getElementById('newsletterEmail').value = '';
+            }
+        })
+        .catch(error => {
+            messageElement.innerHTML = '<div class="alert alert-danger" role="alert">An error occurred. Please try again later.</div>';
+        });
+};
 </script>
 <body>
     <div style="height: 5vh"></div>
@@ -708,6 +736,19 @@ const triggerTriangulationMeasurements = () => {
                 <input type="text" id="yesNoQuestion" placeholder="Enter your yes/no question" class="form-control input-sm m-2" style="max-width: 90vw;">
             </div>
             <button onclick="createPoll()" class="vote-button btn btn-primary m-2">Create new poll</button>
+            
+            <div style="height: 60px"></div>
+            
+            <!-- Newsletter Section -->
+            <h2>Newsletter</h2>
+            <div class="newsletter-container">
+                <p>Subscribe to receive updates about new features and popular polls.</p>
+                <div class="input-group mb-3" style="max-width: 90vw;">
+                    <input type="email" id="newsletterEmail" class="form-control" placeholder="Enter your email">
+                    <button class="btn btn-primary" onclick="subscribeNewsletter()">Subscribe</button>
+                </div>
+                <div id="newsletter-message"></div>
+            </div>
         </div>
     </div>
     <div style="height: 5vh"></div>
