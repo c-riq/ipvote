@@ -54,14 +54,16 @@
             .then(res => {
                 document.getElementById('popular-polls-container').innerHTML = res.data.map(poll => {
                     const [pollName, votes] = poll;
-                    const pollNameParsed = pollName.replace(/_or_/g, ' or ');
-                    return `<div class="card" onclick="window.location.hash='#${pollName}';window.scrollTo(0, 0);renderVoting();"><div class="card-body"><h5 class="card-title">${pollNameParsed}</h5><p class="card-text">${poll[1]} votes</p></div></div>`
+                    const pollNameParsed = pollName.replace(/_/g, ' ');
+                    return `<div class="card" onclick="window.location.hash='#${pollName}';window.scrollTo(0, 0);renderVoting(false, false);"><div class="card-body"><h5 class="card-title">${pollNameParsed}</h5><p class="card-text">${poll[1]} votes</p></div></div>`
                 }).join('');
             });
     }
 
-    const renderVoting = (refresh = false) => {
-        renderPopularPolls();
+    const renderVoting = (refresh = false, updatePopularPolls = true) => {
+        if (updatePopularPolls) {
+            renderPopularPolls();
+        }
         document.getElementById('defined-vote').style.display = 'none';
         var poll = window.location.hash.split('#')[1];
         poll = poll && poll.replace(/-\w/g, '_');
@@ -115,6 +117,11 @@
         document.getElementById('defined-vote').style.display = 'block';
 
         const includeTor = document.getElementById('includeTorCheck').checked;
+        document.getElementById('results').innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+        document.getElementById('voteChart').innerHTML = '';
+        document.getElementById('percentageChart').innerHTML = '';
+        document.getElementById('download').innerHTML = '';
+        
         fetch(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=${refresh}&excludeTor=${!includeTor}`)
             .then(response => {
                 if (response.status != 200) {
@@ -625,7 +632,7 @@ const triggerTriangulationMeasurements = () => {
 
                 <h2>Results</h2>
                 <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" id="includeTorCheck" checked onclick="renderVoting(false)">
+                    <input class="form-check-input" type="checkbox" id="includeTorCheck" checked onclick="renderVoting(false, false)">
                     <label class="form-check-label" for="includeTorCheck">
                         Include votes from TOR exit nodes
                     </label>
