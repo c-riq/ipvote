@@ -121,7 +121,7 @@
         document.getElementById('voteChart').innerHTML = '';
         document.getElementById('percentageChart').innerHTML = '';
         document.getElementById('download').innerHTML = '';
-        
+
         fetch(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=${refresh}&excludeTor=${!includeTor}`)
             .then(response => {
                 if (response.status != 200) {
@@ -197,16 +197,43 @@
     }
 
     const createPoll = () => {
-        const optionA = document.getElementById('newPollOptionA').value;
-        const optionB = document.getElementById('newPollOptionB').value;
-        if (optionA.length < 1 || optionB.length < 1) {
-            document.getElementById('message').innerHTML = "Please enter both options";
-            return
+        const isOrPoll = document.getElementById('orPollType').checked;
+        
+        if (isOrPoll) {
+            const optionA = document.getElementById('newPollOptionA').value;
+            const optionB = document.getElementById('newPollOptionB').value;
+            if (optionA.length < 1 || optionB.length < 1) {
+                document.getElementById('message').innerHTML = '<div class="alert alert-warning" role="alert">Please enter both options</div>';
+                return;
+            }
+            window.location.hash = optionA.replace(/[^a-zA-Z0-9_]/g, '').replace(/ /g, '_') + "_or_" + optionB.replace(/[^a-zA-Z0-9_]/g, '').replace(/ /g, '_') ;
+        } else {
+            const question = document.getElementById('yesNoQuestion').value;
+            if (question.length < 1) {
+                document.getElementById('message').innerHTML = '<div class="alert alert-warning" role="alert">Please enter your question</div>';
+                return;
+            }
+            window.location.hash = question.replace(/[^a-zA-Z0-9_]/g, '').replace(/ /g, '_');
         }
-        window.location.hash = optionA + "_or_" + optionB;
         window.scrollTo(0, 0);
         renderVoting();
     }
+
+    // Add this new function to handle input visibility
+    const togglePollInputs = () => {
+        const orInputs = document.getElementById('orPollInputs');
+        const yesNoInput = document.getElementById('yesNoPollInput');
+        const isOrPoll = document.getElementById('orPollType').checked;
+        
+        orInputs.style.display = isOrPoll ? 'block' : 'none';
+        yesNoInput.style.display = isOrPoll ? 'none' : 'block';
+    }
+
+    // Add these event listeners after window load
+    window.addEventListener('load', () => {
+        document.getElementById('orPollType').addEventListener('change', togglePollInputs);
+        document.getElementById('yesNoPollType').addEventListener('change', togglePollInputs);
+    });
 
 // charts
     const plotCharts = (poll, option1, option2, refresh = false) => {
@@ -658,8 +685,26 @@ const triggerTriangulationMeasurements = () => {
                 </div>
             </div>
             <h2>Create new poll</h2>
-            <input type="text" id="newPollOptionA" placeholder="Option A" class="form-control input-sm m-2" style="max-width: 90vw;">
-            <input type="text" id="newPollOptionB" placeholder="Option B" class="form-control input-sm m-2" style="max-width: 90vw;">
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="radio" name="pollType" id="orPollType" value="or" checked>
+                <label class="form-check-label" for="orPollType">
+                    A or B poll
+                </label>
+            </div>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="radio" name="pollType" id="yesNoPollType" value="yesno">
+                <label class="form-check-label" for="yesNoPollType">
+                    Yes/No question
+                </label>
+            </div>
+
+            <div id="orPollInputs">
+                <input type="text" id="newPollOptionA" placeholder="Option A" class="form-control input-sm m-2" style="max-width: 90vw;">
+                <input type="text" id="newPollOptionB" placeholder="Option B" class="form-control input-sm m-2" style="max-width: 90vw;">
+            </div>
+            <div id="yesNoPollInput" style="display: none;">
+                <input type="text" id="yesNoQuestion" placeholder="Enter your yes/no question" class="form-control input-sm m-2" style="max-width: 90vw;">
+            </div>
             <button onclick="createPoll()" class="vote-button btn btn-primary m-2">Create new poll</button>
         </div>
     </div>
