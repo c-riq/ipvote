@@ -208,14 +208,14 @@
                 document.getElementById('message').innerHTML = '<div class="alert alert-warning" role="alert">Please enter both options</div>';
                 return;
             }
-            window.location.hash = optionA.replace(/[^a-zA-Z0-9_]/g, '').replace(/ /g, '_') + "_or_" + optionB.replace(/[^a-zA-Z0-9_]/g, '').replace(/ /g, '_') ;
+            window.location.hash = optionA.replace(/ /g, '_').replace(/[^a-zA-Z0-9_]/g, '') + "_or_" + optionB.replace(/ /g, '_').replace(/[^a-zA-Z0-9_]/g, '') ;
         } else {
             const question = document.getElementById('yesNoQuestion').value;
             if (question.length < 1) {
                 document.getElementById('message').innerHTML = '<div class="alert alert-warning" role="alert">Please enter your question</div>';
                 return;
             }
-            window.location.hash = question.replace(/[^a-zA-Z0-9_]/g, '').replace(/ /g, '_');
+            window.location.hash = question.replace(/ /g, '_').replace(/[^a-zA-Z0-9_]/g, '');
         }
         window.scrollTo(0, 0);
         renderVoting();
