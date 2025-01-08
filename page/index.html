@@ -54,7 +54,9 @@
             .then(res => {
                 document.getElementById('popular-polls-container').innerHTML = res.data.map(poll => {
                     const [pollName, votes] = poll;
-                    const pollNameParsed = pollName.replace(/_/g, ' ');
+                    const isOrPoll = pollName.includes("_or_");
+                    const pollNameParsed = isOrPoll ? pollName.replace(/_or_/g, ' or ') : pollName.replace(/_/g, ' ') + '?';
+                    
                     return `<div class="card" onclick="window.location.hash='#${pollName}';window.scrollTo(0, 0);renderVoting(false, false);"><div class="card-body"><h5 class="card-title">${pollNameParsed}</h5><p class="card-text">${poll[1]} votes</p></div></div>`
                 }).join('');
             });
