@@ -316,11 +316,6 @@ const triggerTriangulationMeasurements = () => {
     console.log("triggerTriangulationMeasurements")
     const clientStartTimestamp = new Date().getTime();
     let clientReceivedNonceTimestamp = new Date().getTime();
-    // call to get nonce from https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/ 
-    // call to measure time to proxies
-    // call https://96fldb82t6.execute-api.ap-northeast-1.amazonaws.com/?nonce={nonce}&proxyId=ap-northeast-1
-    // call https://xq5c7ml997.execute-api.eu-central-1.amazonaws.com?...
-    // call https://rq043zaoud.execute-api.sa-east-1.amazonaws.com?...
     
     fetch('https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/')
         .then(response => {
@@ -330,28 +325,23 @@ const triggerTriangulationMeasurements = () => {
         .then(nonce => {
             console.log(nonce)
             const proxyStartTimestamp = new Date().getTime();
-            const promises =[
-            fetch(`https://96fldb82t6.execute-api.ap-northeast-1.amazonaws.com/?nonce=${nonce}&`+
-            `proxyId=ap-northeast-1&clientStartTimestamp=${clientStartTimestamp}&`+
-            `clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`)
-                .then(response => response.text())
-                .then(text => {
-                    console.log(text)
-                }),
-            fetch(`https://xq5c7ml997.execute-api.eu-central-1.amazonaws.com/?nonce=${nonce}&`+
-            `proxyId=eu-central-1&clientStartTimestamp=${clientStartTimestamp}&`+
-            `clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`)
-                .then(response => response.text())
-                .then(text => {
-                    console.log(text)
-                }),
-            fetch(`https://rq043zaoud.execute-api.sa-east-1.amazonaws.com/?nonce=${nonce}&`+
-            `proxyId=sa-east-1&clientStartTimestamp=${clientStartTimestamp}&`+
-            `clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`)
-                .then(response => response.text())
-                .then(text => {
-                    console.log(text)
-                })]
+            const promises = [
+                fetch(`https://wpbwaytwexqulyjlmly3rjkkdu0thgrr.lambda-url.eu-central-1.on.aws/?nonce=${nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`)
+                    .then(response => response.text())
+                    .then(text => {
+                        console.log(text)
+                    }),
+                fetch(`https://hhhauh3i652elinvl7b37vh2ma0nrujk.lambda-url.ap-northeast-1.on.aws/?nonce=${nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`)
+                    .then(response => response.text())
+                    .then(text => {
+                        console.log(text)
+                    }),
+                fetch(`https://unw3gvztdtl64g4zbzuyo6rozi0cvulu.lambda-url.sa-east-1.on.aws/?nonce=${nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`)
+                    .then(response => response.text())
+                    .then(text => {
+                        console.log(text)
+                    })
+            ]
             Promise.all(promises).then(results => {
                 console.log(results)
             });
