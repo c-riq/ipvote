@@ -54,6 +54,14 @@ const waitForQueryToComplete = async (queryExecutionId) => {
     }
 };
 
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
 module.exports.handler = async (event) => {
     const forceRefresh = event?.queryStringParameters?.refresh === 'true';
     const triggerCrawler = event?.queryStringParameters?.crawler === 'true';
@@ -121,16 +129,28 @@ module.exports.handler = async (event) => {
 
     const rows = queryResults.ResultSet?.Rows || [];
     const columns = rows[0].Data?.map(cell => cell.VarCharValue);
-    const data = []
+    const data = [];
     for (const row of rows.slice(1)) {
         const rowData = row.Data?.map(cell => cell.VarCharValue);
         data.push([rowData?.[0], parseInt(rowData?.[1] || "0")])
     }
 
-    const responseBody = JSON.stringify({columns, data});
+    // Randomly select polls
+    const top5 = data.slice(0, 5);
+    const remaining = data.slice(5);
+    
+    // Select 4 random polls from top 5
+    const selectedTop = shuffleArray(top5).slice(0, 4);
+    // Select 2 random polls from remaining
+    const selectedRemaining = shuffleArray(remaining).slice(0, 2);
+    
+    // Combine and shuffle the final selection
+    const selectedPolls = shuffleArray([...selectedTop, ...selectedRemaining]);
+
+    const responseBody = JSON.stringify({columns, data: selectedPolls});
     const cacheObject = {
         timestamp: Date.now(),
-        results: {columns, data}
+        results: {columns, data: selectedPolls}
     };
 
     // Cache the results with timestamp
