@@ -68,7 +68,7 @@
                 document.getElementById('popular-polls-container').innerHTML = res.data.map(poll => {
                     const [pollName, votes] = poll;
                     const isOrPoll = pollName.includes("_or_");
-                    const pollNameParsed = isOrPoll ? pollName.replace(/_or_/g, ' or ') : pollName.replace(/_/g, ' ') + '?';
+                    const pollNameParsed = isOrPoll ? pollName.replace(/_/g, ' ') : pollName.replace(/_/g, ' ') + '?';
                     
                     return `<div class="card" onclick="window.location.pathname='/${pollName}';window.scrollTo(0, 0);renderVoting(false, false);"><div class="card-body"><h5 class="card-title">${pollNameParsed}</h5><p class="card-text">${poll[1]} votes</p></div></div>`
                 }).join('');
@@ -193,7 +193,7 @@
         document.getElementById('share-url').value = window.location.href;
         document.getElementById('vote-title').innerText = `Let the internet vote:`;
         document.getElementById('vote-title-poll').innerText = (isOrVote ? `${options[0]} or ${options[1]}?` : `${poll.replace(/_/g, ' ')}?`);
-        document.title = `ip-vote.com let the internet vote`;
+        document.title = `${isOrVote ? `${options[0].replace(/_/g, ' ')} or ${options[1].replace(/_/g, ' ') }?` : `${poll.replace(/_/g, ' ')}?`} - ip-vote.com`;
 
     }
     window.onload = renderVoting;
