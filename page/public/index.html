@@ -70,7 +70,7 @@
                     const isOrPoll = pollName.includes("_or_");
                     const pollNameParsed = isOrPoll ? pollName.replace(/_or_/g, ' or ') : pollName.replace(/_/g, ' ') + '?';
                     
-                    return `<div class="card" onclick="window.location.hash='#${pollName}';window.scrollTo(0, 0);renderVoting(false, false);"><div class="card-body"><h5 class="card-title">${pollNameParsed}</h5><p class="card-text">${poll[1]} votes</p></div></div>`
+                    return `<div class="card" onclick="window.location.pathname='/${pollName}';window.scrollTo(0, 0);renderVoting(false, false);"><div class="card-body"><h5 class="card-title">${pollNameParsed}</h5><p class="card-text">${poll[1]} votes</p></div></div>`
                 }).join('');
             });
     }
@@ -80,7 +80,15 @@
             renderPopularPolls();
         }
         document.getElementById('defined-vote').style.display = 'none';
-        var poll = window.location.hash.split('#')[1];
+        
+        // Check if URL contains a hash, if so use hash logic, otherwise use pathname
+        var poll;
+        if (window.location.hash) {
+            poll = window.location.hash.substring(1);  // Remove the # symbol
+        } else {
+            poll = window.location.pathname.split('/')[1];
+        }
+        
         poll = poll && poll.replace(/-\w/g, '_');
         poll = poll && poll.replace(/[^a-zA-Z0-9_]/g, '');
         if (!poll || poll.length < 1) {
@@ -214,6 +222,9 @@
     const createPoll = () => {
         const isOrPoll = document.getElementById('orPollType').checked;
         
+        // Use pathname only if there's no hash in the current URL
+        const usePathname = !window.location.hash;
+        
         if (isOrPoll) {
             const optionA = document.getElementById('newPollOptionA').value;
             const optionB = document.getElementById('newPollOptionB').value;
@@ -221,14 +232,24 @@
                 document.getElementById('message').innerHTML = '<div class="alert alert-warning" role="alert">Please enter both options</div>';
                 return;
             }
-            window.location.hash = optionA.replace(/ /g, '_').replace(/[^a-zA-Z0-9_]/g, '') + "_or_" + optionB.replace(/ /g, '_').replace(/[^a-zA-Z0-9_]/g, '') ;
+            const pollPath = optionA.replace(/ /g, '_').replace(/[^a-zA-Z0-9_]/g, '') + "_or_" + optionB.replace(/ /g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+            if (usePathname) {
+                window.location.pathname = '/' + pollPath;
+            } else {
+                window.location.hash = pollPath;
+            }
         } else {
             const question = document.getElementById('yesNoQuestion').value;
             if (question.length < 1) {
                 document.getElementById('message').innerHTML = '<div class="alert alert-warning" role="alert">Please enter your question</div>';
                 return;
             }
-            window.location.hash = question.replace(/ /g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+            const pollPath = question.replace(/ /g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+            if (usePathname) {
+                window.location.pathname = '/' + pollPath;
+            } else {
+                window.location.hash = pollPath;
+            }
         }
         window.scrollTo(0, 0);
         renderVoting();
