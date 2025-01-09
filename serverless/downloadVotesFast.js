@@ -113,7 +113,7 @@ async function aggregateCSVFiles(bucket, files, excludeTor) {
             throw new Error('No files found to aggregate');
         }
 
-        // Fetch TOR exit nodes if needed
+        // Fetch Tor exit nodes if needed
         let torExitNodes = new Set();
         if (excludeTor) {
             try {
@@ -148,7 +148,7 @@ async function aggregateCSVFiles(bucket, files, excludeTor) {
                     .map(row => {
                         const columns = row.split(',');
                         if (columns.length >= 2) {
-                            // Skip TOR exit nodes if excludeTor is true
+                            // Skip Tor exit nodes if excludeTor is true
                             if (excludeTor && torExitNodes.has(columns[1])) {
                                 return null;
                             }

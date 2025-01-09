@@ -6,7 +6,7 @@ For IPv6 votes, one vote per /64 block is allowed as the address space is much b
 The voting data is publicly shared with the last bit of the IP address masked.
 This allows for independen analyses of the data.
 
-Currently there is the option to exclude TOR exit node IP addresses to mitigate poll manipulation.
+Currently there is the option to exclude Tor exit node IP addresses to mitigate poll manipulation.
 It is planned to also extend this to known VPN and Cloud IPs.
 
 Live at:
