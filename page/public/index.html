@@ -239,7 +239,7 @@
                 window.location.hash = pollPath;
             }
         } else {
-            const question = document.getElementById('yesNoQuestion').value;
+            const question = document.getElementById('likeDislikeQuestion').value;
             if (question.length < 1) {
                 document.getElementById('message').innerHTML = '<div class="alert alert-warning" role="alert">Please enter your question</div>';
                 return;
@@ -258,17 +258,17 @@
     // Add this new function to handle input visibility
     const togglePollInputs = () => {
         const orInputs = document.getElementById('orPollInputs');
-        const yesNoInput = document.getElementById('yesNoPollInput');
+        const likePollInput = document.getElementById('likePollInput');
         const isOrPoll = document.getElementById('orPollType').checked;
         
         orInputs.style.display = isOrPoll ? 'block' : 'none';
-        yesNoInput.style.display = isOrPoll ? 'none' : 'block';
+        likePollInput.style.display = isOrPoll ? 'none' : 'block';
     }
 
     // Add these event listeners after window load
     window.addEventListener('load', () => {
         document.getElementById('orPollType').addEventListener('change', togglePollInputs);
-        document.getElementById('yesNoPollType').addEventListener('change', togglePollInputs);
+        document.getElementById('likePollType').addEventListener('change', togglePollInputs);
     });
 
 // charts
@@ -757,8 +757,8 @@ const subscribeNewsletter = () => {
                 </label>
             </div>
             <div class="form-check mb-3">
-                <input class="form-check-input" type="radio" name="pollType" id="yesNoPollType" value="yesno">
-                <label class="form-check-label" for="yesNoPollType">
+                <input class="form-check-input" type="radio" name="pollType" id="likePollType" value="likeDislike">
+                <label class="form-check-label" for="likePollType">
                     Like/Dislike poll
                 </label>
             </div>
@@ -767,8 +767,8 @@ const subscribeNewsletter = () => {
                 <input type="text" id="newPollOptionA" placeholder="Option A" class="form-control input-sm m-2" style="max-width: 90vw;">
                 <input type="text" id="newPollOptionB" placeholder="Option B" class="form-control input-sm m-2" style="max-width: 90vw;">
             </div>
-            <div id="yesNoPollInput" style="display: none;">
-                <input type="text" id="yesNoQuestion" placeholder="Event, proposal, regulation etc. to Like/Dislike" class="form-control input-sm m-2" style="max-width: 90vw;">
+            <div id="likePollInput" style="display: none;">
+                <input type="text" id="likeDislikeQuestion" placeholder="Event, proposal, regulation etc. to Like/Dislike" class="form-control input-sm m-2" style="max-width: 90vw;">
             </div>
             <button onclick="createPoll()" class="vote-button btn btn-primary m-2">Create new poll</button>
             
