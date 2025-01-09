@@ -2,9 +2,11 @@
 
 const { AthenaClient, StartQueryExecutionCommand, GetQueryExecutionCommand, GetQueryResultsCommand } = require('@aws-sdk/client-athena');
 const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { GlueClient, StartCrawlerCommand } = require('@aws-sdk/client-glue');
 
 const athenaClient = new AthenaClient({ region: 'us-east-1' });
 const s3Client = new S3Client();
+const glueClient = new GlueClient({ region: 'us-east-1' });
 
 const query = `
 select
@@ -54,8 +56,28 @@ const waitForQueryToComplete = async (queryExecutionId) => {
 
 module.exports.handler = async (event) => {
     const forceRefresh = event?.queryStringParameters?.refresh === 'true';
+    const triggerCrawler = event?.queryStringParameters?.crawler === 'true';
     const cacheKey = 'popular_polls/cached_results.json';
     
+    // If crawler trigger is requested, start it
+    if (triggerCrawler) {
+        try {
+            await glueClient.send(new StartCrawlerCommand({
+                Name: 'ipvotes3'
+            }));
+            return {
+                statusCode: 200,
+                body: JSON.stringify({ message: 'Crawler started successfully' })
+            };
+        } catch (error) {
+            console.error('Error starting crawler:', error);
+            return {
+                statusCode: 500,
+                body: JSON.stringify({ error: 'Failed to start crawler' })
+            };
+        }
+    }
+
     // Try cache first if not forcing refresh
     if (!forceRefresh) {
         try {
