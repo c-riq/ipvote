@@ -100,10 +100,14 @@ module.exports.handler = async (event) => {
             const cacheValid = cacheAge < 24 * 60 * 60 * 1000; // 24 hours in milliseconds
             
             if (cacheValid) {
-                console.log('Cache hit - returning cached data');
+                console.log('Cache hit - returning new random selection from cached data');
+                const selectedPolls = generateRandomSelection(data.results.fullData);
                 return {
                     statusCode: 200,
-                    body: JSON.stringify(data.results),
+                    body: JSON.stringify({
+                        columns: data.results.columns,
+                        data: selectedPolls
+                    }),
                     headers: {
                         'X-Cache': 'HIT',
                         'X-Cache-Age': Math.round(cacheAge / 1000) // age in seconds
@@ -135,22 +139,10 @@ module.exports.handler = async (event) => {
         data.push([rowData?.[0], parseInt(rowData?.[1] || "0")])
     }
 
-    // Randomly select polls
-    const top5 = data.slice(0, 5);
-    const remaining = data.slice(5);
-    
-    // Select 4 random polls from top 5
-    const selectedTop = shuffleArray(top5).slice(0, 4);
-    // Select 2 random polls from remaining
-    const selectedRemaining = shuffleArray(remaining).slice(0, 2);
-    
-    // Combine and shuffle the final selection
-    const selectedPolls = shuffleArray([...selectedTop, ...selectedRemaining]);
-
-    const responseBody = JSON.stringify({columns, data: selectedPolls});
+    // Cache the full result set
     const cacheObject = {
         timestamp: Date.now(),
-        results: {columns, data: selectedPolls}
+        results: {columns, fullData: data}
     };
 
     // Cache the results with timestamp
@@ -161,12 +153,25 @@ module.exports.handler = async (event) => {
         ContentType: 'application/json'
     }));
 
+    // Generate random selection from the full dataset
+    const selectedPolls = generateRandomSelection(data);
+
     return {
         statusCode: 200,
-        body: responseBody,
+        body: JSON.stringify({columns, data: selectedPolls}),
         headers: {
             'X-Cache': 'MISS'
         }
     };
 };
+
+function generateRandomSelection(fullData) {
+    // Select 4 random polls from top 5
+    const top4 = fullData.slice(0, 4);
+    const remaining = fullData.slice(4);
+    
+    const selectedRemaining = shuffleArray([...remaining]).slice(0, 2);
+    
+    return [...top4, ...selectedRemaining];
+}
 
