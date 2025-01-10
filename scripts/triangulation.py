@@ -4,6 +4,9 @@ import os
 import json
 import numpy as np
 from scipy.optimize import minimize
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 
 data = []
 
@@ -100,7 +103,74 @@ def triangulate_position(latencies):
     else:
         return None
 
-# Example usage with your latency measurements
+def sample_with_noise(latencies, samples=50, noise_percent=30):
+    """Generate multiple samples with random noise."""
+    positions = []
+    noisy_latencies = {}
+    
+    for _ in range(samples):
+        # Add random noise to each latency measurement
+        for region, latency in latencies.items():
+            noise = np.random.uniform(-noise_percent/100, noise_percent/100) * latency
+            noisy_latencies[region] = latency + noise
+        
+        # Triangulate position with noisy measurements
+        position = triangulate_position(noisy_latencies)
+        if position:
+            positions.append((position['latitude'], position['longitude'], position['confidence_score']))
+    
+    return positions
+
+def plot_positions(positions, original_position=None):
+    """Plot the positions on a world map."""
+    plt.figure(figsize=(15, 10))
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    
+    # Add map features
+    ax.add_feature(cfeature.LAND)
+    ax.add_feature(cfeature.OCEAN)
+    ax.add_feature(cfeature.COASTLINE)
+    ax.add_feature(cfeature.BORDERS, linestyle=':')
+    
+    # Plot datacenter locations
+    for name, (lat, lon) in DATACENTERS.items():
+        ax.plot(lon, lat, 'r^', markersize=10, transform=ccrs.PlateCarree(), label=name)
+        ax.text(lon, lat, name, transform=ccrs.PlateCarree())
+    
+    # Plot sampled positions with confidence-based transparency
+    lats, lons, confidences = zip(*positions)
+    confidences = np.array(confidences)
+    # Normalize confidences for better visualization
+    alphas = (confidences - confidences.min()) / (confidences.max() - confidences.min())
+    
+    scatter = ax.scatter(lons, lats, c=confidences, cmap='viridis', 
+                        alpha=0.6, transform=ccrs.PlateCarree(),
+                        label='Estimated positions')
+    plt.colorbar(scatter, label='Confidence Score')
+    
+    # Plot original position if provided
+    if original_position:
+        ax.plot(original_position[1], original_position[0], 'r*', 
+                markersize=15, transform=ccrs.PlateCarree(),
+                label='Original position')
+    
+    # Set map bounds with some padding
+    all_lons = list(lons) + [dc[1] for dc in DATACENTERS.values()]
+    all_lats = list(lats) + [dc[0] for dc in DATACENTERS.values()]
+    padding = 20
+    ax.set_extent([
+        min(all_lons) - padding,
+        max(all_lons) + padding,
+        min(all_lats) - padding,
+        max(all_lats) + padding
+    ])
+    
+    plt.title('Triangulation Results with 30% Noise')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+# Example usage
 latencies = {
     'eu-central-1': client_to_eu,
     'ap-northeast-1': client_to_ap,
@@ -108,8 +178,15 @@ latencies = {
     'us-east-1': client_to_us
 }
 
-position = triangulate_position(latencies)
-if position:
-    print(f"Estimated position: {position['latitude']:.4f}°N, {position['longitude']:.4f}°E")
-    print(f"Confidence score: {position['confidence_score']:.4f}")
+# Get original position
+original_position = triangulate_position(latencies)
+if original_position:
+    print(f"Original position: {original_position['latitude']:.4f}°N, {original_position['longitude']:.4f}°E")
+    print(f"Confidence score: {original_position['confidence_score']:.4f}")
+
+# Sample positions with noise
+positions = sample_with_noise(latencies, samples=50, noise_percent=30)
+
+# Plot results
+plot_positions(positions, (original_position['latitude'], original_position['longitude']) if original_position else None)
 
