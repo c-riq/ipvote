@@ -123,16 +123,16 @@
             options.sort();
             poll = options.join("_or_");
             const buttons = 
-                '<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote(\''+poll+'\',\''+options[0]+'\')" '+ (isPrivacyChecked ? '' : 'disabled')+'>'+options[0]+'</button>'+
-                '<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote(\''+poll+'\',\''+options[1]+'\')" '+ (isPrivacyChecked ? '' : 'disabled')+'>'+options[1]+'</button>';
+                '<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote(\''+poll+'\',\''+options[0]+'\')">'+options[0]+'</button>'+
+                '<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote(\''+poll+'\',\''+options[1]+'\')">'+options[1]+'</button>';
             document.getElementById('vote-buttons').innerHTML = buttons;
         } else {
             if (!poll || poll.length > 200) {
                 console.error("Invalid vote: " + poll);
                 return;
             }
-            const buttons = `<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote('${poll}','yes')" ${isPrivacyChecked ? '' : 'disabled'}>Yes</button>
-                            <button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote('${poll}','no')" ${isPrivacyChecked ? '' : 'disabled'}>No</button>`
+            const buttons = `<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote('${poll}','yes')">Yes</button>
+                            <button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote('${poll}','no')">No</button>`
             document.getElementById('vote-buttons').innerHTML = buttons;
         }
         
@@ -205,7 +205,7 @@
     }
     window.onload = renderVoting;
 
-    const vote = (poll, vote, country = '') => {
+    const vote = (poll, vote, country = '', nonce = '') => {
         document.getElementById('vote-buttons').innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
         
         // Create URL with proper encoding for the query parameters
@@ -213,7 +213,7 @@
         url.searchParams.set('poll', poll);
         url.searchParams.set('vote', vote);
         url.searchParams.set('country', country);
-        
+        url.searchParams.set('nonce', nonce);
         fetch(url)
             .then(response => response.text())
             .then(text => {
@@ -223,13 +223,85 @@
             });
     }
 
-    const checkPrivacyAndVote = (poll, option) => {
+    const checkPrivacyAndVote = async (poll, option) => {
         if (!document.getElementById('privacyCheck').checked) {
-            document.getElementById('message').innerHTML = '<div class="alert alert-danger" role="alert">Please accept the privacy policy first</div>';
+            document.getElementById('message').innerHTML = `
+                <div class="alert alert-warning" role="alert">
+                    <strong>Please accept the privacy policy first</strong><br>
+                </div>`;
             return;
         }
+
         const country = document.getElementById('countrySelect').value;
-        vote(poll, option, country);
+        const useTriangulation = document.getElementById('triangulationCheck').checked;
+        let nonce;
+        if (useTriangulation) {
+            document.getElementById('message').innerHTML = `
+                <div class="alert alert-info" role="alert">
+                    <span id="triangulation-message">Performing network triangulation...</span>
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>`;
+            
+            try {
+                nonce = await triggerTriangulationMeasurements();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (error) {
+                console.error('Triangulation error:', error);
+                document.getElementById('triangulation-message').innerHTML = `Network triangulation failed. Your vote will be submitted without it`;
+            }
+        }
+
+        vote(poll, option, country, nonce);
+    }
+
+    const triggerTriangulationMeasurements = async () => {
+        
+        try {
+            // warm up lambdas
+            try {
+                await Promise.all([
+                    fetch('https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/'),
+                    fetch('https://wpbwaytwexqulyjlmly3rjkkdu0thgrr.lambda-url.eu-central-1.on.aws/'),
+                    fetch('https://hhhauh3i652elinvl7b37vh2ma0nrujk.lambda-url.ap-northeast-1.on.aws/'),
+                    fetch('https://unw3gvztdtl64g4zbzuyo6rozi0cvulu.lambda-url.sa-east-1.on.aws/'),
+                ]);
+            } catch (_) {}
+            document.getElementById('triangulation-message').innerHTML += '<br>Initialised';
+            // start measurements
+            const clientStartTimestamp = new Date().getTime();
+            let clientReceivedNonceTimestamp;
+            const nonceResponse = await fetch('https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/');
+            document.getElementById('triangulation-message').innerHTML += '<br>Latency to US: ' + (new Date().getTime() - clientStartTimestamp) + 'ms';
+
+            clientReceivedNonceTimestamp = new Date().getTime();
+            const nonce = await nonceResponse.text();
+            
+            const promises = [
+                fetch(`https://wpbwaytwexqulyjlmly3rjkkdu0thgrr.lambda-url.eu-central-1.on.aws/?nonce=${
+                    nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`).then(_=>{
+                        document.getElementById('triangulation-message').innerHTML += '<br>Latency to Germany: ' + (new Date().getTime() - clientReceivedNonceTimestamp) + 'ms';
+                        return _;
+                    }),
+                fetch(`https://hhhauh3i652elinvl7b37vh2ma0nrujk.lambda-url.ap-northeast-1.on.aws/?nonce=${
+                    nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`).then(_=>{
+                        document.getElementById('triangulation-message').innerHTML += '<br>Latency to Japan: ' + (new Date().getTime() - clientReceivedNonceTimestamp) + 'ms';
+                        return _;
+                    }),
+                fetch(`https://unw3gvztdtl64g4zbzuyo6rozi0cvulu.lambda-url.sa-east-1.on.aws/?nonce=${
+                    nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`).then(_=>{
+                        document.getElementById('triangulation-message').innerHTML += '<br>Latency to Brazil: ' + (new Date().getTime() - clientReceivedNonceTimestamp) + 'ms';
+                        return _;
+                    }),
+            ];
+
+            await Promise.all(promises);
+            return nonce;
+        } catch (error) {
+            console.error('Triangulation error:', error);
+            return false;
+        }
     }
 
     const sanitizePollText = (text) => {
@@ -416,43 +488,6 @@
     })
 }
 
-const triggerTriangulationMeasurements = () => {
-    console.log("triggerTriangulationMeasurements")
-    const clientStartTimestamp = new Date().getTime();
-    let clientReceivedNonceTimestamp = new Date().getTime();
-    
-    fetch('https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/')
-        .then(response => {
-            clientReceivedNonceTimestamp = new Date().getTime();
-            return response.text()
-        })
-        .then(nonce => {
-            console.log(nonce)
-            const proxyStartTimestamp = new Date().getTime();
-            const promises = [
-                fetch(`https://wpbwaytwexqulyjlmly3rjkkdu0thgrr.lambda-url.eu-central-1.on.aws/?nonce=${nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`)
-                    .then(response => response.text())
-                    .then(text => {
-                        console.log(text)
-                    }),
-                fetch(`https://hhhauh3i652elinvl7b37vh2ma0nrujk.lambda-url.ap-northeast-1.on.aws/?nonce=${nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`)
-                    .then(response => response.text())
-                    .then(text => {
-                        console.log(text)
-                    }),
-                fetch(`https://unw3gvztdtl64g4zbzuyo6rozi0cvulu.lambda-url.sa-east-1.on.aws/?nonce=${nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`)
-                    .then(response => response.text())
-                    .then(text => {
-                        console.log(text)
-                    })
-            ]
-            Promise.all(promises).then(results => {
-                console.log(results)
-            });
-        });
-}
-//triggerTriangulationMeasurements()
-
 // Add this new function for newsletter subscription
 const subscribeNewsletter = () => {
     const email = document.getElementById('newsletterEmail').value;
@@ -482,9 +517,12 @@ const subscribeNewsletter = () => {
 };
 
 // Update input field placeholders to reflect the new character rules
-document.getElementById('yesNoQuestion').placeholder = "Question for Yes/No vote (letters, numbers, and basic punctuation allowed)";
-document.getElementById('newPollOptionA').placeholder = "First option (letters, numbers, and basic punctuation allowed)";
-document.getElementById('newPollOptionB').placeholder = "Second option (letters, numbers, and basic punctuation allowed)";
+document.getElementById('yesNoQuestion') ? 
+document.getElementById('yesNoQuestion').placeholder = "Question for Yes/No vote (letters, numbers, and basic punctuation allowed)" : null;
+document.getElementById('newPollOptionA') ? 
+document.getElementById('newPollOptionA').placeholder = "First option (letters, numbers, and basic punctuation allowed)" : null;
+document.getElementById('newPollOptionB') ? 
+document.getElementById('newPollOptionB').placeholder = "Second option (letters, numbers, and basic punctuation allowed)" : null;
 </script>
 <body>
     <div style="height: 5vh"></div>
@@ -506,6 +544,15 @@ document.getElementById('newPollOptionB').placeholder = "Second option (letters,
                         </label>
                     </div>
                     <div id="your-ip"></div>
+                    
+                    <!-- Add triangulation checkbox -->
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="triangulationCheck">
+                        <label class="form-check-label" for="triangulationCheck">
+                            Enable network triangulation to verify your approximate location (optional)
+                        </label>
+                    </div>
+
                     <div class="mb-3">
                         <select id="countrySelect" class="form-select">
                             <option value="">Select your country (optional)</option>

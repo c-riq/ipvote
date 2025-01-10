@@ -60,6 +60,7 @@ module.exports.handler = async (event) => {
     const vote = event.queryStringParameters.vote;
     const poll = event.queryStringParameters.poll;
     const country = event.queryStringParameters.country;
+    const nonce = event.queryStringParameters.nonce;
     const forbiddenStringsRegex = /,|\\n|\\r|\\t|>|</;
     if (!vote || !poll) {
         return {
@@ -101,7 +102,7 @@ module.exports.handler = async (event) => {
     } catch (error) {
         if (error.name === 'NoSuchKey') {
             // File does not exist, create a new one
-            data = 'time,ip,poll_,vote,country\n';
+            data = 'time,ip,poll_,vote,country,nonce\n';
         } else {
             console.log(error);
             return {
@@ -151,7 +152,7 @@ module.exports.handler = async (event) => {
             }
         }
     }
-    const newVote = `${timestamp},${requestIp},${poll},${vote},${country}\n`;
+    const newVote = `${timestamp},${requestIp},${poll},${vote},${country},${nonce}\n`;
     const newVotes = data + newVote;
     const putParams = {
         Bucket: 'ipvotes',
