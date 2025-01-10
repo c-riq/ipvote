@@ -272,8 +272,8 @@
             // start measurements
             const clientStartTimestamp = new Date().getTime();
             let clientReceivedNonceTimestamp;
-            const nonceResponse = await fetch('https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/');
-            document.getElementById('triangulation-message').innerHTML += '<br>Latency to US: ' + (new Date().getTime() - clientStartTimestamp) + 'ms';
+            const nonceResponse = await fetch(`https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/?clientStartTimestamp=${clientStartTimestamp}`);
+            document.getElementById('triangulation-message').innerHTML += '<br>Nonce received: ' + (nonceResponse.text().substring(0, 10)) + '...';
 
             clientReceivedNonceTimestamp = new Date().getTime();
             const nonce = await nonceResponse.text();
@@ -292,6 +292,11 @@
                 fetch(`https://unw3gvztdtl64g4zbzuyo6rozi0cvulu.lambda-url.sa-east-1.on.aws/?nonce=${
                     nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`).then(_=>{
                         document.getElementById('triangulation-message').innerHTML += '<br>Latency to Brazil: ' + (new Date().getTime() - clientReceivedNonceTimestamp) + 'ms';
+                        return _;
+                    }),
+                fetch(`https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/?nonce=${
+                    nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`).then(_=>{
+                        document.getElementById('triangulation-message').innerHTML += '<br>Latency to US: ' + (new Date().getTime() - clientReceivedNonceTimestamp) + 'ms';
                         return _;
                     }),
             ];
@@ -380,7 +385,8 @@
 // charts
     const plotCharts = (poll, option1, option2, refresh = false) => {
         const includeTor = document.getElementById('includeTorCheck').checked;
-        d3.csv(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=${refresh === true ? 'true' : 'false'}&excludeTor=${!includeTor}`, function(err, rows){
+        d3.csv(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${
+            poll}&refresh=${refresh === true ? 'true' : 'false'}&excludeTor=${!includeTor}`, function(err, rows){
 
         if (err || !rows || rows.length < 1) {
             return

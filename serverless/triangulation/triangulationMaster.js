@@ -48,7 +48,7 @@ exports.handler = async (event, context) => {
             Bucket: 'ipvotes',
             Key: `triangulation/${nonce}-1.json`,
             Body: JSON.stringify({ event: 'nonceGeneratedAtMaster',nonce, ip, lambdaStartTimestamp, 
-                awsRegionOfMaster, nonceSentTime: new Date().getTime() + DELAY })
+                awsRegionOfMaster, nonceSentTime: new Date().getTime() + DELAY, clientStartTimestamp })
 
         });
         s3.send(command);
