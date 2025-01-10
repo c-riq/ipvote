@@ -81,48 +81,50 @@
         }
         document.getElementById('defined-vote').style.display = 'none';
         
-        // Check if URL contains a hash, if so use hash logic, otherwise use pathname
+        // Update poll parsing
         var poll;
         if (window.location.hash) {
-            poll = window.location.hash.substring(1);  // Remove the # symbol
+            poll = decodeURIComponent(window.location.hash.substring(1));  // Remove the # symbol and decode
         } else {
-            poll = window.location.pathname.split('/')[1];
+            poll = decodeURIComponent(window.location.pathname.split('/')[1]); // Decode the pathname
         }
         
-        poll = poll && poll.replace(/-\w/g, '_');
-        poll = poll && poll.replace(/[^a-zA-Z0-9_]/g, '');
         if (!poll || poll.length < 1) {
-                console.error("Invalid vote: " + poll);
-                return
-            }
+            console.error("Invalid vote: " + poll);
+            return;
+        }
+        
         const isOrVote = poll.includes("_or_");
         let options = [];
         const isPrivacyChecked = document.getElementById('privacyCheck').checked;
+        
         if (isOrVote) {
             options = poll.split("_or_");
             if (options.length != 2) {
                 console.error("Invalid vote: " + poll);
-                return
+                return;
             }
-            if (options[0].length < 1 || options[1].length < 1) {
+            if (options[0].length < 1 || options[1].length < 1 || 
+                options[0].length > 200 || options[1].length > 200) {
                 console.error("Invalid vote: " + poll);
-                return
+                return;
             }
             if (options[0] == options[1]){
                 console.error("Invalid vote: " + poll);
-                return
+                return;
             }
+            
             // sort options alphabetically
             options.sort();
             poll = options.join("_or_");
             const buttons = 
-                          '<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote(\''+poll+'\',\''+options[0]+'\')" '+ (isPrivacyChecked ? '' : 'disabled')+'>'+options[0]+'</button>'+
-                          '<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote(\''+poll+'\',\''+options[1]+'\')" '+ (isPrivacyChecked ? '' : 'disabled')+'>'+options[1]+'</button>';
+                '<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote(\''+poll+'\',\''+options[0]+'\')" '+ (isPrivacyChecked ? '' : 'disabled')+'>'+options[0]+'</button>'+
+                '<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote(\''+poll+'\',\''+options[1]+'\')" '+ (isPrivacyChecked ? '' : 'disabled')+'>'+options[1]+'</button>';
             document.getElementById('vote-buttons').innerHTML = buttons;
         } else {
-            if (!poll) {
+            if (!poll || poll.length > 200) {
                 console.error("Invalid vote: " + poll);
-                return
+                return;
             }
             const buttons = `<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote('${poll}','yes')" ${isPrivacyChecked ? '' : 'disabled'}>Yes</button>
                             <button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote('${poll}','no')" ${isPrivacyChecked ? '' : 'disabled'}>No</button>`
@@ -192,16 +194,22 @@
         document.getElementById('newPollOptionB').value = "";
         document.getElementById('share-url').value = window.location.href;
         document.getElementById('vote-title').innerText = `Let the internet vote:`;
-        document.getElementById('vote-title-poll').innerText = (isOrVote ? `${options[0]} or ${options[1]}?` : `${poll.replace(/_/g, ' ')}`);
-        document.title = `${isOrVote ? `${options[0].replace(/_/g, ' ')} or ${options[1].replace(/_/g, ' ') }?` : `${poll.replace(/_/g, ' ')}?`} - ip-vote.com`;
+        document.getElementById('vote-title-poll').innerText = (isOrVote ? `${options[0]} or ${options[1]}?` : `${poll}`);
+        document.title = `${isOrVote ? `${options[0]} or ${options[1]}?` : `${poll}?`} - ip-vote.com`;
 
     }
     window.onload = renderVoting;
 
     const vote = (poll, vote, country = '') => {
-        // https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/\?poll\=a_or_b\&vote\=a
         document.getElementById('vote-buttons').innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
-        fetch('https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll='+poll+'&vote='+vote+'&country='+country)
+        
+        // Create URL with proper encoding for the query parameters
+        const url = new URL('https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/');
+        url.searchParams.set('poll', poll);
+        url.searchParams.set('vote', vote);
+        url.searchParams.set('country', country);
+        
+        fetch(url)
             .then(response => response.text())
             .then(text => {
                 const message = JSON.parse(text)?.message || text;
@@ -219,32 +227,53 @@
         vote(poll, option, country);
     }
 
+    const sanitizePollText = (text) => {
+        return text
+            // Replace all types of whitespace (including non-breaking spaces, zero-width spaces, etc.) with regular space
+            .replace(/[\s\u00A0\u1680\u180E\u2000-\u200B\u2028\u2029\u202F\u205F\u3000\uFEFF]/g, ' ')
+            // Remove special chars that could be problematic
+            .replace(/[<>{}[\]\\\/\|;:'"`,~!@#$%^&*()]/g, '')
+            // Replace multiple spaces with single space
+            .replace(/\s+/g, ' ')
+            // Remove leading/trailing whitespace
+            .trim();
+    }
+
     const createPoll = () => {
         const isOrPoll = document.getElementById('orPollType').checked;
-        
-        // Use pathname only if there's no hash in the current URL
         const usePathname = !window.location.hash;
         
         if (isOrPoll) {
-            const optionA = document.getElementById('newPollOptionA').value;
-            const optionB = document.getElementById('newPollOptionB').value;
+            const optionA = sanitizePollText(document.getElementById('newPollOptionA').value);
+            const optionB = sanitizePollText(document.getElementById('newPollOptionB').value);
+            
             if (optionA.length < 1 || optionB.length < 1) {
                 document.getElementById('message').innerHTML = '<div class="alert alert-warning" role="alert">Please enter both options</div>';
                 return;
             }
-            const pollPath = optionA.replace(/ /g, '_').replace(/[^a-zA-Z0-9_]/g, '') + "_or_" + optionB.replace(/ /g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+            if (optionA.length > 200 || optionB.length > 200) {
+                document.getElementById('message').innerHTML = '<div class="alert alert-warning" role="alert">Options must be 200 characters or less</div>';
+                return;
+            }
+            
+            const pollPath = encodeURIComponent(optionA) + "_or_" + encodeURIComponent(optionB);
             if (usePathname) {
                 window.location.pathname = '/' + pollPath;
             } else {
                 window.location.hash = pollPath;
             }
         } else {
-            const question = document.getElementById('yesNoQuestion').value;
+            const question = sanitizePollText(document.getElementById('yesNoQuestion').value);
             if (question.length < 1) {
                 document.getElementById('message').innerHTML = '<div class="alert alert-warning" role="alert">Please enter your question</div>';
                 return;
             }
-            const pollPath = question.replace(/ /g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+            if (question.length > 200) {
+                document.getElementById('message').innerHTML = '<div class="alert alert-warning" role="alert">Question must be 200 characters or less</div>';
+                return;
+            }
+            
+            const pollPath = encodeURIComponent(question);
             if (usePathname) {
                 window.location.pathname = '/' + pollPath;
             } else {
@@ -446,6 +475,11 @@ const subscribeNewsletter = () => {
             messageElement.innerHTML = '<div class="alert alert-danger" role="alert">An error occurred. Please try again later.</div>';
         });
 };
+
+// Update input field placeholders to reflect the new character rules
+document.getElementById('yesNoQuestion').placeholder = "Question for Yes/No vote (letters, numbers, and basic punctuation allowed)";
+document.getElementById('newPollOptionA').placeholder = "First option (letters, numbers, and basic punctuation allowed)";
+document.getElementById('newPollOptionB').placeholder = "Second option (letters, numbers, and basic punctuation allowed)";
 </script>
 <body>
     <div style="height: 5vh"></div>
