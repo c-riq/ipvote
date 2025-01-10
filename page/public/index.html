@@ -124,8 +124,8 @@
                 console.error("Invalid vote: " + poll);
                 return
             }
-            const buttons = `<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote('${poll}','like')" ${isPrivacyChecked ? '' : 'disabled'}>Like</button>
-                            <button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote('${poll}','dislike')" ${isPrivacyChecked ? '' : 'disabled'}>Dislike</button>`
+            const buttons = `<button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote('${poll}','yes')" ${isPrivacyChecked ? '' : 'disabled'}>Yes</button>
+                            <button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote('${poll}','no')" ${isPrivacyChecked ? '' : 'disabled'}>No</button>`
             document.getElementById('vote-buttons').innerHTML = buttons;
         }
         
@@ -167,13 +167,13 @@
                     document.getElementById('results').innerHTML = voteResults;
                     plotCharts(poll, options[0], options[1], refresh)
                 } else {
-                    const likeVotes = votes.filter(vote => vote.split(',')[3] === 'like').length;
-                    const dislikeVotes = votes.filter(vote => vote.split(',')[3] === 'dislike').length;
-                    totalVotes = likeVotes + dislikeVotes;
-                    const voteResults = '<div class="vote-result">Like: ' + likeVotes + ' (' + (totalVotes > 0 ? (likeVotes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'+
-                                    '<div class="vote-result">Dislike: ' + dislikeVotes + ' (' + (totalVotes > 0 ? (dislikeVotes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'
+                    const yesVotes = votes.filter(vote => vote.split(',')[3] === 'yes').length;
+                    const noVotes = votes.filter(vote => vote.split(',')[3] === 'no').length;
+                    totalVotes = yesVotes + noVotes;
+                    const voteResults = '<div class="vote-result">Yes: ' + yesVotes + ' (' + (totalVotes > 0 ? (yesVotes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'+
+                                    '<div class="vote-result">No: ' + noVotes + ' (' + (totalVotes > 0 ? (noVotes / totalVotes * 100).toFixed(2) : 0) + '%)</div>'
                     document.getElementById('results').innerHTML = voteResults;
-                    plotCharts(poll, 'like', 'dislike', refresh)
+                    plotCharts(poll, 'yes', 'no', refresh)
                 }
 
                 if (totalVotes > 0) {
@@ -239,7 +239,7 @@
                 window.location.hash = pollPath;
             }
         } else {
-            const question = document.getElementById('likeDislikeQuestion').value;
+            const question = document.getElementById('yesNoQuestion').value;
             if (question.length < 1) {
                 document.getElementById('message').innerHTML = '<div class="alert alert-warning" role="alert">Please enter your question</div>';
                 return;
@@ -258,17 +258,17 @@
     // Add this new function to handle input visibility
     const togglePollInputs = () => {
         const orInputs = document.getElementById('orPollInputs');
-        const likePollInput = document.getElementById('likePollInput');
+        const yesNoPollInput = document.getElementById('yesNoPollInput');
         const isOrPoll = document.getElementById('orPollType').checked;
         
         orInputs.style.display = isOrPoll ? 'block' : 'none';
-        likePollInput.style.display = isOrPoll ? 'none' : 'block';
+        yesNoPollInput.style.display = isOrPoll ? 'none' : 'block';
     }
 
     // Add these event listeners after window load
     window.addEventListener('load', () => {
         document.getElementById('orPollType').addEventListener('change', togglePollInputs);
-        document.getElementById('likePollType').addEventListener('change', togglePollInputs);
+        document.getElementById('yesNoPollType').addEventListener('change', togglePollInputs);
     });
 
 // charts
@@ -757,9 +757,9 @@ const subscribeNewsletter = () => {
                 </label>
             </div>
             <div class="form-check mb-3">
-                <input class="form-check-input" type="radio" name="pollType" id="likePollType" value="likeDislike">
-                <label class="form-check-label" for="likePollType">
-                    Like/Dislike poll
+                <input class="form-check-input" type="radio" name="pollType" id="yesNoPollType" value="yesNo">
+                <label class="form-check-label" for="yesNoPollType">
+                    Yes/No poll
                 </label>
             </div>
 
@@ -767,8 +767,8 @@ const subscribeNewsletter = () => {
                 <input type="text" id="newPollOptionA" placeholder="Option A" class="form-control input-sm m-2" style="max-width: 90vw;">
                 <input type="text" id="newPollOptionB" placeholder="Option B" class="form-control input-sm m-2" style="max-width: 90vw;">
             </div>
-            <div id="likePollInput" style="display: none;">
-                <input type="text" id="likeDislikeQuestion" placeholder="Event, proposal, regulation etc. to Like/Dislike" class="form-control input-sm m-2" style="max-width: 90vw;">
+            <div id="yesNoPollInput" style="display: none;">
+                <input type="text" id="yesNoQuestion" placeholder="Question for Yes/No vote" class="form-control input-sm m-2" style="max-width: 90vw;">
             </div>
             <button onclick="createPoll()" class="vote-button btn btn-primary m-2">Create new poll</button>
             
