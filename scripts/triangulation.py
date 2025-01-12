@@ -17,7 +17,7 @@ for file in os.listdir('../s3/triangulation/'):
             data.append(contents)
 df = pd.DataFrame(data)
 
-nonce = '8flmlumn6gtzko4ynlbfvb1090uq4yiq2nhj3n7psn5'
+nonce = 'ieoskirlyzauuv6ehdug8lift65fkrddeuu6f5z6ka'
 
 lambdaStartTimestamp = int(df[(df.event == 'nonceGeneratedAtMaster') & (df.nonce == nonce)].lambdaStartTimestamp.iloc[0])
 nonceSentTime = int(df[(df.event == 'nonceGeneratedAtMaster') & (df.nonce == nonce)].nonceSentTime.iloc[0])
@@ -62,24 +62,25 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     c = 2 * np.arcsin(np.sqrt(a))
     return R * c
 
-def objective_function(coords, latencies):
+def objective_function(coords, latencies, network_speed):
     """Calculate the sum of squared errors between measured and expected latencies."""
     lat, lon = coords
     error = 0
     
-    # Speed of light in fiber optic cable (roughly 2/3 of c)
-    c = 200000  # km/s
-    
     for region, (dc_lat, dc_lon) in DATACENTERS.items():
         if region in latencies:
             distance = haversine_distance(lat, lon, dc_lat, dc_lon)
-            expected_latency = (distance / c) * 1000  # Convert to milliseconds
+            expected_latency = (distance / network_speed) * 1000  # Convert to milliseconds
             error += (expected_latency - latencies[region])**2
             
     return error
 
-def triangulate_position(latencies):
+def triangulate_position(latencies, network_speed=None):
     """Estimate geographical position based on latency measurements."""
+    if network_speed is None:
+        # Speed of light in fiber optic cable (roughly 2/3 of c)
+        network_speed = 200000  # km/s
+    
     # Initial guess (weighted average of datacenters)
     total_weight = sum(1/lat for lat in latencies.values())
     initial_lat = sum(DATACENTERS[dc][0] / latencies[dc] for dc in latencies) / total_weight
@@ -89,7 +90,7 @@ def triangulate_position(latencies):
     result = minimize(
         objective_function,
         x0=[initial_lat, initial_lon],
-        args=(latencies,),
+        args=(latencies, network_speed),
         method='Nelder-Mead',
         bounds=[(-90, 90), (-180, 180)]
     )
@@ -98,25 +99,42 @@ def triangulate_position(latencies):
         return {
             'latitude': result.x[0],
             'longitude': result.x[1],
-            'confidence_score': 1 / (1 + result.fun)  # Convert error to confidence score
+            'confidence_score': 1 / (1 + result.fun)
         }
     else:
         return None
 
-def sample_with_noise(latencies, samples=50, noise_percent=30):
-    """Generate multiple samples with random noise."""
+def sample_with_noise(latencies, samples=50, latency_noise_percent=30, speed_noise_percent=50, 
+                     base_speed=200000, latency_adjustment_ms=0):
+    """Generate multiple samples with random noise in both latency and network speed.
+    
+    Args:
+        latencies: Dict of region to latency measurements
+        samples: Number of samples to generate
+        latency_noise_percent: Percentage of random noise to add to latencies
+        speed_noise_percent: Percentage of random noise to add to network speed
+        base_speed: Base speed of light in fiber (km/s), default 200,000 km/s (≈2/3 c)
+        latency_adjustment_ms: Systematic latency adjustment in milliseconds (added to all measurements)
+    """
     positions = []
     noisy_latencies = {}
     
     for _ in range(samples):
         # Add random noise to each latency measurement
         for region, latency in latencies.items():
-            noise = np.random.uniform(-noise_percent/100, noise_percent/100) * latency
-            noisy_latencies[region] = latency + noise
+            # Add systematic latency adjustment first
+            adjusted_latency = latency + latency_adjustment_ms
+            # Then add random noise
+            noise = np.random.uniform(-latency_noise_percent/100, latency_noise_percent/100) * adjusted_latency
+            noisy_latencies[region] = max(0.1, adjusted_latency + noise)
+        
+        # Add random noise to network speed
+        speed_noise = np.random.uniform(-speed_noise_percent/100, speed_noise_percent/100) * base_speed
+        network_speed = max(base_speed/4, base_speed + speed_noise)  # Ensure speed doesn't go too low
         
         # Triangulate position with noisy measurements
-        position = triangulate_position(noisy_latencies)
-        if position:
+        position = triangulate_position(noisy_latencies, network_speed)
+        if position and all(np.isfinite([position['latitude'], position['longitude'], position['confidence_score']])):
             positions.append((position['latitude'], position['longitude'], position['confidence_score']))
     
     return positions
@@ -170,7 +188,7 @@ def plot_positions(positions, original_position=None):
     plt.grid(True)
     plt.show()
 
-# Example usage
+# Example usage with different parameters
 latencies = {
     'eu-central-1': client_to_eu,
     'ap-northeast-1': client_to_ap,
@@ -178,14 +196,21 @@ latencies = {
     'us-east-1': client_to_us
 }
 
-# Get original position
+# Get original position with default parameters
 original_position = triangulate_position(latencies)
 if original_position:
     print(f"Original position: {original_position['latitude']:.4f}°N, {original_position['longitude']:.4f}°E")
     print(f"Confidence score: {original_position['confidence_score']:.4f}")
 
-# Sample positions with noise
-positions = sample_with_noise(latencies, samples=50, noise_percent=30)
+# Sample positions with custom parameters
+positions = sample_with_noise(
+    latencies,
+    samples=50,
+    latency_noise_percent=30,
+    speed_noise_percent=50,
+    base_speed=180000,  # Slightly slower than default to account for network overhead
+    latency_adjustment_ms=10  # Add 10ms systematic delay to account for processing time
+)
 
 # Plot results
 plot_positions(positions, (original_position['latitude'], original_position['longitude']) if original_position else None)

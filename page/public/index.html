@@ -263,9 +263,14 @@
             try {
                 await Promise.all([
                     fetch('https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/'),
+                    fetch('https://22kcgok5hkce3srzl4xksadj740npzoo.lambda-url.us-west-2.on.aws/'),
                     fetch('https://wpbwaytwexqulyjlmly3rjkkdu0thgrr.lambda-url.eu-central-1.on.aws/'),
                     fetch('https://hhhauh3i652elinvl7b37vh2ma0nrujk.lambda-url.ap-northeast-1.on.aws/'),
+                    fetch('https://rchgdkidnerk2gkfiynfgkveje0iujmm.lambda-url.ap-south-1.on.aws/'),
+                    fetch('https://5xaynesucez2tdtndxuyyqmjei0txpcw.lambda-url.eu-west-1.on.aws/'),
                     fetch('https://unw3gvztdtl64g4zbzuyo6rozi0cvulu.lambda-url.sa-east-1.on.aws/'),
+                    fetch('https://bcjj76sx7xfqoz6yc6ngw6ioma0ajqsb.lambda-url.af-south-1.on.aws/'),
+                    // fetch('https://621l5cv1j4.execute-api.il-central-1.amazonaws.com/default/triangulationSlave-il-central-1/') // no direct URL support in lambda, no ipV6 suppott in API Gateway
                 ]);
             } catch (_) {}
             document.getElementById('triangulation-message').innerHTML += '<br>Initialised';
@@ -273,10 +278,9 @@
             const clientStartTimestamp = new Date().getTime();
             let clientReceivedNonceTimestamp;
             const nonceResponse = await fetch(`https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/?clientStartTimestamp=${clientStartTimestamp}`);
-            document.getElementById('triangulation-message').innerHTML += '<br>Nonce received: ' + (nonceResponse.text().substring(0, 10)) + '...';
-
             clientReceivedNonceTimestamp = new Date().getTime();
             const nonce = await nonceResponse.text();
+            document.getElementById('triangulation-message').innerHTML += '<br>Nonce received: ' + nonce.substring(0, 10) + '...';
             
             const promises = [
                 fetch(`https://wpbwaytwexqulyjlmly3rjkkdu0thgrr.lambda-url.eu-central-1.on.aws/?nonce=${
@@ -296,9 +300,29 @@
                     }),
                 fetch(`https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/?nonce=${
                     nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`).then(_=>{
-                        document.getElementById('triangulation-message').innerHTML += '<br>Latency to US: ' + (new Date().getTime() - clientReceivedNonceTimestamp) + 'ms';
+                        document.getElementById('triangulation-message').innerHTML += '<br>Latency to US (Virginia): ' + (new Date().getTime() - clientReceivedNonceTimestamp) + 'ms';
                         return _;
                     }),
+                fetch(`https://22kcgok5hkce3srzl4xksadj740npzoo.lambda-url.us-west-2.on.aws/?nonce=${
+                    nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`).then(_=>{
+                        document.getElementById('triangulation-message').innerHTML += '<br>Latency to US (Oregon): ' + (new Date().getTime() - clientReceivedNonceTimestamp) + 'ms';
+                        return _;
+                    }),
+                fetch(`https://rchgdkidnerk2gkfiynfgkveje0iujmm.lambda-url.ap-south-1.on.aws/?nonce=${
+                    nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`).then(_=>{
+                        document.getElementById('triangulation-message').innerHTML += '<br>Latency to India: ' + (new Date().getTime() - clientReceivedNonceTimestamp) + 'ms';
+                        return _;
+                    }),
+                fetch(`https://5xaynesucez2tdtndxuyyqmjei0txpcw.lambda-url.eu-west-1.on.aws/?nonce=${
+                    nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`).then(_=>{
+                        document.getElementById('triangulation-message').innerHTML += '<br>Latency to Ireland: ' + (new Date().getTime() - clientReceivedNonceTimestamp) + 'ms';
+                        return _;
+                    }),
+                fetch(`https://bcjj76sx7xfqoz6yc6ngw6ioma0ajqsb.lambda-url.af-south-1.on.aws/?nonce=${
+                    nonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`).then(_=>{
+                    document.getElementById('triangulation-message').innerHTML += '<br>Latency to South Africa: ' + (new Date().getTime() - clientReceivedNonceTimestamp) + 'ms';
+                    return _;
+                }),
             ];
 
             await Promise.all(promises);
