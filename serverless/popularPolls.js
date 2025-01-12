@@ -1,58 +1,79 @@
 // aws lambda function to get the most popular polls using athena
 
-const { AthenaClient, StartQueryExecutionCommand, GetQueryExecutionCommand, GetQueryResultsCommand } = require('@aws-sdk/client-athena');
-const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
-const { GlueClient, StartCrawlerCommand } = require('@aws-sdk/client-glue');
+const { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 
-const athenaClient = new AthenaClient({ region: 'us-east-1' });
 const s3Client = new S3Client();
-const glueClient = new GlueClient({ region: 'us-east-1' });
+const BUCKET_NAME = 'ipvotes';
+const CACHE_KEY = 'popular_polls/cached_results.json';
 
-const query = `
-select
-    poll_ as poll,
-    sum(1) n
-from
-    (
-        select
-            *
-        from
-            aggregated_votes
-    )
-group by
-    1
-order by
-    n desc
-`;
-
-const getPopularPolls = async () => {
-    const result = await athenaClient.send(new StartQueryExecutionCommand({
-        QueryString: query,
-        QueryExecutionContext: {
-            Database: 'ipvotes'
-        },
-        ResultConfiguration: {
-            OutputLocation: 's3://athenarix/'
+async function listAllVoteFiles() {
+    const files = [];
+    let continuationToken = undefined;
+    
+    do {
+        const command = new ListObjectsV2Command({
+            Bucket: BUCKET_NAME,
+            Prefix: 'votes/',
+            ContinuationToken: continuationToken
+        });
+        
+        const response = await s3Client.send(command);
+        if (response.Contents) {
+            files.push(...response.Contents);
         }
-    }));
-    return result;
-};
+        continuationToken = response.NextContinuationToken;
+    } while (continuationToken);
+    
+    return files;
+}
 
-const waitForQueryToComplete = async (queryExecutionId) => {
-    let queryStatus = 'RUNNING';
-    while (queryStatus === 'RUNNING' || queryStatus === 'QUEUED') {
-        const result = await athenaClient.send(new GetQueryExecutionCommand({
-            QueryExecutionId: queryExecutionId
-        }));
-        if (!result.QueryExecution?.Status?.State) {
-            throw new Error('Invalid query execution response');
+async function aggregateVotes() {
+    const pollCounts = new Map();
+    const files = await listAllVoteFiles();
+    
+    for (const file of files) {
+        try {
+            const response = await s3Client.send(new GetObjectCommand({
+                Bucket: BUCKET_NAME,
+                Key: file.Key
+            }));
+            
+            const content = await response.Body.transformToString();
+            const lines = content.split('\n');
+            
+            // Skip header line
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                const [, , poll] = line.split(',');
+                if (!poll) continue;
+                
+                const currentCount = pollCounts.get(poll) || 0;
+                pollCounts.set(poll, currentCount + 1);
+            }
+        } catch (error) {
+            console.error(`Error processing file ${file.Key}:`, error);
         }
-        queryStatus = result.QueryExecution.Status.State;
-        if (queryStatus === 'FAILED') throw new Error('Query failed');
-        if (queryStatus === 'CANCELLED') throw new Error('Query cancelled');
-        await new Promise(resolve => setTimeout(resolve, 200)); 
     }
-};
+    
+    // Convert to array and sort by count
+    const results = Array.from(pollCounts.entries())
+        .map(([poll, count]) => [poll, count])
+        .sort((a, b) => b[1] - a[1]);
+    
+    return results;
+}
+
+function generateRandomSelection(fullData) {
+    // Select 4 random polls from top 5
+    const top4 = fullData.slice(0, 4);
+    const remaining = fullData.slice(4);
+    
+    const selectedRemaining = shuffleArray([...remaining]).slice(0, 2);
+    
+    return [...top4, ...selectedRemaining];
+}
 
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -64,34 +85,13 @@ function shuffleArray(array) {
 
 module.exports.handler = async (event) => {
     const forceRefresh = event?.queryStringParameters?.refresh === 'true';
-    const triggerCrawler = event?.queryStringParameters?.crawler === 'true';
-    const cacheKey = 'popular_polls/cached_results.json';
     
-    // If crawler trigger is requested, start it
-    if (triggerCrawler) {
-        try {
-            await glueClient.send(new StartCrawlerCommand({
-                Name: 'ipvotes3'
-            }));
-            return {
-                statusCode: 200,
-                body: JSON.stringify({ message: 'Crawler started successfully' })
-            };
-        } catch (error) {
-            console.error('Error starting crawler:', error);
-            return {
-                statusCode: 500,
-                body: JSON.stringify({ error: 'Failed to start crawler' })
-            };
-        }
-    }
-
     // Try cache first if not forcing refresh
     if (!forceRefresh) {
         try {
             const cachedData = await s3Client.send(new GetObjectCommand({
-                Bucket: 'ipvotes',
-                Key: cacheKey
+                Bucket: BUCKET_NAME,
+                Key: CACHE_KEY
             }));
             const data = JSON.parse(await cachedData.Body.transformToString());
             
@@ -105,7 +105,7 @@ module.exports.handler = async (event) => {
                 return {
                     statusCode: 200,
                     body: JSON.stringify({
-                        columns: data.results.columns,
+                        columns: ['poll', 'count'],
                         data: selectedPolls
                     }),
                     headers: {
@@ -121,57 +121,38 @@ module.exports.handler = async (event) => {
         }
     }
 
-    // Proceed with original Athena query if cache miss or force refresh
-    const startResult = await getPopularPolls();
-    const queryExecutionId = startResult.QueryExecutionId;
+    // Aggregate votes directly from S3
+    const aggregatedData = await aggregateVotes();
     
-    await waitForQueryToComplete(queryExecutionId);
-    
-    const queryResults = await athenaClient.send(new GetQueryResultsCommand({
-        QueryExecutionId: queryExecutionId
-    }));
-
-    const rows = queryResults.ResultSet?.Rows || [];
-    const columns = rows[0].Data?.map(cell => cell.VarCharValue);
-    const data = [];
-    for (const row of rows.slice(1)) {
-        const rowData = row.Data?.map(cell => cell.VarCharValue);
-        data.push([rowData?.[0], parseInt(rowData?.[1] || "0")])
-    }
-
     // Cache the full result set
     const cacheObject = {
         timestamp: Date.now(),
-        results: {columns, fullData: data}
+        results: {
+            columns: ['poll', 'count'],
+            fullData: aggregatedData
+        }
     };
 
     // Cache the results with timestamp
     await s3Client.send(new PutObjectCommand({
-        Bucket: 'ipvotes',
-        Key: cacheKey,
+        Bucket: BUCKET_NAME,
+        Key: CACHE_KEY,
         Body: JSON.stringify(cacheObject),
         ContentType: 'application/json'
     }));
 
     // Generate random selection from the full dataset
-    const selectedPolls = generateRandomSelection(data);
+    const selectedPolls = generateRandomSelection(aggregatedData);
 
     return {
         statusCode: 200,
-        body: JSON.stringify({columns, data: selectedPolls}),
+        body: JSON.stringify({
+            columns: ['poll', 'count'],
+            data: selectedPolls
+        }),
         headers: {
             'X-Cache': 'MISS'
         }
     };
 };
-
-function generateRandomSelection(fullData) {
-    // Select 4 random polls from top 5
-    const top4 = fullData.slice(0, 4);
-    const remaining = fullData.slice(4);
-    
-    const selectedRemaining = shuffleArray([...remaining]).slice(0, 2);
-    
-    return [...top4, ...selectedRemaining];
-}
 
