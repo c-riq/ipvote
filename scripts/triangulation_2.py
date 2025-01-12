@@ -9,6 +9,10 @@ import cartopy.feature as cfeature
 import matplotlib.patches as mpatches
 from cartopy.geodesic import Geodesic
 import time
+from shapely.geometry import Polygon, MultiPolygon
+from shapely.ops import unary_union
+import geopandas as gpd
+from scipy.spatial import ConvexHull
 
 def calculate_max_distance(time_ms):
     """
@@ -27,21 +31,21 @@ def calculate_max_distance(time_ms):
     max_distance = (time_s * SPEED_OF_LIGHT * FIBER_FACTOR) / ROUTING_FACTOR
     return max_distance
 
-# coordinates of data centers
+# coordinates of data centers - switch from (lat, lon) to (lon, lat)
 DATACENTERS = {
-    'eu-central-1': (50.1109, 8.6821),    # Frankfurt
-    'eu-west-1': (53.3498, -6.2603), # Ireland
-    'ap-northeast-1': (35.6762, 139.6503), # Tokyo
-    'ap-south-1': (19.0760, 72.8777), # Mumbai
-    'sa-east-1': (-23.5505, -46.6333),    # São Paulo
-    'us-east-1': (39.0438, -77.4874),      # N. Virginia
-    'us-west-2': (33.7490, -116.4568),   # Oregon
-    'af-south-1': (-33.9249, 18.4241), # Cape Town
+    'eu-central-1': (8.6821, 50.1109),    # Frankfurt
+    'eu-west-1': (-6.2603, 53.3498), # Ireland
+    'ap-northeast-1': (139.6503, 35.6762), # Tokyo
+    'ap-south-1': (72.8777, 19.0760), # Mumbai
+    'sa-east-1': (-46.6333, -23.5505),    # São Paulo
+    'us-east-1': (-77.4874, 39.0438),      # N. Virginia
+    'us-west-2': (-116.4568, 33.7490),   # Oregon
+    'af-south-1': (18.4241, -33.9249), # Cape Town
 }
 
 # Get current timestamp
 current_time = time.time() * 1000  # convert to milliseconds
-n_minutes_ago = current_time - (70 * 60 * 1000)  # 70 minutes in milliseconds
+n_minutes_ago = current_time - (270 * 60 * 1000)  # 70 minutes in milliseconds
 
 # Filter for recent files
 recent_data = []
@@ -139,42 +143,112 @@ min_distances = {
     if latency != float('inf')
 }
 
+# Create list to store all circle polygons
+circle_polygons = []
+
 # Plot each datacenter and its minimum latency circle
-colors = ['blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue']
+colors = ['black'] * len(DATACENTERS)
 geod = Geodesic()
 
-for (dc_name, coords), color in zip(DATACENTERS.items(), colors):
+# Replace the geopandas dataset loading with direct download
+world = gpd.read_file(
+    "https://naturalearth.s3.amazonaws.com/110m_cultural/ne_110m_admin_0_countries.zip"
+)
+
+# First, find the smallest radius and its corresponding datacenter
+min_radius_dc = min(((dc, min_distances[dc]) for dc in min_distances), key=lambda x: x[1])
+smallest_circle_dc = min_radius_dc[0]
+smallest_radius = min_radius_dc[1]
+
+# Generate 1000 sample points within the smallest circle
+dc_lon, dc_lat = DATACENTERS[smallest_circle_dc]
+sample_points = []
+n_points = 1000
+
+for i in range(n_points):
+    angle = (360 * i / n_points)  # Calculate angle in degrees directly
+    r = np.sqrt(np.random.random()) * smallest_radius * 1000  # Convert to meters
+    point = geod.direct([(dc_lon, dc_lat)], angle, r)
+    lon = point[0][0]
+    if abs(lon - dc_lon) > 180:
+        lon = lon - 360 if lon > 0 else lon + 360
+    sample_points.append((lon, point[0][1]))
+
+sample_points = np.array(sample_points)
+
+# Check which points are within all other circles
+valid_points = []
+for point in sample_points:
+    valid = True
+    for dc_name, coords in DATACENTERS.items():
+        if dc_name not in min_distances or dc_name == smallest_circle_dc:
+            continue
+        
+        # Calculate distance to datacenter
+        dc_lon, dc_lat = coords
+        dist = geod.inverse([(point[0], point[1])], [(dc_lon, dc_lat)])[0][0]  # Get just the distance value
+        if dist > min_distances[dc_name] * 1000:  # Convert to meters
+            valid = False
+            break
+    
+    if valid:
+        valid_points.append(point)
+
+valid_points = np.array(valid_points)
+
+# Plot datacenter circles
+for dc_name, coords in DATACENTERS.items():
     if dc_name not in min_distances:
         continue
         
-    lat, lon = coords
-    
-    # Plot the datacenter point
-    ax.plot(lon, lat, 'o', color=color, markersize=8, transform=ccrs.PlateCarree(), 
-            label=f"{dc_name} (min latency: {min_latencies[dc_name]:.1f}ms)")
-    
-    # Create circle of minimum latency distance
+    lon, lat = coords
     radius_km = min_distances[dc_name]
     
     # Generate circle points using geodesic
     circle_points = geod.circle(lon=lon, lat=lat, radius=radius_km * 1000)
     
-    # Create a polygon patch
+    # Plot the datacenter point and circle
+    ax.plot(lon, lat, 'o', color='white', markeredgecolor='black', markersize=8, transform=ccrs.PlateCarree(),
+            label=f"{dc_name} (min latency: {min_latencies[dc_name]:.1f}ms)")
+    
     polygon = mpatches.Polygon(circle_points, 
-                             color=color,
-                             alpha=0.2,
+                             color='black',
+                             alpha=0.08,
                              transform=ccrs.Geodetic())
-    
-    # Add the polygon patch to the map
     ax.add_patch(polygon)
-    
-    # Plot the circle border
     ax.plot(circle_points[:, 0], circle_points[:, 1], 
-            color=color, transform=ccrs.Geodetic(), alpha=0.5)
+            color='black', transform=ccrs.Geodetic(), alpha=0.08)
+
+# Create a convex hull around valid points for visualization
+if len(valid_points) > 2:
+    hull = ConvexHull(valid_points)
+    hull_points = valid_points[hull.vertices]
+    
+    # Plot the intersection
+    polygon = mpatches.Polygon(hull_points,
+                             color='red',
+                             alpha=0.9,
+                             transform=ccrs.Geodetic())
+    ax.add_patch(polygon)
+    ax.plot(hull_points[:, 0], hull_points[:, 1],
+            color='red', transform=ccrs.Geodetic(), linewidth=2,
+            label='Possible Position')
+    
+    # Check country intersections using hull points polygon
+    intersection = Polygon(hull_points)
+    intersecting_countries = []
+    for idx, country in world.iterrows():
+        country_geom = country.geometry
+        if country_geom.intersects(intersection):
+            intersecting_countries.append(country['NAME'])
+
+print("\nCountries in the intersection region:")
+for country in sorted(intersecting_countries):
+    print(country)
 
 # Add legend and title
-ax.legend()
-plt.title('Maximum Distance Circles Based on Minimum Latencies (Last 10 Minutes)')
+ax.legend(prop={'size': 8}, loc='lower left', bbox_to_anchor=(0.02, 0.02))
+plt.title('Maximum Distance Circles and Their Intersection (Last 10 Minutes)')
 
 # Show the plot
 plt.show()
