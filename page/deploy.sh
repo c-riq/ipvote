@@ -1,7 +1,7 @@
 set x
 trap "exit" INT
 
-aws_profile=default
+aws_profile=rix-admin-chris
 s3_bucket=ip-vote.com
 cf_id=E1LRNVH9OSGJT9
 
