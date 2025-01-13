@@ -46,7 +46,7 @@ exports.handler = async (event, context) => {
         const DELAY = 1000; // to have a predictable delay. s3 requests fail if lambda response is sent too early
         const command = new PutObjectCommand({
             Bucket: 'ipvotes',
-            Key: `triangulation/${nonce}-1.json`,
+            Key: `triangulation/${ip}/${nonce}-1.json`,
             Body: JSON.stringify({ event: 'nonceGeneratedAtMaster',nonce, ip, lambdaStartTimestamp, 
                 awsRegionOfMaster, nonceSentTime: new Date().getTime() + DELAY, clientStartTimestamp })
 
@@ -66,7 +66,7 @@ exports.handler = async (event, context) => {
         // Check if file already exists
         const listCommand = new ListObjectsV2Command({
             Bucket: 'ipvotes',
-            Prefix: `${nonce}-${proxyId}.json`
+            Prefix: `${ip}/${nonce}-${proxyId}.json`
         });
         const listResponse = await s3.send(listCommand);
         
@@ -82,7 +82,7 @@ exports.handler = async (event, context) => {
 
         const putCommand = new PutObjectCommand({
             Bucket: 'ipvotes',
-            Key: `triangulation/${nonce}-${proxyId}.json`,
+            Key: `triangulation/${ip}/${nonce}-${proxyId}.json`,
             Body: JSON.stringify({ event: 'proxyRequestReceived', nonce, ip, 
                 lambdaStartTimestamp, awsRegionOfMaster, proxyId,
                 clientStartTimestamp, clientReceivedNonceTimestamp
@@ -101,7 +101,7 @@ exports.handler = async (event, context) => {
         const s3 = new S3Client({ region: awsRegionOfMaster });
 
         // Check if file already exists
-        const fileKey = `triangulation/${nonce}-unproxied-${AWS_REGION_OF_SLAVE}.json`;
+        const fileKey = `triangulation/${ip}/${nonce}-unproxied-${AWS_REGION_OF_SLAVE}.json`;
         const listCommand = new ListObjectsV2Command({
             Bucket: 'ipvotes',
             Prefix: fileKey

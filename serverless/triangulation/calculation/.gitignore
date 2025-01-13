@@ -1,0 +1,43 @@
+# CDK asset staging directory
+.cdk.staging
+cdk.out/
+
+# TypeScript output directory
+dist/
+lib/*.js
+lib/*.d.ts
+bin/*.js
+bin/*.d.ts
+
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# npm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test coverage
+coverage/
+
+# CDK context
+cdk.context.json
+
+# Local bundle artifacts
+*.zip
+*.tar.gz 
+
+__pycache__/
+bin/
+.ipynb_checkpoints/

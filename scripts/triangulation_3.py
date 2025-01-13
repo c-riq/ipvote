@@ -4,15 +4,20 @@ import os
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
+from matplotlib.patches import Polygon as MplPolygon
 import matplotlib.patches as mpatches
-from cartopy.geodesic import Geodesic
 import time
 from shapely.geometry import Polygon, MultiPolygon, Point
 from shapely.ops import unary_union
-import geopandas as gpd
 from scipy.spatial import ConvexHull
+import requests
+from geopy.distance import geodesic
+import folium
+from folium import plugins
+from pyproj import Geod
+
+# Create a Geod object for geodesic calculations
+geod = Geod(ellps='WGS84')
 
 def calculate_max_distance(time_ms):
     """
@@ -126,38 +131,122 @@ print("\nMinimum latencies from measurements in the last 10 minutes:")
 for region, latency in min_latencies.items():
     if latency != float('inf'):
         print(f"{region}: {latency:.2f} ms")
-        print(f"Maximum distance: {calculate_max_distance(latency)[0]:.2f} km")
+        print(f"Maximum distance: {calculate_max_distance(latency)[1]:.2f} km")
 
-# Create the visualization
-plt.figure(figsize=(15, 10))
-ax = plt.axes(projection=ccrs.PlateCarree())
+# Calculate minimum distances from latencies
+min_distances = {}
+for region, latency in min_latencies.items():
+    if latency != float('inf'):
+        min_distances[region] = calculate_max_distance(latency)[1]
 
-# Add map features
-ax.add_feature(cfeature.COASTLINE, alpha=0.5)  # Make coastline slightly transparent
-ax.add_feature(cfeature.BORDERS, alpha=0.2)    # Make borders very light
-ax.set_global()
+# Replace the geopandas world dataset with a simplified country boundaries
+def get_world_boundaries():
+    # Download simplified country boundaries from a GeoJSON source
+    url = "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson"
+    response = requests.get(url)
+    countries = response.json()
+    
+    # Convert to dictionary of Shapely geometries with validation
+    world_geometries = {}
+    for feature in countries['features']:
+        iso_code = feature['properties']['ISO_A2']
+        if iso_code != '-99':  # Skip invalid codes
+            try:
+                coords = feature['geometry']['coordinates']
+                if feature['geometry']['type'] == 'Polygon':
+                    poly = Polygon(coords[0])
+                    if poly.is_valid:
+                        world_geometries[iso_code] = poly.buffer(0)  # Clean up geometry
+                elif feature['geometry']['type'] == 'MultiPolygon':
+                    polys = [Polygon(poly[0]) for poly in coords]
+                    valid_polys = [p.buffer(0) for p in polys if p.is_valid]
+                    if valid_polys:
+                        world_geometries[iso_code] = MultiPolygon(valid_polys)
+            except (ValueError, TypeError) as e:
+                print(f"Skipping invalid geometry for {iso_code}: {e}")
+                continue
+    
+    return world_geometries
 
-# Calculate distances from minimum latencies
-min_distances = {
-    region: calculate_max_distance(latency)[1]
-    for region, latency in min_latencies.items()
-    if latency != float('inf')
-}
+# Create the visualization using folium instead of cartopy
+def create_map(datacenters, min_distances, plot_points, plot_weights):
+    center_lat = np.mean([lat for lon, lat in datacenters.values()])
+    center_lon = np.mean([lon for lon, lat in datacenters.values()])
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=2)
+    
+    # Add datacenter markers and circles
+    for dc_name, coords in datacenters.items():
+        if dc_name not in min_distances:
+            continue
+            
+        lon, lat = coords
+        radius_km = min_distances[dc_name]
+        
+        # Add datacenter marker
+        folium.CircleMarker(
+            location=[lat, lon],
+            radius=8,
+            color='black',
+            fill=True,
+            popup=f"{dc_name}<br>Min latency: {min_latencies[dc_name]:.1f}ms"
+        ).add_to(m)
+        
+        # Create geodesic circle points with proper handling of meridian crossing
+        current_segment = []
+        segments = []
+        prev_lon = None
+        crosses_meridian = False
+        
+        for bearing in range(0, 360, 5):  # Generate points every 5 degrees
+            end_lon, end_lat, _ = geod.fwd(lon, lat, bearing, radius_km * 1000)
+            
+            # Check for meridian crossing
+            if prev_lon is not None:
+                if abs(end_lon - prev_lon) > 180:
+                    # We crossed the meridian, start a new segment
+                    crosses_meridian = True
+                    segments.append(current_segment)
+                    current_segment = []
+            
+            current_segment.append([end_lat, end_lon])
+            prev_lon = end_lon
+        
+        # Add the last segment
+        if current_segment:
+            segments.append(current_segment)
+        
+        # Draw each segment separately
+        for segment in segments:
+            # Close the segment only if it doesn't cross the meridian
+            if not crosses_meridian and segment == segments[-1]:
+                segment.append(segments[0][0])  # Add first point to close the circle
+                
+            folium.PolyLine(
+                locations=segment,
+                color='black',
+                weight=2,
+                opacity=0.5
+            ).add_to(m)
+    
+    # Add heatmap of possible locations
+    if len(plot_points) > 0:
+        heat_data = [[point[1], point[0], weight] 
+                    for point, weight in zip(plot_points, plot_weights)]
+        plugins.HeatMap(heat_data).add_to(m)
+    
+    return m
 
-# Create list to store all circle polygons
-circle_polygons = []
-
-# Plot each datacenter and its minimum latency circle
-colors = ['black'] * len(DATACENTERS)
-geod = Geodesic()
-
-# Replace the geopandas dataset loading with direct download
-world = gpd.read_file(
-    "https://naturalearth.s3.amazonaws.com/110m_cultural/ne_110m_admin_0_countries.zip"
-)
-
-# After loading the world data, create a unified land polygon
-land = unary_union([geom for geom in world.geometry])
+# Replace the visualization code with validation
+world_boundaries = get_world_boundaries()
+try:
+    # Try to create a union of valid geometries only
+    valid_geometries = [geom for geom in world_boundaries.values() 
+                       if geom.is_valid and not geom.is_empty]
+    land = unary_union(valid_geometries)
+except Exception as e:
+    print(f"Warning: Could not create land union: {e}")
+    # Fallback to simple point-in-polygon checks without union
+    land = MultiPolygon(valid_geometries)
 
 # First, find the smallest radius and its corresponding datacenter
 min_radius_dc = min(((dc, min_distances[dc]) for dc in min_distances), key=lambda x: x[1])
@@ -177,14 +266,19 @@ sample_points = []
 valid_weights = []
 
 for i in range(n_points):
-    angle = (360 * i / n_points)  # Calculate angle in degrees directly
-    dc_lon, dc_lat = DATACENTERS[smallest_circle_dc]  # Get coordinates of smallest circle DC
+    # Generate random azimuth (0-360 degrees) and random distance
+    angle = np.random.uniform(0, 360)
+    # Use sqrt for uniform distribution within circle
     r = np.sqrt(np.random.random()) * smallest_radius * 1000  # Convert to meters
-    point = geod.direct([(dc_lon, dc_lat)], angle, r)
-    lon = point[0][0]
-    if abs(lon - dc_lon) > 180:
-        lon = lon - 360 if lon > 0 else lon + 360
-    sample_points.append((lon, point[0][1]))
+    
+    dc_lon, dc_lat = DATACENTERS[smallest_circle_dc]
+    # Use geodesic forward calculation to get the point
+    lon, lat, _ = geod.fwd(dc_lon, dc_lat, angle, r)
+    
+    # Normalize longitude to [-180, 180]
+    lon = ((lon + 180) % 360) - 180
+    
+    sample_points.append((lon, lat))
 
 sample_points = np.array(sample_points)
 
@@ -210,8 +304,9 @@ for point in sample_points:
             continue
             
         dc_lon, dc_lat = coords
-        dist = geod.inverse([(point[0], point[1])], [(dc_lon, dc_lat)])[0][0]
-        dist_km = dist / 1000
+        # Calculate distance using geod.inv()
+        _, _, dist = geod.inv(point[0], point[1], dc_lon, dc_lat)
+        dist_km = abs(dist) / 1000  # Convert to positive kilometers
         
         max_dist_min, max_dist_max = dc_limits[dc_name]
         
@@ -249,73 +344,45 @@ hull_weights = np.array(hull_weights)
 if len(plot_weights) > 0:
     plot_weights = (plot_weights - plot_weights.min()) / (plot_weights.max() - plot_weights.min())
 
-# Use plot_points for scatter plot
-if len(plot_points) > 0:
-    scatter = ax.scatter(plot_points[:, 0], plot_points[:, 1],
-              c='red', alpha=plot_weights ** 2 * 0.2, s=100, edgecolor='none',
-              transform=ccrs.PlateCarree())
-    
-    # Add a hidden point just for the legend
-    hidden_point = ax.scatter([-1000], [-1000], c='red', s=100,  # Plot outside visible area
-                             label='Location Probability Density')
-
-    # Add legend with the proxy artist
-    ax.legend(handles=[hidden_point] + [plt.Line2D([], [], marker='o', color='white', 
-             markeredgecolor='black', markersize=8, linestyle='None', 
-             label=f"{dc_name} (min latency: {min_latencies[dc_name]:.1f}ms)") 
-             for dc_name in min_distances], 
-             prop={'size': 8}, loc='lower left', bbox_to_anchor=(0.02, 0.02))
-
-# Plot datacenter circles
-for dc_name, coords in DATACENTERS.items():
-    if dc_name not in min_distances:
-        continue
-        
-    lon, lat = coords
-    radius_km = min_distances[dc_name]
-    
-    # Generate circle points using geodesic
-    circle_points = geod.circle(lon=lon, lat=lat, radius=radius_km * 1000)
-    
-    # Plot the datacenter point and circle
-    ax.plot(lon, lat, 'o', color='white', markeredgecolor='black', markersize=8, transform=ccrs.PlateCarree(),
-            label=f"{dc_name} (min latency: {min_latencies[dc_name]:.1f}ms)")
-    
-    polygon = mpatches.Polygon(circle_points, 
-                             color='black',
-                             alpha=0.05,
-                             transform=ccrs.Geodetic())
-    ax.add_patch(polygon)
-    ax.plot(circle_points[:, 0], circle_points[:, 1], 
-            color='black', transform=ccrs.Geodetic(), alpha=0.5)
-
-# Add legend and title
-ax.legend(prop={'size': 8}, loc='lower left', bbox_to_anchor=(0.02, 0.02))
-plt.title('Maximum distances from datacenters based on latency and the possible location of the client')
-
-# Show the plot
-plt.show()
+# Create and save the map
+m = create_map(DATACENTERS, min_distances, plot_points, plot_weights)
 
 # Use hull_points for convex hull calculation
 if len(hull_points) > 0:
-    hull = ConvexHull(hull_points)
-    hull_vertices = hull_points[hull.vertices]
-    
-    # Close the polygon by adding the first point at the end
-    hull_vertices = np.vstack([hull_vertices, hull_vertices[0]])
-    
-    # Create a Shapely polygon from hull points
-    hull_polygon = Polygon(hull_vertices)
-    
-    # Find intersecting countries
-    intersecting_countries = []
-    for idx, country in world.iterrows():
-        if country.geometry.intersects(hull_polygon):
-            # Use ISO_A2 column instead of NAME
-            iso_code = country['ISO_A2']
-            if iso_code != '-99':  # Skip invalid/missing codes
-                intersecting_countries.append(iso_code)
-    
-    print("\nPossible countries of origin (ISO codes):")
-    print(intersecting_countries)
+    try:
+        hull = ConvexHull(hull_points)
+        hull_vertices = hull_points[hull.vertices]
+        
+        # Close the polygon by adding the first point at the end
+        hull_vertices = np.vstack([hull_vertices, hull_vertices[0]])
+        
+        # Create a Shapely polygon from hull points and clean it
+        hull_polygon = Polygon(hull_vertices).buffer(0)  # buffer(0) fixes invalid geometries
+        
+        # Find intersecting countries with validation
+        intersecting_countries = []
+        for iso_code, geometry in world_boundaries.items():
+            try:
+                # Clean up the geometry and check intersection
+                clean_geometry = geometry.buffer(0)
+                if clean_geometry.is_valid and hull_polygon.is_valid:
+                    if clean_geometry.intersects(hull_polygon):
+                        intersecting_countries.append(iso_code)
+            except Exception as e:
+                print(f"Warning: Could not check intersection for {iso_code}: {e}")
+                continue
+        
+        if intersecting_countries:
+            print("\nPossible countries of origin (ISO codes):")
+            print(intersecting_countries)
+        else:
+            print("\nNo valid country intersections found")
+            
+    except Exception as e:
+        print(f"\nWarning: Could not create convex hull: {e}")
+        print("Skipping country intersection check")
+
+# Save the interactive map
+m.save('triangulation_map.html')
+print("\nMap saved as 'triangulation_map.html'")
 
