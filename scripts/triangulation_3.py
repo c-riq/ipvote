@@ -191,19 +191,42 @@ def create_map(datacenters, min_distances, plot_points, plot_weights):
             popup=f"{dc_name}<br>Min latency: {min_latencies[dc_name]:.1f}ms"
         ).add_to(m)
         
-        # Create geodesic circle points
-        circle_points = []
+        # Create geodesic circle points with proper handling of meridian crossing
+        current_segment = []
+        segments = []
+        prev_lon = None
+        crosses_meridian = False
+        
         for bearing in range(0, 360, 5):  # Generate points every 5 degrees
             end_lon, end_lat, _ = geod.fwd(lon, lat, bearing, radius_km * 1000)
-            circle_points.append([end_lat, end_lon])
+            
+            # Check for meridian crossing
+            if prev_lon is not None:
+                if abs(end_lon - prev_lon) > 180:
+                    # We crossed the meridian, start a new segment
+                    crosses_meridian = True
+                    segments.append(current_segment)
+                    current_segment = []
+            
+            current_segment.append([end_lat, end_lon])
+            prev_lon = end_lon
         
-        # Add geodesic circle
-        folium.PolyLine(
-            locations=circle_points + [circle_points[0]],  # Close the circle
-            color='black',
-            weight=2,
-            opacity=0.5
-        ).add_to(m)
+        # Add the last segment
+        if current_segment:
+            segments.append(current_segment)
+        
+        # Draw each segment separately
+        for segment in segments:
+            # Close the segment only if it doesn't cross the meridian
+            if not crosses_meridian and segment == segments[-1]:
+                segment.append(segments[0][0])  # Add first point to close the circle
+                
+            folium.PolyLine(
+                locations=segment,
+                color='black',
+                weight=2,
+                opacity=0.5
+            ).add_to(m)
     
     # Add heatmap of possible locations
     if len(plot_points) > 0:
@@ -243,7 +266,6 @@ sample_points = []
 valid_weights = []
 
 for i in range(n_points):
-    # Generate random azimuth (0-360 degrees) and random distance
     angle = np.random.uniform(0, 360)
     # Use sqrt for uniform distribution within circle
     r = np.sqrt(np.random.random()) * smallest_radius * 1000  # Convert to meters
