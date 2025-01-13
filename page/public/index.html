@@ -89,9 +89,15 @@
         // Update poll parsing
         var poll;
         if (window.location.hash) {
-            poll = decodeURIComponent(window.location.hash.substring(1));  // Remove the # symbol and decode
+            poll = decodeURIComponent(window.location.hash.substring(1));
         } else {
-            poll = decodeURIComponent(window.location.pathname.split('/')[1]); // Decode the pathname
+            const pathParts = window.location.pathname.split('/');
+            if (pathParts[1] === 'approval') {
+                // Handle approval vote path
+                poll = 'approval/' + decodeURIComponent(pathParts[2]);
+            } else {
+                poll = decodeURIComponent(pathParts[1]);
+            }
         }
         
         if (!poll || poll.length < 1) {
@@ -100,10 +106,23 @@
         }
         
         const isOrVote = poll.includes("_or_");
+        const isApprovalVote = poll.startsWith("approval/");
         let options = [];
         const isPrivacyChecked = document.getElementById('privacyCheck').checked;
-        
-        if (isOrVote) {
+
+        if (isApprovalVote) {
+            const topic = poll.substring(9); // Remove "approval/" prefix
+            if (topic.length < 1 || topic.length > 200) {
+                console.error("Invalid approval vote topic: " + topic);
+                return;
+            }
+            const buttons = `
+                <button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote('${poll}','approve')">Approve</button>
+                <button class="vote-button btn btn-primary m-2" onclick="checkPrivacyAndVote('${poll}','disapprove')">Disapprove</button>`;
+            document.getElementById('vote-buttons').innerHTML = buttons;
+            document.getElementById('vote-title-poll').innerText = topic;
+            document.title = `${topic} - Approval Vote - ip-vote.com`;
+        } else if (isOrVote) {
             options = poll.split("_or_");
             if (options.length != 2) {
                 console.error("Invalid vote: " + poll);
@@ -347,6 +366,7 @@
 
     const createPoll = () => {
         const isOrPoll = document.getElementById('orPollType').checked;
+        const isApprovalPoll = document.getElementById('approvalPollType').checked;
         const usePathname = !window.location.hash;
         
         if (isOrPoll) {
@@ -363,6 +383,23 @@
             }
             
             const pollPath = encodeURIComponent(optionA) + "_or_" + encodeURIComponent(optionB);
+            if (usePathname) {
+                window.location.pathname = '/' + pollPath;
+            } else {
+                window.location.hash = pollPath;
+            }
+        } else if (isApprovalPoll) {
+            const topic = sanitizePollText(document.getElementById('approvalTopic').value);
+            if (topic.length < 1) {
+                document.getElementById('message').innerHTML = '<div class="alert alert-warning" role="alert">Please enter a topic</div>';
+                return;
+            }
+            if (topic.length > 200) {
+                document.getElementById('message').innerHTML = '<div class="alert alert-warning" role="alert">Topic must be 200 characters or less</div>';
+                return;
+            }
+            
+            const pollPath = 'approval/' + encodeURIComponent(topic);
             if (usePathname) {
                 window.location.pathname = '/' + pollPath;
             } else {
@@ -394,16 +431,22 @@
     const togglePollInputs = () => {
         const orInputs = document.getElementById('orPollInputs');
         const yesNoPollInput = document.getElementById('yesNoPollInput');
+        const approvalPollInput = document.getElementById('approvalPollInput');
+        
         const isOrPoll = document.getElementById('orPollType').checked;
+        const isYesNoPoll = document.getElementById('yesNoPollType').checked;
+        const isApprovalPoll = document.getElementById('approvalPollType').checked;
         
         orInputs.style.display = isOrPoll ? 'block' : 'none';
-        yesNoPollInput.style.display = isOrPoll ? 'none' : 'block';
+        yesNoPollInput.style.display = isYesNoPoll ? 'block' : 'none';
+        approvalPollInput.style.display = isApprovalPoll ? 'block' : 'none';
     }
 
     // Add these event listeners after window load
     window.addEventListener('load', () => {
         document.getElementById('orPollType').addEventListener('change', togglePollInputs);
         document.getElementById('yesNoPollType').addEventListener('change', togglePollInputs);
+        document.getElementById('approvalPollType').addEventListener('change', togglePollInputs);
     });
 
 // charts
@@ -415,6 +458,13 @@
         if (err || !rows || rows.length < 1) {
             return
         }
+        
+        // For approval votes, use approve/disapprove as options if not provided
+        if (poll.startsWith('approval/')) {
+            option1 = option1 || 'approve';
+            option2 = option2 || 'disapprove';
+        }
+
         let hourlyChunks = {}
         for (let i = 0; i < rows.length; i++) {
         const t = parseInt(rows[i].time)
@@ -880,6 +930,12 @@ document.getElementById('newPollOptionB').placeholder = "Second option (letters,
                     Yes/No poll
                 </label>
             </div>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="radio" name="pollType" id="approvalPollType" value="approval">
+                <label class="form-check-label" for="approvalPollType">
+                    Approval poll
+                </label>
+            </div>
 
             <div id="orPollInputs">
                 <input type="text" id="newPollOptionA" placeholder="Option A" class="form-control input-sm m-2" style="max-width: 90vw;">
@@ -887,6 +943,9 @@ document.getElementById('newPollOptionB').placeholder = "Second option (letters,
             </div>
             <div id="yesNoPollInput" style="display: none;">
                 <input type="text" id="yesNoQuestion" placeholder="Question for Yes/No vote" class="form-control input-sm m-2" style="max-width: 90vw;">
+            </div>
+            <div id="approvalPollInput" style="display: none;">
+                <input type="text" id="approvalTopic" placeholder="Topic for approval vote" class="form-control input-sm m-2" style="max-width: 90vw;">
             </div>
             <button onclick="createPoll()" class="vote-button btn btn-primary m-2">Create new poll</button>
             
