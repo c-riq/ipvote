@@ -266,6 +266,7 @@ sample_points = []
 valid_weights = []
 
 for i in range(n_points):
+    # Generate random azimuth (0-360 degrees) and random distance
     angle = np.random.uniform(0, 360)
     # Use sqrt for uniform distribution within circle
     r = np.sqrt(np.random.random()) * smallest_radius * 1000  # Convert to meters

@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  lambda:
+    build: .
+    volumes:
+      - ./src:/var/task
+      - ./tests:/var/task/tests
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - BUCKET_NAME=${BUCKET_NAME}
+    ports:
+      - "9000:8080"

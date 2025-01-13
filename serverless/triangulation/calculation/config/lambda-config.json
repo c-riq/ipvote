@@ -1,0 +1,9 @@
+{
+    "MemorySize": 1024,
+    "Timeout": 30,
+    "Environment": {
+        "Variables": {
+            "BUCKET_NAME": "your-bucket-name"
+        }
+    }
+} 
