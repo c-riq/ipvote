@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Latency Geolocation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .highlight {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .warning {
+            color: #721c24;
+            background-color: #f8d7da;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Network Latency Geolocation for Poll Integrity</h1>
+
+    <h2>What is Latency-Based Triangulation?</h2>
+    <p>Network latency triangulation is a method of determining a device's physical location by measuring the time it takes for data to travel between the device and multiple known server locations.
+        As the speed of light cannot be exceeded according to the known laws of physics, if the signal latency is measured to a server in a known location, the maximum distance between the device and each server can be established with a very high degree of certainty.
+    </p>
+
+    <figure>
+        <img src="img/network-latency-triangulation.jpg" alt="Network Latency Triangulation Diagram" style="max-width: 100%; height: auto; margin: 20px 0;">
+        <figcaption style="text-align: center; font-style: italic; color: #666;">
+            Possible client location discs (grey) from 8 server latency measurements and the likely client location (red).
+        </figcaption>
+    </figure>
+
+    <div class="highlight">
+        <h3>Key Advantages:</h3>
+        <ul>
+            <li>Cannot be manipulated unlike GPS signal derived coordinates, which can be altered by the user's device before sharing them with the server</li>
+            <li>Works even when location services are disabled, provided that the user consents to it's application</li>
+            <li>Can provide supportive evidence for VPN/proxy usage if the latency is higher for all servers in the world</li>
+        </ul>
+    </div>
+
+    <h2>How It Works</h2>
+    <p>The process relies on the physical limitations of data transmission:</p>
+    <ul>
+        <li>Light travels through fiber optic cables at approximately 2/3 the speed of light in vacuum</li>
+        <li>Routing inefficiencies and electronics increase the signal latency typically by 20% or more</li>
+        <li>The maximum theoretical distance between two points can be calculated based on this</li>
+        <li>Multiple measurement points establish circular areas of possible locations on the earths surface which can then be intersected</li>
+        <li>As part of manipulation attempts, the user can only introduce delays, which will result in a higher location uncertainty but users cannot to reduce the network latency beyond the mentioned limits</li>
+        <li>Users with a high latency to all servers can be excluded from the poll, as this is a strong indicator of a VPN/proxy usage</li>
+    </ul>
+
+    <h2>VPN and Proxy Detection</h2>
+    <p>When a connection is routed through a VPN or proxy:</p>
+    <ul>
+        <li>Additional network hops increase latency</li>
+        <li>Observed latencies consitently exceed the theoretical maximum for direct connections on the earths surface</li>
+        <li>Inconsistent latency patterns between different measurement points</li>
+    </ul>
+
+    <div class="highlight">
+        <h3>Election Security Applications</h3>
+        <p>Latency-based geolocation can help protect poll integrity by:</p>
+        <ul>
+            <li>Detecting when votes or poll responses originate from outside the intended geographic region</li>
+            <li>Identifying coordinated attempts to manipulate polls through VPN/proxy networks</li>
+            <li>Providing an additional layer of verification beyond IP-based geolocation</li>
+        </ul>
+        <p>Successfully manipulating a poll which enforces this method would require following steps:</p>
+        <ul>
+            <li>Gaining control over a large number of devices in the target geographic region</li>
+            <li>Submitting a large number poll responses from those devices</li>
+            <li>Making sure that no one notices this</li>
+        </ul>
+        <p>This mehtod significantly raises the cost of manipulation attempts and can provide very high poll integrity, 
+            if employed in conjunction with other mitigations, such as excluding known data center IP-addresses, 
+            analysis of response patterns, 
+            and investigating complaints by potential victims of hackers whose IP-address and devices were abused for this purpose.</p>
+    </div>
+
+</body>
+</html> 

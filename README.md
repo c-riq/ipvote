@@ -25,3 +25,34 @@ Users can chose to select their country.
 The IP recorded addresses can be used as supportive evidence for validating the proclaimed geolocation.
 In adddition there will be support for determining the rough geographic location based on network latency triangulation.
 If users attempt to manipulate the latency measurements, they can only introduce delays. These delays would then surface large scale geolocation manipulation attemtps in the aggregated results data.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant M as Master Server
+    participant S1 as Server 1 (US)
+    participant S2 as Server 2 (EU)
+    participant S3 as Server 3 (ASIA)
+    
+    Note over C,M: 1. Clock Synchronization
+    M->>C: Request client's clock time
+    C->>M: Share current time
+    M->>M: Record clock skew, considering network latency
+    
+    Note over C,M: 2. Random Challenge
+    M->>C: Send random number X
+    
+    Note over C,S3: 3. Latency Measurement
+    par Measure Latency
+        C->>S1: Send X
+        S1->>S1: Record arrival time
+        and
+        C->>S2: Send X
+        S2->>S2: Record arrival time
+        and
+        C->>S3: Send X
+        S3->>S3: Record arrival time
+    end
+    
+    Note over S1,S3: Servers calculate approximate<br/>client location based on<br/>latency triangulation
+```
