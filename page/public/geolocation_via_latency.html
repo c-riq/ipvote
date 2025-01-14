@@ -90,5 +90,26 @@
             and investigating complaints by potential victims of hackers whose IP-address and devices were abused for this purpose.</p>
     </div>
 
+    <h2>Technical Implementation</h2>
+
+    <p>In our implementation, we added a few additional features to make it work:
+        <ul>
+            <li>
+                As the clocks of the computers of the client and the servers are not synchronized, we need to establish the difference in time among the clocks using the Network Time Protocol algorithm.
+            </li>
+            <li>
+                To mitigate replay attacks, the server generates a random number and sends it to the client, which it then immediately needs to relay to the measurement servers.
+                The servers then record the time it took for the challenge to be received.
+                This way, the server can calculate the latency to each server and use it to triangulate the client's location.
+            </li>
+        </ul>
+    </p>
+    <figure>
+        <img src="img/message-sequence-chart.svg" alt="Message Sequence Chart for Latency Measurement" style="max-width: 100%; height: auto; margin: 20px 0;">
+        <figcaption style="text-align: center; font-style: italic; color: #666;">
+            Message sequence chart showing the latency measurement process between client and multiple measurement servers.
+        </figcaption>
+    </figure>
+
 </body>
 </html> 
