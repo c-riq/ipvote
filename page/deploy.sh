@@ -30,5 +30,5 @@ aws s3 sync public/ s3://$s3_bucket --delete --cache-control max-age=31530000,pu
 
 if [ ! -z "$cf_id" ]; then
     echo Invalidating cloudfront cache
-    aws cloudfront create-invalidation --distribution-id $cf_id --paths "/*"
+    aws cloudfront create-invalidation --distribution-id $cf_id --paths "/*" --no-cli-pager
 fi
