@@ -14,6 +14,7 @@
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^6.4.0",
     "@mui/material": "^6.4.0",
+    "@turf/turf": "^7.2.0",
     "@types/mapbox-gl": "^3.4.1",
     "@types/plotly.js": "^2.35.2",
     "mapbox-gl": "^1.13.3",

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Typography, Paper, Button, Box } from '@mui/material'
 import mapboxgl from 'mapbox-gl'
+import * as turf from '@turf/turf'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 // Replace with your Mapbox access token
@@ -33,7 +34,7 @@ const internetLatencyToDistance = (latency: number) => {
     const GLASS_FIBER_FACTOR = 0.66
     const ROUTING_FACTOR = 1.5
     const LAMBDA_STARTUP_ms = 10
-    const distance_km = LIGHT_SECOND_km * (latency - LAMBDA_STARTUP_ms) * GLASS_FIBER_FACTOR * ROUTING_FACTOR
+    const distance_km = LIGHT_SECOND_km * (latency - LAMBDA_STARTUP_ms) / 1000 * GLASS_FIBER_FACTOR * ROUTING_FACTOR
     return distance_km
 }
 
@@ -78,7 +79,7 @@ const dataCenters: DataCenter[] = [
     coordinates: [18.4241, -33.9249], // Cape Town
     url: 'https://bcjj76sx7xfqoz6yc6ngw6ioma0ajqsb.lambda-url.af-south-1.on.aws/'
   }
-].splice(0, 2)
+]
 
 function Geolocation() {
   const [messages, setMessages] = useState<LatencyMessage[]>([])
@@ -94,8 +95,9 @@ function Geolocation() {
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/light-v11',
-      center: [0, 20], // Center the map
-      zoom: 1.5
+      center: [0, 20],
+      zoom: 0.8,
+      projection: 'globe'
     })
 
     // Add markers for data centers
@@ -115,11 +117,15 @@ function Geolocation() {
   useEffect(() => {
     if (!map.current) return
 
-    // Remove existing circles
+    // Remove existing circles and their fill layers
     circlesLayer.current.forEach(id => {
-      const layer = map.current!.getLayer(id)
-      if (layer) {
+      if (map.current!.getLayer(`${id}-fill`)) {
+        map.current!.removeLayer(`${id}-fill`)
+      }
+      if (map.current!.getLayer(id)) {
         map.current!.removeLayer(id)
+      }
+      if (map.current!.getSource(id)) {
         map.current!.removeSource(id)
       }
     })
@@ -130,38 +136,43 @@ function Geolocation() {
       const dataCenter = dataCenters.find(dc => dc.name === msg.region)
       if (!dataCenter || msg.region === 'System' || msg.region === 'Error') return
 
-      // Convert latency to approximate kilometers (rough estimation)
-      const radiusKm = internetLatencyToDistance(msg.latency) / 1000
+      // Convert latency to approximate kilometers
+      const radiusKm = internetLatencyToDistance(msg.latency)
+
+      console.log(msg, radiusKm, 'km', dataCenter.coordinates)
       
       const circleId = `circle-${msg.region}`
       circlesLayer.current.push(circleId)
 
-      // Create a circle around the data center
-      const center = dataCenter.coordinates
-      const points = 64
-      const km = radiusKm
-      const features = []
-      
-      for (let i = 0; i < points; i++) {
-        const angle = (i / points) * 2 * Math.PI
-        const lat = center[1] + (km / 111.32) * Math.cos(angle)
-        const lon = center[0] + (km / (111.32 * Math.cos(center[1] * (Math.PI / 180)))) * Math.sin(angle)
-        features.push([lon, lat])
-      }
-      features.push(features[0]) // Close the circle
+      // Create a circle using Turf.js
+      const center = turf.point(dataCenter.coordinates)
+      const circle = turf.circle(center, radiusKm, {
+        steps: 64,
+        units: 'kilometers'
+      })
 
-      map.current!.addSource(circleId, {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates: features
-          }
+      console.log(circle)
+
+      // Only add source if it doesn't exist
+      if (!map.current!.getSource(circleId)) {
+        map.current!.addSource(circleId, {
+          type: 'geojson',
+          data: circle
+        })
+      }
+
+      // Add fill layer
+      map.current!.addLayer({
+        id: `${circleId}-fill`,
+        type: 'fill',
+        source: circleId,
+        paint: {
+          'fill-color': '#007cbf',
+          'fill-opacity': 0.1
         }
       })
 
+      // Add border layer
       map.current!.addLayer({
         id: circleId,
         type: 'line',
@@ -228,7 +239,7 @@ function Geolocation() {
 
             setMessages(prev => [...prev, { 
               region: region.name, 
-              latency 
+              latency: latency
             }])
           }
         })
@@ -251,20 +262,8 @@ function Geolocation() {
         Geolocation via Network Latency
       </Typography>
       <Typography paragraph>
-        Our system uses network latency measurements to multiple AWS regions around the world to approximate your location. 
-        This helps verify vote authenticity without requiring precise location data.
+        This allows us to estimate your location and use this for validating where votes come from. Read more <a href="https://ip-vote.com/geolocation_via_latency.html">here</a>
       </Typography>
-      <Typography paragraph>
-        When you enable network triangulation:
-      </Typography>
-      <Typography component="ol" sx={{ pl: 3 }}>
-        <li>Your browser measures response times to AWS servers in different regions</li>
-        <li>These latency patterns help estimate your general geographic area</li>
-        <li>No precise location or GPS data is collected</li>
-        <li>The data helps validate that votes come from diverse locations</li>
-      </Typography>
-
-      <Box sx={{ my: 4, height: 400 }} ref={mapContainer} />
 
       <Box sx={{ my: 4 }}>
         <Button 
@@ -275,6 +274,9 @@ function Geolocation() {
           {isLoading ? 'Testing...' : 'Test Network Triangulation'}
         </Button>
       </Box>
+      
+      <Box sx={{ my: 4, height: 400 }} ref={mapContainer} />
+
 
       {messages.length > 0 && (
         <Box sx={{ mt: 2 }}>
