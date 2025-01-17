@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { CircularProgress } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import PollCard from './PollCard'
+import PrivacyAccept from './PrivacyAccept'
 
 const LIMIT = 15
 const SEED_RANGE = 4
@@ -11,7 +12,13 @@ interface PollData {
   votes: number
 }
 
-function Popular() {
+interface PopularProps {
+  privacyAccepted: boolean
+  userIp: string | null
+  onPrivacyAcceptChange: (accepted: boolean) => void
+}
+
+function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange }: PopularProps) {
   const [polls, setPolls] = useState<PollData[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -65,7 +72,12 @@ function Popular() {
 
   return (
     <div>
-      <h1>Let the internet vote!</h1>
+      <h2>Let the internet vote!</h2>
+      <PrivacyAccept
+        userIp={userIp}
+        accepted={privacyAccepted}
+        onAcceptChange={onPrivacyAcceptChange}
+      />
       {polls.map((poll) => (
         <PollCard
           key={poll.name}

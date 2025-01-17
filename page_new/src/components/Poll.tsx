@@ -19,20 +19,25 @@ import {
 import Plot from 'react-plotly.js'
 import DownloadIcon from '@mui/icons-material/Download'
 import FilterListIcon from '@mui/icons-material/FilterList'
+import PrivacyAccept from './ui/PrivacyAccept'
 
 interface VoteHistory {
   date: string;
   votes: { [key: string]: number };
 }
 
-function Poll() {
+interface PollProps {
+  privacyAccepted: boolean
+  userIp: string | null
+  onPrivacyAcceptChange: (accepted: boolean) => void
+}
+
+function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
   const location = useLocation()
   const [poll, setPoll] = useState<string>('')
   const [message, setMessage] = useState<string>('')
   const [loading, setLoading] = useState(false)
-  const [privacyAccepted, setPrivacyAccepted] = useState(false)
   const [results, setResults] = useState<{ [key: string]: number }>({})
-  const [userIp, setUserIp] = useState<string>('')
   const [voteHistory, setVoteHistory] = useState<VoteHistory[]>([])
   const [includeTor, setIncludeTor] = useState(true)
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLButtonElement | null>(null)
@@ -47,11 +52,6 @@ function Poll() {
       setPoll(currentPoll)
       fetchResults(currentPoll)
     }
-
-    // Fetch user's IP
-    fetch('https://rudno6667jmowgyjqruw7dkd2i0bhcpo.lambda-url.us-east-1.on.aws/')
-      .then(response => response.json())
-      .then(data => setUserIp(data.ip))
   }, [location])
 
   const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -120,11 +120,6 @@ function Poll() {
   }, [includeTor])
 
   const vote = async (option: string) => {
-    if (!privacyAccepted) {
-      setMessage('Please accept the privacy policy first')
-      return
-    }
-
     setLoading(true)
     try {
       const response = await fetch(`https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${poll}&vote=${option}`)
@@ -351,30 +346,19 @@ function Poll() {
         <CircularProgress />
       ) : (
         <>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={privacyAccepted}
-                onChange={(e) => setPrivacyAccepted(e.target.checked)}
-              />
-            }
-            label={
-              <div style={{ wordBreak: 'break-word' }}>
-                I accept the <a href="/privacy_policy.html" target="_blank">privacy policy</a> 
-                {' '}and the public sharing of my IP: {userIp}
-              </div>
-            }
-            sx={{ 
-              alignItems: 'flex-start',
-              '.MuiFormControlLabel-label': { 
-                mt: '2px'
-              }
-            }}
+          <PrivacyAccept
+            userIp={userIp}
+            accepted={privacyAccepted}
+            onAcceptChange={onPrivacyAcceptChange}
           />
 
-          <div style={{ margin: '20px 0' }}>
-            {loading ? <CircularProgress /> : renderVoteButtons()}
-          </div>
+          {loading ? (
+            <CircularProgress />
+          ) : (
+            <div style={{ marginTop: '20px' }}>
+              {renderVoteButtons()}
+            </div>
+          )}
 
           <Box sx={{ position: 'relative' }}>
             <Box sx={{ 
