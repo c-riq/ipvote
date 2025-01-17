@@ -4,7 +4,6 @@ const { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = r
 
 const s3Client = new S3Client();
 const BUCKET_NAME = 'ipvotes';
-const CACHE_KEY = 'popular_polls/cached_results.json';
 
 async function listAllVoteFiles() {
     const files = [];
@@ -65,26 +64,41 @@ async function aggregateVotes() {
     return results;
 }
 
-function generateRandomSelection(fullData) {
-    // Select 4 random polls from top 5
-    const top4 = fullData.slice(0, 4);
-    const remaining = fullData.slice(4);
-    
-    const selectedRemaining = shuffleArray([...remaining]).slice(0, 2);
-    
-    return [...top4, ...selectedRemaining];
-}
+function generateRandomSelection(fullData, seed, limit = 30, offset = 0) {
+    // Use seed for consistent randomization
+    const seededRandom = (seed) => {
+        let x = Math.sin(seed++) * 10000;
+        return x - Math.floor(x);
+    };
 
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
+    // Seeded shuffle function
+    const seededShuffle = (array, seed) => {
+        let currentSeed = seed;
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(seededRandom(currentSeed++) * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+    };
+
+    // Keep top 10 fixed, shuffle the rest with seed
+    const topPolls = fullData.slice(0, 10);
+    const remainingPolls = seededShuffle(fullData.slice(10), seed);
+    
+    // Combine and paginate
+    const combinedPolls = [...topPolls, ...remainingPolls];
+    return combinedPolls.slice(offset, offset + limit);
 }
 
 module.exports.handler = async (event) => {
     const forceRefresh = event?.queryStringParameters?.refresh === 'true';
+    const seed = parseInt(event?.queryStringParameters?.seed) || 1;
+    const limit = parseInt(event?.queryStringParameters?.limit) || 15;
+    const offset = parseInt(event?.queryStringParameters?.offset) || 0;
+    
+    // Create a unique cache key based on parameters
+    const CACHE_KEY = `popular_polls/cached_results_${seed}.json`;
     
     // Try cache first if not forcing refresh
     if (!forceRefresh) {
@@ -97,11 +111,16 @@ module.exports.handler = async (event) => {
             
             // Check if cache is less than 24 hours old
             const cacheAge = Date.now() - data.timestamp;
-            const cacheValid = cacheAge < 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+            const cacheValid = cacheAge < 24 * 60 * 60 * 1000;
             
             if (cacheValid) {
-                console.log('Cache hit - returning new random selection from cached data');
-                const selectedPolls = generateRandomSelection(data.results.fullData);
+                console.log('Cache hit - returning paginated selection from cached data');
+                const selectedPolls = generateRandomSelection(
+                    data.results.fullData,
+                    seed,
+                    limit,
+                    offset
+                );
                 return {
                     statusCode: 200,
                     body: JSON.stringify({
@@ -110,7 +129,7 @@ module.exports.handler = async (event) => {
                     }),
                     headers: {
                         'X-Cache': 'HIT',
-                        'X-Cache-Age': Math.round(cacheAge / 1000) // age in seconds
+                        'X-Cache-Age': Math.round(cacheAge / 1000)
                     }
                 };
             } else {
@@ -141,8 +160,12 @@ module.exports.handler = async (event) => {
         ContentType: 'application/json'
     }));
 
-    // Generate random selection from the full dataset
-    const selectedPolls = generateRandomSelection(aggregatedData);
+    const selectedPolls = generateRandomSelection(
+        aggregatedData,
+        seed,
+        limit,
+        offset
+    );
 
     return {
         statusCode: 200,
