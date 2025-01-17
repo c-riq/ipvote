@@ -13,6 +13,7 @@ interface LatencyMessage {
   region: string
   latency: number
   halfRoundTripLatency: number
+  measurementIndex?: number
 }
 
 interface NonceResponse {
@@ -37,6 +38,7 @@ interface ClockOffset {
   region: string
   offset_master: number
   offset_slave: number
+  measurementIndex?: number
 }
 
 const internetLatencyToDistance = (latency: number) => {
@@ -179,12 +181,24 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
     })
     circlesLayer.current = []
 
+    // Group messages by region and find minimum latency for each
+    const minLatencyByRegion = messages.reduce((acc, msg) => {
+      if (msg.region === 'System' || msg.region === 'Error') return acc
+      if (!acc[msg.region] || msg.latency < acc[msg.region].latency) {
+        acc[msg.region] = msg
+      }
+      return acc
+    }, {} as Record<string, LatencyMessage>)
+
+    // Use minimum latencies for drawing circles
+    const minLatencyMessages = Object.values(minLatencyByRegion)
+
     // Find the smallest valid circle first
     let smallestRadius = Infinity
     let smallestCircleId = ''
     let smallestCircleFeature: GeoJSON.Feature | null = null
 
-    messages.forEach(msg => {
+    minLatencyMessages.forEach(msg => {
       const dataCenter = dataCenters.find(dc => dc.name === msg.region)
       if (!dataCenter || msg.region === 'System' || msg.region === 'Error') return
 
@@ -204,7 +218,7 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
     })
 
     // Add all circles
-    messages.forEach(msg => {
+    minLatencyMessages.forEach(msg => {
       const dataCenter = dataCenters.find(dc => dc.name === msg.region)
       if (!dataCenter || msg.region === 'System' || msg.region === 'Error') return
 
@@ -258,86 +272,94 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
     setMessages([])
     setClockOffsets([])
     
-    try {
-      // Warm up lambdas
+    for (let measurementIndex = 0; measurementIndex < 3; measurementIndex++) {
       try {
-        await Promise.all([
-            dataCenters.map((region) => fetch(region.url))
-        ])
-      } catch (_) {}
+        // Warm up lambdas
+        try {
+          await Promise.all(dataCenters.map((region) => fetch(region.url)))
+        } catch (_) {}
 
-      setMessages(prev => [...prev, { region: 'System', latency: 0 }])
+        setMessages(prev => [...prev, { 
+          region: 'System', 
+          latency: 0, 
+          halfRoundTripLatency: 0,
+          measurementIndex 
+        }])
 
-      // Start measurements
-      const clientStartTimestamp = new Date().getTime()
-      let clientReceivedNonceTimestamp: number
+        // Start measurements
+        const clientStartTimestamp = new Date().getTime()
+        let clientReceivedNonceTimestamp: number
 
-      // Get nonce
-      const nonceResponse = await fetch(
-        `https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/?clientStartTimestamp=${clientStartTimestamp}`
-      )
-      clientReceivedNonceTimestamp = new Date().getTime()
-      const nonceResponseData = (await nonceResponse.json()) as NonceResponse | undefined
-      if (nonceResponseData) {
-        setNonce(nonceResponseData.nonce)
+        // Get nonce
+        const nonceResponse = await fetch(
+          `https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/?clientStartTimestamp=${clientStartTimestamp}`
+        )
+        clientReceivedNonceTimestamp = new Date().getTime()
+        const nonceResponseData = (await nonceResponse.json()) as NonceResponse | undefined
+        if (nonceResponseData) {
+          setNonce(nonceResponseData.nonce)
+        }
+        setMessages(prev => [...prev, { 
+          region: 'System', 
+          latency: 0,
+          halfRoundTripLatency: 0,
+          measurementIndex
+        }])
+
+        await Promise.all(
+          dataCenters.map(async (region) => {
+            const clientSendNonceTime = new Date().getTime()
+            const response = await fetch(`${region.url}?nonce=${nonceResponseData?.nonce}&clientReceivedNonceTimestamp=${
+              clientReceivedNonceTimestamp}`);
+            const clientReceivedLatencyResponseTimestamp = new Date().getTime()
+            const LatencyResponseData = await response.json() as LatencyResponse
+            if (LatencyResponseData) {
+              const t0 = clientStartTimestamp
+              const t1 = nonceResponseData?.lambdaStartTimestamp || 0
+              const t2 = nonceResponseData?.nonceSentTime || 0
+              const t3 = clientReceivedNonceTimestamp
+
+              const clockOffset_master = ((t1 - t0) + (t2 - t3)) / 2
+
+              const t0_1 = clientSendNonceTime
+              const t1_1 = LatencyResponseData.lambdaStartTimestamp
+              const t2_1 = LatencyResponseData.latencyResponseTimestamp
+              const t3_1 = clientReceivedLatencyResponseTimestamp
+
+              const clockOffset_slave = ((t1_1 - t0_1) + (t2_1 - t3_1)) / 2
+
+              // Store clock offset
+              setClockOffsets(prev => [...prev, {
+                region: region.name,
+                offset_master: clockOffset_master,
+                offset_slave: clockOffset_slave,
+                measurementIndex
+              }])
+
+              const latency = (LatencyResponseData.lambdaStartTimestamp - clockOffset_slave) - clientSendNonceTime
+              const halfRoundTripLatency = (clientReceivedLatencyResponseTimestamp - clientSendNonceTime - 1000) / 2
+
+              setMessages(prev => [...prev, { 
+                region: region.name, 
+                latency,
+                halfRoundTripLatency,
+                measurementIndex
+              }])
+            }
+          })
+        )
+
+      } catch (error) {
+        console.error('Triangulation error:', error)
+        setMessages(prev => [...prev, { 
+          region: 'Error', 
+          latency: 0,
+          halfRoundTripLatency: 0,
+          measurementIndex
+        }])
       }
-      setMessages(prev => [...prev, { 
-        region: 'System', 
-        latency: 0,
-        halfRoundTripLatency: 0
-      }])
-
-      await Promise.all(
-        dataCenters.map(async (region) => {
-          const clientSendNonceTime = new Date().getTime()
-          const response = await fetch(`${region.url}?nonce=${nonceResponseData?.nonce}&clientReceivedNonceTimestamp=${
-            clientReceivedNonceTimestamp}`);
-          const clientReceivedLatencyResponseTimestamp = new Date().getTime()
-          const LatencyResponseData = await response.json() as LatencyResponse
-          if (LatencyResponseData) {
-            const t0 = clientStartTimestamp
-            const t1 = nonceResponseData?.lambdaStartTimestamp || 0
-            const t2 = nonceResponseData?.nonceSentTime || 0
-            const t3 = clientReceivedNonceTimestamp
-
-            const clockOffset_master = ((t1 - t0) + (t2 - t3)) / 2
-
-            const t0_1 = clientSendNonceTime
-            const t1_1 = LatencyResponseData.lambdaStartTimestamp
-            const t2_1 = LatencyResponseData.latencyResponseTimestamp
-            const t3_1 = clientReceivedLatencyResponseTimestamp
-
-            const clockOffset_slave = ((t1_1 - t0_1) + (t2_1 - t3_1)) / 2
-
-            // Store clock offset
-            setClockOffsets(prev => [...prev, {
-              region: region.name,
-              offset_master: clockOffset_master,
-              offset_slave: clockOffset_slave
-            }])
-
-            const latency = (LatencyResponseData.lambdaStartTimestamp - clockOffset_slave) - clientSendNonceTime
-            const halfRoundTripLatency = (clientReceivedLatencyResponseTimestamp - clientSendNonceTime - 1000) / 2
-
-            setMessages(prev => [...prev, { 
-              region: region.name, 
-              latency,
-              halfRoundTripLatency
-            }])
-          }
-        })
-      )
-
-    } catch (error) {
-      console.error('Triangulation error:', error)
-      setMessages(prev => [...prev, { 
-        region: 'Error', 
-        latency: 0,
-        halfRoundTripLatency: 0
-      }])
-    } finally {
-      setIsLoading(false)
     }
+    setIsLoading(false)
   }
 
   return (
@@ -406,7 +428,7 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
                   y: messages
                       .filter(msg => msg.region !== 'System' && msg.region !== 'Error')
                       .map(msg => msg.latency),
-                  text: clockOffsets.map(offset => offset.region),
+                  text: clockOffsets.map(offset => `${offset.region} #${offset.measurementIndex! + 1}`),
                   textposition: 'top center',
                   marker: {
                     color: '#007cbf',
