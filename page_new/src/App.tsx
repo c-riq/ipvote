@@ -2,20 +2,44 @@ import { useState } from 'react'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
   return (
-    <>
-      <h1>React + Vite + TypeScript</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
+    <div className="app-container">
+      {/* Header */}
+      <header className="header">
+        <button 
+          className="burger-menu"
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        >
+          ☰
         </button>
-        <p>
-          Edit <code>srkc/App.tsx</code> and save to test HMR
-        </p>
+        <div className="search-container">
+          <input 
+            type="search" 
+            placeholder="Search..."
+            className="search-bar"
+          />
+        </div>
+        <button className="create-button">Create Poll</button>
+      </header>
+
+      <div className="main-content">
+        {/* Sidebar */}
+        <nav className={`sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
+          <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/ui/popular">Popular</a></li>
+            <li><a href="/ui/all">All</a></li>
+          </ul>
+        </nav>
+
+        {/* Main Content Area */}
+        <main className="content">
+          <h1>Polls</h1>
+        </main>
       </div>
-    </>
+    </div>
   )
 }
 
