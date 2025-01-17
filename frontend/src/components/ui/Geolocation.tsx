@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Typography, Paper, Button, Box } from '@mui/material'
+import { Typography, Paper, Button, Box, LinearProgress } from '@mui/material'
 import mapboxgl from 'mapbox-gl'
 import * as turf from '@turf/turf'
 import Plot from 'react-plotly.js'
@@ -68,9 +68,11 @@ interface ClockOffset {
 const internetLatencyToDistance = (latency: number) => {
     const LIGHT_SECOND_km = 299792.458 
     const GLASS_FIBER_FACTOR = 0.66
-    const ROUTING_FACTOR = 1.8
+    const ROUTING_FACTOR_small_distances = 1.8
+    const ROUTING_FACTOR_large_distances = 1.5 // TODO: refine based on data
+    const routingFactor = latency < 150 ? ROUTING_FACTOR_small_distances : ROUTING_FACTOR_large_distances
     const LAMBDA_STARTUP_ms = 10
-    const distance_km = LIGHT_SECOND_km * (latency - LAMBDA_STARTUP_ms) / 1000 * GLASS_FIBER_FACTOR / ROUTING_FACTOR
+    const distance_km = LIGHT_SECOND_km * (latency - LAMBDA_STARTUP_ms) / 1000 * GLASS_FIBER_FACTOR / routingFactor
     return distance_km
 }
 
@@ -178,6 +180,11 @@ const createBoundaryPoints = (circle: GeoJSON.Feature<GeoJSON.Polygon>): GeoJSON
   }))
 });
 
+const MEASUREMENT_DELAY_MS = 800;
+
+// Helper function for delay
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: GeolocationProps) {
   const [messages, setMessages] = useState<LatencyMessage[]>([])
   const [clockOffsets, setClockOffsets] = useState<ClockOffset[]>([])
@@ -186,6 +193,8 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
   const map = useRef<mapboxgl.Map | null>(null)
   const circlesLayer = useRef<string[]>([])
   const [possibleCountries, setPossibleCountries] = useState<string[]>([])
+  const [currentActivity, setCurrentActivity] = useState<string>('');
+  const [progress, setProgress] = useState<number>(0);
 
   useEffect(() => {
     if (!mapContainer.current) return
@@ -384,9 +393,13 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
     setIsLoading(true)
     setMessages([])
     setClockOffsets([])
+    setProgress(0)
     
     for (let measurementIndex = 0; measurementIndex < 3; measurementIndex++) {
       try {
+        setCurrentActivity('Warming up connections...')
+        setProgress((measurementIndex * 100) / 3)
+        
         // Warm up lambdas
         try {
           await Promise.all(dataCenters.map((region) => fetch(region.url)))
@@ -399,27 +412,26 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
           measurementIndex 
         }])
 
-        // Get new nonce for this round
-        const clientStartTimestamp = new Date().getTime()
-        let clientReceivedNonceTimestamp: number
+        // Wait between rounds (except for the first one)
+        if (measurementIndex > 0) {
+          setCurrentActivity(`Waiting between measurement rounds (${measurementIndex + 1}/3)...`)
+          await delay(MEASUREMENT_DELAY_MS);
+        }
 
-        // Get nonce
-        const nonceResponse = await fetch(
-          `https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/?clientStartTimestamp=${clientStartTimestamp}`
-        )
-        clientReceivedNonceTimestamp = new Date().getTime()
-        const nonceResponseData = (await nonceResponse.json()) as NonceResponse | undefined
-        const roundNonce = nonceResponseData?.nonce
-
-        setMessages(prev => [...prev, { 
-          region: 'System', 
-          latency: 0,
-          halfRoundTripLatency: 0,
-          measurementIndex
-        }])
+        setCurrentActivity(`Running measurement round ${measurementIndex + 1}/3: `)
 
         await Promise.all(
           dataCenters.map(async (region) => {
+            const clientStartTimestamp = new Date().getTime()
+            let clientReceivedNonceTimestamp: number
+
+            // Get nonce
+            const nonceResponse = await fetch(
+              `https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/?clientStartTimestamp=${clientStartTimestamp}`
+            )
+            clientReceivedNonceTimestamp = new Date().getTime()
+            const nonceResponseData = (await nonceResponse.json()) as NonceResponse | undefined
+            const roundNonce = nonceResponseData?.nonce
             const clientSendNonceTime = new Date().getTime()
             const response = await fetch(`${region.url}?nonce=${roundNonce}&clientReceivedNonceTimestamp=${
               clientReceivedNonceTimestamp}`);
@@ -450,15 +462,20 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
               const latency = (LatencyResponseData.lambdaStartTimestamp - clockOffset_slave) - clientSendNonceTime
               const halfRoundTripLatency = (clientReceivedLatencyResponseTimestamp - clientSendNonceTime - 1000) / 2
 
+              // Update activity text immediately when each measurement comes in
+              setCurrentActivity(prev => 
+                prev + `${region.name}: ${Math.round(latency)}ms, `
+              );
+
               setMessages(prev => [...prev, { 
                 region: region.name, 
                 latency,
                 halfRoundTripLatency,
                 measurementIndex
-              }])
+              }]);
             }
           })
-        )
+        );
 
       } catch (error) {
         console.error('Triangulation error:', error)
@@ -470,6 +487,8 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
         }])
       }
     }
+    setProgress(100)
+    setCurrentActivity('')
     setIsLoading(false)
   }
 
@@ -553,6 +572,30 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
           {isLoading ? 'Testing...' : 'Test Network Triangulation'}
         </Button>
       </Box>
+
+      {isLoading && (
+        <Box sx={{ mb: 4 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <LinearProgress 
+              variant="determinate" 
+              value={progress} 
+              sx={{ 
+                flexGrow: 1,
+                height: 8,
+                borderRadius: 1
+              }} 
+            />
+            <Typography variant="body2" color="textSecondary" sx={{ ml: 2, minWidth: 35 }}>
+              {Math.round(progress)}%
+            </Typography>
+          </Box>
+          {currentActivity && (
+            <Typography variant="body2" color="textSecondary" align="center">
+              {currentActivity}
+            </Typography>
+          )}
+        </Box>
+      )}
       
       <Box sx={{ my: 4, height: 400 }} ref={mapContainer} />
 
@@ -591,21 +634,6 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
               style={{ width: '100%' }}
             />
           </Box>
-        </Box>
-      )}
-
-      {messages.length > 0 && (
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h6" gutterBottom>
-            Results:
-          </Typography>
-          {Array.from(new Set(messages.map(msg => msg.measurementIndex)))
-            .filter(index => index !== undefined)
-            .map((measurementIndex) => (
-              <Typography key={measurementIndex} color="textSecondary">
-                Measurement round #{(measurementIndex as number) + 1} completed
-              </Typography>
-          ))}
         </Box>
       )}
 
