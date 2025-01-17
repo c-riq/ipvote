@@ -84,6 +84,7 @@ function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange }: PopularProp
           name={poll.name}
           votes={poll.votes}
           onClick={() => handlePollClick(poll.name)}
+          privacyAccepted={privacyAccepted}
         />
       ))}
       
