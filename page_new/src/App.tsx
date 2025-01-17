@@ -53,6 +53,9 @@ function App() {
               
               {/* All other routes show Poll component */}
               <Route path="/*" element={<Poll />} />
+              
+              {/* Default route redirects to popular polls */}
+              <Route path="/" element={<Navigate to="/ui/popular" replace />} />
             </Routes>
           </div>
         </div>

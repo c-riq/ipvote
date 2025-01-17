@@ -41,7 +41,7 @@ function Popular() {
 
   return (
     <div>
-      <h1>Popular Polls</h1>
+      <h1>Let the internet vote!</h1>
       {polls.map((poll) => (
         <Card 
           key={poll.name}

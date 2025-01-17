@@ -59,6 +59,7 @@
   left: 0;
   right: 0;
   z-index: 100;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .burger-menu {
@@ -106,6 +107,7 @@
   padding: 1rem;
   height: calc(100vh - 48px);
   position: fixed;
+  top: 48px;
   left: 0;
   overflow-y: auto;
 }

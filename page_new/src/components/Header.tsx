@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { Typography } from '@mui/material';
 
 interface HeaderProps {
   isSidebarOpen: boolean;
@@ -16,6 +17,19 @@ function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
       >
         ☰
       </button>
+      <Typography 
+        variant="h6" 
+        component="div" 
+        sx={{ 
+          cursor: 'pointer', 
+          mr: 2,
+          fontWeight: 'bold',
+          '&:hover': { color: 'primary.main' }
+        }}
+        onClick={() => navigate('/')}
+      >
+        ip-vote.com
+      </Typography>
       <div className="search-container">
         <input 
           type="search" 
