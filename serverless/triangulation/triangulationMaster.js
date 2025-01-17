@@ -12,6 +12,7 @@ const { S3Client, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/c
 */
 const IS_SLAVE = false;
 const AWS_REGION_OF_SLAVE = 'ap-northeast-1'; // eu-central-1 sa-east-1 undefined  
+const DELAY = 1000; // to have a predictable delay. s3 requests fail if lambda response is sent too early
 
 
 const awsRegionOfMaster = 'us-east-1';
@@ -43,7 +44,6 @@ exports.handler = async (event, context) => {
             Math.random().toString(36).substring(2, 15);
 
         const s3 = new S3Client({ region: awsRegionOfMaster });
-        const DELAY = 1000; // to have a predictable delay. s3 requests fail if lambda response is sent too early
         const nonceSentTime = new Date().getTime() + DELAY;
         const command = new PutObjectCommand({
             Bucket: 'ipvotes',
@@ -92,8 +92,9 @@ exports.handler = async (event, context) => {
                 clientStartTimestamp, clientReceivedNonceTimestamp
             })
         });
-        await s3.send(putCommand);  
-
+        s3.send(putCommand);
+        await new Promise(resolve => setTimeout(resolve, DELAY));
+        
         return {
             statusCode: 200,
             body: nonce
@@ -129,10 +130,12 @@ exports.handler = async (event, context) => {
                 awsRegionOfSlave: AWS_REGION_OF_SLAVE, lambdaDuration: new Date().getTime() - lambdaStartTimestamp, 
                 clientReceivedNonceTimestamp })
         });
-        await s3.send(command);
+        s3.send(command);
+        await new Promise(resolve => setTimeout(resolve, DELAY));
+        const latencyResponseTimestamp = new Date().getTime();
         return {
             statusCode: 200,
-            body: {lambdaStartTimestamp, nonce},
+            body: {lambdaStartTimestamp, nonce, latencyResponseTimestamp},
             headers: {
                 'Content-Type': 'application/json',
             }

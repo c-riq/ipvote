@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Typography, Paper, Button, Box } from '@mui/material'
 import mapboxgl from 'mapbox-gl'
 import * as turf from '@turf/turf'
+import Plot from 'react-plotly.js'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import PrivacyAccept from './PrivacyAccept'
 
@@ -11,6 +12,7 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || ''
 interface LatencyMessage {
   region: string
   latency: number
+  halfRoundTripLatency: number
 }
 
 interface NonceResponse {
@@ -21,6 +23,7 @@ interface NonceResponse {
 
 interface LatencyResponse {
   lambdaStartTimestamp: number
+  latencyResponseTimestamp: number
   nonce: string
 }
 
@@ -28,6 +31,12 @@ interface DataCenter {
   name: string
   coordinates: [number, number] // [longitude, latitude]
   url: string
+}
+
+interface ClockOffset {
+  region: string
+  offset_master: number
+  offset_slave: number
 }
 
 const internetLatencyToDistance = (latency: number) => {
@@ -116,6 +125,7 @@ interface GeolocationProps {
 
 function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: GeolocationProps) {
   const [messages, setMessages] = useState<LatencyMessage[]>([])
+  const [clockOffsets, setClockOffsets] = useState<ClockOffset[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [nonce, setNonce] = useState<string | null>(null)
   const mapContainer = useRef<HTMLDivElement>(null)
@@ -246,6 +256,7 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
   const triggerTriangulationMeasurements = async () => {
     setIsLoading(true)
     setMessages([])
+    setClockOffsets([])
     
     try {
       // Warm up lambdas
@@ -272,31 +283,46 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
       }
       setMessages(prev => [...prev, { 
         region: 'System', 
-        latency: 0 
+        latency: 0,
+        halfRoundTripLatency: 0
       }])
-
 
       await Promise.all(
         dataCenters.map(async (region) => {
           const clientSendNonceTime = new Date().getTime()
           const response = await fetch(`${region.url}?nonce=${nonceResponseData?.nonce}&clientReceivedNonceTimestamp=${
-            clientReceivedNonceTimestamp}`)
+            clientReceivedNonceTimestamp}`);
+          const clientReceivedLatencyResponseTimestamp = new Date().getTime()
           const LatencyResponseData = await response.json() as LatencyResponse
           if (LatencyResponseData) {
-            // NTP algorithm for clock offset and latency calculation
             const t0 = clientStartTimestamp
             const t1 = nonceResponseData?.lambdaStartTimestamp || 0
             const t2 = nonceResponseData?.nonceSentTime || 0
             const t3 = clientReceivedNonceTimestamp
 
-            // Clock offset = ((t1 - t0) + (t2 - t3)) / 2
-            const clockOffset = ((t1 - t0) + (t2 - t3)) / 2
+            const clockOffset_master = ((t1 - t0) + (t2 - t3)) / 2
 
-            const latency = (LatencyResponseData.lambdaStartTimestamp - clockOffset) - clientSendNonceTime
+            const t0_1 = clientSendNonceTime
+            const t1_1 = LatencyResponseData.lambdaStartTimestamp
+            const t2_1 = LatencyResponseData.latencyResponseTimestamp
+            const t3_1 = clientReceivedLatencyResponseTimestamp
+
+            const clockOffset_slave = ((t1_1 - t0_1) + (t2_1 - t3_1)) / 2
+
+            // Store clock offset
+            setClockOffsets(prev => [...prev, {
+              region: region.name,
+              offset_master: clockOffset_master,
+              offset_slave: clockOffset_slave
+            }])
+
+            const latency = (LatencyResponseData.lambdaStartTimestamp - clockOffset_slave) - clientSendNonceTime
+            const halfRoundTripLatency = (clientReceivedLatencyResponseTimestamp - clientSendNonceTime - 1000) / 2
 
             setMessages(prev => [...prev, { 
               region: region.name, 
-              latency: latency
+              latency,
+              halfRoundTripLatency
             }])
           }
         })
@@ -306,7 +332,8 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
       console.error('Triangulation error:', error)
       setMessages(prev => [...prev, { 
         region: 'Error', 
-        latency: 0 
+        latency: 0,
+        halfRoundTripLatency: 0
       }])
     } finally {
       setIsLoading(false)
@@ -361,6 +388,63 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
               </Typography>
             )
           ))}
+        </Box>
+      )}
+
+      {clockOffsets.length > 0 && messages.length > 0 && (
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Latency vs Clock Offset:
+          </Typography>
+          <Box sx={{ height: 300 }}>
+            <Plot
+              data={[
+                {
+                  type: 'scatter',
+                  mode: 'markers+text',
+                  x: clockOffsets.map(offset => offset.offset_slave),
+                  y: messages
+                      .filter(msg => msg.region !== 'System' && msg.region !== 'Error')
+                      .map(msg => msg.latency),
+                  text: clockOffsets.map(offset => offset.region),
+                  textposition: 'top center',
+                  marker: {
+                    color: '#007cbf',
+                    size: 5
+                  }
+                },
+                {
+                  type: 'scatter',
+                  mode: 'markers+text',
+                  x: clockOffsets.map(offset => offset.offset_slave),
+                  y: messages
+                      .filter(msg => msg.region !== 'System' && msg.region !== 'Error')
+                      .map(msg => msg.halfRoundTripLatency),
+                  line: { color: '#7c00bf', 
+                    size: 5
+                   }
+                }
+              ]}
+              layout={{
+                margin: { t: 30, r: 10, l: 50, b: 50 },
+                height: 300,
+                xaxis: {
+                  title: 'Clock Offset (ms)',
+                  zeroline: true
+                },
+                yaxis: {
+                  title: 'Latency (ms)',
+                  zeroline: true
+                },
+                hovermode: 'closest'
+              }}
+              config={{
+                displayModeBar: false,
+                responsive: true
+              }}
+              style={{ width: '100%' }}
+            />
+          </Box>
         </Box>
       )}
     </Paper>
