@@ -1,6 +1,21 @@
 import React, { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Button, Checkbox, FormControlLabel, Alert, CircularProgress } from '@mui/material'
+import { 
+  Button, 
+  Checkbox, 
+  FormControlLabel, 
+  Alert, 
+  CircularProgress,
+  Box,
+  LinearProgress,
+  Typography
+} from '@mui/material'
+import Plot from 'react-plotly.js'
+
+interface VoteHistory {
+  date: string;
+  votes: { [key: string]: number };
+}
 
 function Poll() {
   const location = useLocation()
@@ -10,6 +25,7 @@ function Poll() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false)
   const [results, setResults] = useState<{ [key: string]: number }>({})
   const [userIp, setUserIp] = useState<string>('')
+  const [voteHistory, setVoteHistory] = useState<VoteHistory[]>([])
 
   useEffect(() => {
     // Get poll ID from URL path or hash
@@ -33,8 +49,9 @@ function Poll() {
       const response = await fetch(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${pollId}`)
       if (response.status === 200) {
         const text = await response.text()
-        const votes = text.split('\n')
+        const votes = text.split('\n').filter(line => line.trim())
         
+        // Process current totals
         if (pollId.includes('_or_')) {
           const options = pollId.split('_or_')
           const option1Votes = votes.filter(vote => vote.split(',')[3] === options[0]).length
@@ -45,6 +62,33 @@ function Poll() {
           const noVotes = votes.filter(vote => vote.split(',')[3] === 'no').length
           setResults({ yes: yesVotes, no: noVotes })
         }
+
+        // Process historical data
+        const dailyVotes: { [key: string]: { [key: string]: number } } = {}
+        
+        votes.forEach(vote => {
+          try {
+            const [timestamp, , , option] = vote.split(',')
+            // Convert milliseconds to seconds if needed
+            const ts = timestamp.length === 13 ? parseInt(timestamp) : parseInt(timestamp) * 1000
+            const date = new Date(ts).toISOString().split('T')[0]
+            
+            if (!dailyVotes[date]) {
+              dailyVotes[date] = {}
+            }
+            dailyVotes[date][option] = (dailyVotes[date][option] || 0) + 1
+          } catch (error) {
+            console.warn('Invalid timestamp in vote:', vote)
+          }
+        })
+
+        // Convert to array and sort by date
+        const history = Object.entries(dailyVotes).map(([date, votes]) => ({
+          date,
+          votes
+        })).sort((a, b) => a.date.localeCompare(b.date))
+
+        setVoteHistory(history)
       }
     } catch (error) {
       console.error('Error fetching results:', error)
@@ -69,41 +113,94 @@ function Poll() {
     setLoading(false)
   }
 
-  const renderVoteButtons = () => {
-    if (poll.includes('_or_')) {
-      const options = poll.split('_or_').sort()
-      return options.map(option => (
-        <Button
-          key={option}
-          variant="contained"
-          disabled={!privacyAccepted || loading}
-          onClick={() => vote(option)}
-          sx={{ m: 1 }}
-        >
-          {option}
-        </Button>
-      ))
-    }
+  const renderResults = () => {
+    if (Object.keys(results).length === 0) return null;
     
+    const totalVotes = Object.values(results).reduce((a, b) => a + b, 0);
+    
+    return Object.entries(results).map(([option, count]) => {
+      const percentage = (count / totalVotes) * 100;
+      return (
+        <Box key={option} sx={{ 
+          mb: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2
+        }}>
+          {!loading && (
+            <Button
+              variant="contained"
+              disabled={!privacyAccepted}
+              onClick={() => vote(option)}
+              sx={{ minWidth: '100px' }}
+            >
+              {option}
+            </Button>
+          )}
+          <Box sx={{ flex: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+              <Typography>{count} votes</Typography>
+              <Typography>{percentage.toFixed(2)}%</Typography>
+            </Box>
+            <LinearProgress 
+              variant="determinate" 
+              value={percentage}
+              sx={{
+                height: 20,
+                borderRadius: 1,
+                backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                '& .MuiLinearProgress-bar': {
+                  backgroundColor: 'primary.main',
+                }
+              }}
+            />
+          </Box>
+        </Box>
+      );
+    });
+  };
+
+  const renderVoteHistory = () => {
+    if (voteHistory.length === 0) return null
+
+    const options = poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']
+    const traces = options.map(option => ({
+      x: voteHistory.map(day => day.date),
+      y: voteHistory.map(day => day.votes[option] || 0),
+      name: option,
+      type: 'scatter',
+      mode: 'lines',
+    }))
+
     return (
-      <>
-        <Button
-          variant="contained"
-          disabled={!privacyAccepted || loading}
-          onClick={() => vote('yes')}
-          sx={{ m: 1 }}
-        >
-          Yes
-        </Button>
-        <Button
-          variant="contained"
-          disabled={!privacyAccepted || loading}
-          onClick={() => vote('no')}
-          sx={{ m: 1 }}
-        >
-          No
-        </Button>
-      </>
+      <Box sx={{ mt: 4, height: '300px' }}>
+        <Plot
+          data={traces}
+          layout={{
+            title: 'Votes over time',
+            autosize: true,
+            margin: { t: 30, r: 10, b: 30, l: 40 },
+            xaxis: {
+              title: 'Date',
+              showgrid: false,
+            },
+            yaxis: {
+              title: 'Votes',
+              showgrid: true,
+            },
+            showlegend: true,
+            legend: {
+              x: 0,
+              y: 1,
+              orientation: 'h'
+            },
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+          }}
+          useResizeHandler={true}
+          style={{ width: '100%', height: '100%' }}
+        />
+      </Box>
     )
   }
 
@@ -115,41 +212,37 @@ function Poll() {
       
       {message && <Alert severity="info" sx={{ mb: 2 }}>{message}</Alert>}
       
-      <FormControlLabel
-        control={
-          <Checkbox
-            checked={privacyAccepted}
-            onChange={(e) => setPrivacyAccepted(e.target.checked)}
+      {!userIp ? (
+        <CircularProgress />
+      ) : (
+        <>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={privacyAccepted}
+                onChange={(e) => setPrivacyAccepted(e.target.checked)}
+              />
+            }
+            label={
+              <div style={{ wordBreak: 'break-word' }}>
+                I accept the <a href="/privacy_policy.html" target="_blank">privacy policy</a> 
+                {' '}and the public sharing of my IP: {userIp}
+              </div>
+            }
+            sx={{ 
+              alignItems: 'flex-start',
+              '.MuiFormControlLabel-label': { 
+                mt: '2px'
+              }
+            }}
           />
-        }
-        label={
-          <div style={{ wordBreak: 'break-word' }}>
-            I accept the <a href="/privacy_policy.html" target="_blank">privacy policy</a> 
-            {' '}and the public sharing of my IP: {userIp}
+
+          <div style={{ margin: '20px 0' }}>
+            {loading ? <CircularProgress /> : renderResults()}
           </div>
-        }
-        sx={{ 
-          alignItems: 'flex-start',
-          '.MuiFormControlLabel-label': { 
-            mt: '2px' // Align text with checkbox
-          }
-        }}
-      />
 
-      <div style={{ margin: '20px 0' }}>
-        {loading ? <CircularProgress /> : renderVoteButtons()}
-      </div>
-
-      {Object.keys(results).length > 0 && (
-        <div>
-          <h2>Results</h2>
-          {Object.entries(results).map(([option, count]) => (
-            <div key={option}>
-              {option}: {count} votes 
-              ({((count / Object.values(results).reduce((a, b) => a + b, 0)) * 100).toFixed(2)}%)
-            </div>
-          ))}
-        </div>
+          {renderVoteHistory()}
+        </>
       )}
     </div>
   )
