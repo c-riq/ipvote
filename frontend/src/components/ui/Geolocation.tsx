@@ -68,7 +68,7 @@ interface ClockOffset {
 const internetLatencyToDistance = (latency: number) => {
     const LIGHT_SECOND_km = 299792.458 
     const GLASS_FIBER_FACTOR = 0.66
-    const ROUTING_FACTOR = 1.5
+    const ROUTING_FACTOR = 1.8
     const LAMBDA_STARTUP_ms = 10
     const distance_km = LIGHT_SECOND_km * (latency - LAMBDA_STARTUP_ms) / 1000 * GLASS_FIBER_FACTOR / ROUTING_FACTOR
     return distance_km
