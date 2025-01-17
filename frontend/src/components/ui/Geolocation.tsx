@@ -52,6 +52,7 @@ interface DataCenter {
   name: string
   coordinates: [number, number] // [longitude, latitude]
   url: string
+  color: string
 }
 
 interface ClockOffset {
@@ -74,42 +75,50 @@ const dataCenters: DataCenter[] = [
   {
     name: 'Germany',
     coordinates: [8.6821, 50.1109], // Frankfurt
-    url: 'https://wpbwaytwexqulyjlmly3rjkkdu0thgrr.lambda-url.eu-central-1.on.aws/'
+    url: 'https://wpbwaytwexqulyjlmly3rjkkdu0thgrr.lambda-url.eu-central-1.on.aws/',
+    color: '#FF6B6B'
   },
   {
     name: 'Japan',
     coordinates: [139.7594, 35.6850], // Tokyo
-    url: 'https://hhhauh3i652elinvl7b37vh2ma0nrujk.lambda-url.ap-northeast-1.on.aws/'
+    url: 'https://hhhauh3i652elinvl7b37vh2ma0nrujk.lambda-url.ap-northeast-1.on.aws/',
+    color: '#FF006E'
   },
   {
     name: 'Brazil',
     coordinates: [-46.6333, -23.5505], // São Paulo
-    url: 'https://unw3gvztdtl64g4zbzuyo6rozi0cvulu.lambda-url.sa-east-1.on.aws/'
+    url: 'https://unw3gvztdtl64g4zbzuyo6rozi0cvulu.lambda-url.sa-east-1.on.aws/',
+    color: '#45B7D1'
   },
   {
     name: 'US (Virginia)',
     coordinates: [-77.0469, 38.8048], // N. Virginia
-    url: 'https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/'
+    url: 'https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/',
+    color: '#FFBE0B'
   },
   {
     name: 'US (Oregon)',
     coordinates: [-122.6765, 45.5231], // Oregon
-    url: 'https://22kcgok5hkce3srzl4xksadj740npzoo.lambda-url.us-west-2.on.aws/'
+    url: 'https://22kcgok5hkce3srzl4xksadj740npzoo.lambda-url.us-west-2.on.aws/',
+    color: '#88D8B0'
   },
   {
     name: 'India',
     coordinates: [72.8777, 19.0760], // Mumbai
-    url: 'https://rchgdkidnerk2gkfiynfgkveje0iujmm.lambda-url.ap-south-1.on.aws/'
+    url: 'https://rchgdkidnerk2gkfiynfgkveje0iujmm.lambda-url.ap-south-1.on.aws/',
+    color: '#96CEB4'
   },
   {
     name: 'Ireland',
     coordinates: [-6.2603, 53.3498], // Dublin
-    url: 'https://5xaynesucez2tdtndxuyyqmjei0txpcw.lambda-url.eu-west-1.on.aws/'
+    url: 'https://5xaynesucez2tdtndxuyyqmjei0txpcw.lambda-url.eu-west-1.on.aws/',
+    color: '#4ECDC4'
   },
   {
     name: 'South Africa',
     coordinates: [18.4241, -33.9249], // Cape Town
-    url: 'https://bcjj76sx7xfqoz6yc6ngw6ioma0ajqsb.lambda-url.af-south-1.on.aws/'
+    url: 'https://bcjj76sx7xfqoz6yc6ngw6ioma0ajqsb.lambda-url.af-south-1.on.aws/',
+    color: '#8338EC'
   }
 ]
 
@@ -143,18 +152,6 @@ interface GeolocationProps {
   privacyAccepted: boolean
   userIp: string | null
   onPrivacyAcceptChange: (accepted: boolean) => void
-}
-
-// Add color mapping for data centers
-const dataCenterColors = {
-  'Germany': '#FF6B6B',      // Red
-  'Japan': '#4ECDC4',        // Teal
-  'Brazil': '#45B7D1',       // Blue
-  'US (Virginia)': '#96CEB4', // Green
-  'US (Oregon)': '#88D8B0',  // Light Green
-  'India': '#FFBE0B',        // Yellow
-  'Ireland': '#FF006E',      // Pink
-  'South Africa': '#8338EC'  // Purple
 }
 
 // Add this function to find intersecting countries
@@ -213,9 +210,19 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
       boxZoom: false
     })
 
-    // Add markers for data centers
+    // Add markers for data centers with custom colors
     dataCenters.forEach(dc => {
-      new mapboxgl.Marker()
+      // Create a custom colored marker element
+      const el = document.createElement('div');
+      el.className = 'marker';
+      el.style.backgroundColor = dc.color;
+      el.style.width = '15px';
+      el.style.height = '15px';
+      el.style.borderRadius = '50%';
+      el.style.border = '2px solid white';
+      el.style.boxShadow = '0 0 2px rgba(0,0,0,0.3)';
+
+      new mapboxgl.Marker({ element: el })
         .setLngLat(dc.coordinates)
         .setPopup(new mapboxgl.Popup().setHTML(dc.name))
         .addTo(map.current!)
@@ -232,8 +239,8 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
 
     // Remove existing layers and sources
     circlesLayer.current.forEach(id => {
-      if (map.current!.getLayer(`${id}-fill`)) {
-        map.current!.removeLayer(`${id}-fill`)
+      if (map.current!.getLayer(`${id}-dots`)) {
+        map.current!.removeLayer(`${id}-dots`)
       }
       if (map.current!.getSource(id)) {
         map.current!.removeSource(id)
@@ -266,13 +273,49 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
         return {
           circle,
           radius: radiusKm,
-          region: msg.region
+          region: msg.region,
+          color: dataCenter.color
         }
       })
       .filter((c): c is NonNullable<typeof c> => c !== null)
       .sort((a, b) => a.radius - b.radius)
 
-    // Get the two smallest circles that don't cross antimeridian
+    // Helper function to create boundary points
+    const createBoundaryPoints = (circle: GeoJSON.Feature) => ({
+      type: 'FeatureCollection',
+      features: circle.geometry.coordinates[0].map(coord => ({
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'Point',
+          coordinates: coord
+        }
+      }))
+    });
+
+    // Plot all circles as dots
+    sortedCircles.forEach((circleData, index) => {
+      const circleId = `circle-${index}`;
+      circlesLayer.current.push(circleId);
+
+      map.current!.addSource(circleId, {
+        type: 'geojson',
+        data: createBoundaryPoints(circleData.circle)
+      });
+
+      map.current!.addLayer({
+        id: `${circleId}-dots`,
+        type: 'circle',
+        source: circleId,
+        paint: {
+          'circle-radius': 2,
+          'circle-color': circleData.color,
+          'circle-opacity': 0.6
+        }
+      });
+    });
+
+    // Get the two smallest circles that don't cross antimeridian for intersection
     const validCircles = sortedCircles
       .filter(c => !handleAntimeridian(c.circle).crossesAntimeridian)
       .slice(0, 2)
@@ -285,45 +328,6 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
 
         // Check if circles overlap
         if (turf.booleanOverlap(circle1, circle2)) {
-          // Create unique IDs for the circles
-          const circle1Id = 'circle-1';
-          const circle2Id = 'circle-2';
-          
-          // Track the sources for cleanup
-          circlesLayer.current.push(circle1Id, circle2Id);
-
-          // Add circles as sources
-          map.current!.addSource(circle1Id, {
-            type: 'geojson',
-            data: circle1
-          });
-
-          map.current!.addSource(circle2Id, {
-            type: 'geojson',
-            data: circle2
-          });
-
-          // Add fill layers
-          map.current!.addLayer({
-            id: `${circle1Id}-fill`,
-            type: 'fill',
-            source: circle1Id,
-            paint: {
-              'fill-color': '#007cbf',
-              'fill-opacity': 0.2
-            }
-          });
-
-          map.current!.addLayer({
-            id: `${circle2Id}-fill`,
-            type: 'fill',
-            source: circle2Id,
-            paint: {
-              'fill-color': '#007cbf',
-              'fill-opacity': 0.2
-            }
-          });
-
           // Find intersecting countries
           const countries = findIntersectingCountries(circle1, circle2);
           setPossibleCountries(countries);
@@ -483,7 +487,7 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
                   .map(offset => `#${offset.measurementIndex! + 1}`),
                 textposition: 'top center',
                 marker: {
-                  color: dataCenterColors[dc.name as keyof typeof dataCenterColors],
+                  color: dc.color,
                   size: 8
                 }
               }))}
@@ -538,7 +542,7 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
             Possible Countries:
           </Typography>
           <Typography color="textSecondary">
-            Based on the intersection of the two smallest circles, you are assumed to be in one of the following countries: {' '}
+            Based on the measured latencies, you are assumed to be in one of the following countries: {' '}
             {possibleCountries.join(', ')}
           </Typography>
         </Box>
