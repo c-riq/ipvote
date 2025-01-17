@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Newsletter from './ui/Newsletter'
 import Popular from './ui/Popular'
 import CreatePoll from './ui/CreatePoll'
+import Geolocation from './ui/Geolocation'
 
 interface MainContentProps {
   privacyAccepted: boolean
@@ -22,6 +23,7 @@ function MainContent({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: 
           query={query}
         />} />
         <Route path="create" element={<CreatePoll />} />
+        <Route path="geolocation" element={<Geolocation />} />
         <Route path="/" element={<Navigate to="/ui/popular" replace />} />
       </Routes>
     </main>

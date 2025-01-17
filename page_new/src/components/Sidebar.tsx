@@ -21,6 +21,7 @@ function Sidebar({ isOpen }: SidebarProps) {
       <ul>
         <li><a href="/ui/popular">Popular polls</a></li>
         <li><a href="/ui/newsletter">Newsletter</a></li>
+        <li><a href="/ui/geolocation">Geolocation</a></li>
       </ul>
     </div>
   )
