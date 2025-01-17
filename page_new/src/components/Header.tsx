@@ -19,7 +19,7 @@ function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
           className="search-bar"
         />
       </div>
-      <button className="create-button">Create Post</button>
+      <button className="create-button">Create Poll</button>
     </header>
   )
 }

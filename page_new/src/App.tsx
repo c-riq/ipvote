@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ThemeProvider, createTheme } from '@mui/material'
 import CssBaseline from '@mui/material/CssBaseline'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
@@ -9,7 +9,16 @@ import Poll from './components/Poll'
 import './App.css'
 
 function App() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsSidebarOpen(window.innerWidth > 768)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const lightTheme = createTheme({
     palette: {
