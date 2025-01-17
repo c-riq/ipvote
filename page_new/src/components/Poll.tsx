@@ -216,6 +216,61 @@ function Poll() {
     )
   }
 
+  const renderVoteButtons = () => {
+    if (Object.keys(results).length > 0) {
+      return renderResults();
+    }
+
+    // For new polls with no results yet
+    const options = poll.includes('_or_') 
+      ? poll.split('_or_')
+      : ['yes', 'no'];
+
+    return options.map(option => (
+      <Box key={option} sx={{ 
+        mb: 2,
+        display: 'flex',
+        flexDirection: { xs: 'column', sm: 'row' },
+        alignItems: { xs: 'stretch', sm: 'center' },
+        gap: 2
+      }}>
+        <Box sx={{ 
+          flex: 1,
+          order: { xs: 1, sm: 2 }
+        }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+            <Typography>0 votes</Typography>
+            <Typography>0%</Typography>
+          </Box>
+          <LinearProgress 
+            variant="determinate" 
+            value={0}
+            sx={{
+              height: 20,
+              borderRadius: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.1)',
+              '& .MuiLinearProgress-bar': {
+                backgroundColor: 'primary.main',
+              }
+            }}
+          />
+        </Box>
+        <Button
+          variant="contained"
+          disabled={!privacyAccepted}
+          onClick={() => vote(option)}
+          sx={{ 
+            minWidth: '100px',
+            order: { xs: 2, sm: 1 },
+            width: { xs: '100%', sm: 'auto' }
+          }}
+        >
+          {option}
+        </Button>
+      </Box>
+    ));
+  };
+
   return (
     <div className="content">
       <h1 style={{ wordBreak: 'break-word' }}>
@@ -257,7 +312,7 @@ function Poll() {
           />
 
           <div style={{ margin: '20px 0' }}>
-            {loading ? <CircularProgress /> : renderResults()}
+            {loading ? <CircularProgress /> : renderVoteButtons()}
           </div>
 
           {renderVoteHistory()}
