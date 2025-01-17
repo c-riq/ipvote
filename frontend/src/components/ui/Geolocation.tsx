@@ -246,6 +246,18 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
         map.current!.removeSource(id)
       }
     })
+
+    // Remove possible countries layer if it exists
+    if (map.current.getLayer('possible-countries-fill')) {
+      map.current.removeLayer('possible-countries-fill')
+    }
+    if (map.current.getLayer('possible-countries-border')) {
+      map.current.removeLayer('possible-countries-border')
+    }
+    if (map.current.getSource('possible-countries')) {
+      map.current.removeSource('possible-countries')
+    }
+
     circlesLayer.current = []
 
     // Group messages by region and find minimum latency for each
@@ -329,10 +341,53 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
         // Check if circles overlap
         if (turf.booleanOverlap(circle1, circle2)) {
           // Find intersecting countries
-          const countries = findIntersectingCountries(circle1, circle2);
-          setPossibleCountries(countries);
+          const intersectingCountries = findIntersectingCountries(circle1, circle2);
+          setPossibleCountries(intersectingCountries);
+
+          // Create a feature collection of possible countries
+          if (countries && countries.features) {
+            const possibleCountriesFeatures = intersectingCountries
+              .map(countryCode => {
+                const country = countries.features.find(f => f.properties?.A3 === countryCode);
+                return country ? turf.feature(country.geometry, country.properties) : null;
+              })
+              .filter((f): f is GeoJSON.Feature => f !== null);
+
+            if (possibleCountriesFeatures.length > 0) {
+              // Add possible countries to the map
+              map.current.addSource('possible-countries', {
+                type: 'geojson',
+                data: {
+                  type: 'FeatureCollection',
+                  features: possibleCountriesFeatures
+                }
+              });
+
+              // Add fill layer
+              map.current.addLayer({
+                id: 'possible-countries-fill',
+                type: 'fill',
+                source: 'possible-countries',
+                paint: {
+                  'fill-color': '#007cbf',
+                  'fill-opacity': 0.2
+                }
+              });
+
+              // Add border layer
+              map.current.addLayer({
+                id: 'possible-countries-border',
+                type: 'line',
+                source: 'possible-countries',
+                paint: {
+                  'line-color': '#007cbf',
+                  'line-width': 1,
+                  'line-opacity': 0.5
+                }
+              });
+            }
+          }
         } else {
-          console.log('Circles do not overlap');
           setPossibleCountries([]);
         }
       } catch (error) {
