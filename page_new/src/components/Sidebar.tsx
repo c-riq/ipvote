@@ -7,8 +7,8 @@ function Sidebar({ isOpen }: SidebarProps) {
     <nav className={`sidebar ${isOpen ? 'open' : 'closed'}`}>
       <ul>
         <li><a href="/">Home</a></li>
-        <li><a href="/ui/popular">Popular</a></li>
-        <li><a href="/ui/all">All</a></li>
+        <li><a href="/ui/popular">Popular polls</a></li>
+        <li><a href="/ui/newsletter">Newsletter</a></li>
       </ul>
     </nav>
   )

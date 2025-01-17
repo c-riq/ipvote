@@ -1,7 +1,15 @@
+import { Routes, Route, Navigate } from 'react-router-dom'
+import Newsletter from './ui/Newsletter'
+import Popular from './ui/Popular'
+
 function MainContent() {
   return (
     <main className="content">
-      <h1>Polls</h1>
+      <Routes>
+        <Route path="newsletter" element={<Newsletter />} />
+        <Route path="popular" element={<Popular />} />
+        <Route path="/" element={<Navigate to="/ui/popular" replace />} />
+      </Routes>
     </main>
   )
 }
