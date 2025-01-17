@@ -44,18 +44,22 @@ exports.handler = async (event, context) => {
 
         const s3 = new S3Client({ region: awsRegionOfMaster });
         const DELAY = 1000; // to have a predictable delay. s3 requests fail if lambda response is sent too early
+        const nonceSentTime = new Date().getTime() + DELAY;
         const command = new PutObjectCommand({
             Bucket: 'ipvotes',
             Key: `triangulation/${ip}/${nonce}-1.json`,
             Body: JSON.stringify({ event: 'nonceGeneratedAtMaster',nonce, ip, lambdaStartTimestamp, 
-                awsRegionOfMaster, nonceSentTime: new Date().getTime() + DELAY, clientStartTimestamp })
+                awsRegionOfMaster, nonceSentTime, clientStartTimestamp })
 
         });
         s3.send(command);
         await new Promise(resolve => setTimeout(resolve, DELAY));
         return {
             statusCode: 200,
-            body: nonce
+            body: {nonce, lambdaStartTimestamp, nonceSentTime},
+            headers: {
+                'Content-Type': 'application/json',
+            }
         };
     }
 
@@ -128,7 +132,10 @@ exports.handler = async (event, context) => {
         await s3.send(command);
         return {
             statusCode: 200,
-            body: nonce
+            body: {lambdaStartTimestamp, nonce},
+            headers: {
+                'Content-Type': 'application/json',
+            }
         };
     }
 

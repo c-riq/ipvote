@@ -20,13 +20,13 @@ fi
 
 export AWS_PROFILE=$aws_profile
 
-if [ ! -d "public" ]; then
-    echo "${red}public folder not found${reset}"
+if [ ! -d "dist" ]; then
+    echo "${red}dist folder not found${reset}"
     exit 0;
 fi
 
 echo Synching Build Folder: $s3_bucket...
-aws s3 sync public/ s3://$s3_bucket --delete --cache-control max-age=31530000,public
+aws s3 sync dist/ s3://$s3_bucket --delete --cache-control max-age=31530000,public
 
 if [ ! -z "$cf_id" ]; then
     echo Invalidating cloudfront cache

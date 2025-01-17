@@ -34,6 +34,7 @@ IS_SLAVE=(
     "true"
     "true"
     "true"
+    "true"
 )
 
 # Base function name
