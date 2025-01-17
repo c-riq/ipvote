@@ -11,6 +11,7 @@ import {
   Typography
 } from '@mui/material'
 import Plot from 'react-plotly.js'
+import DownloadIcon from '@mui/icons-material/Download'
 
 interface VoteHistory {
   date: string;
@@ -271,6 +272,13 @@ function Poll() {
     ));
   };
 
+  const downloadPollData = () => {
+    if (!poll) return;
+    
+    // Direct download from the API endpoint
+    window.open(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}`, '_blank');
+  };
+
   return (
     <div className="content">
       <h1 style={{ wordBreak: 'break-word' }}>
@@ -316,6 +324,18 @@ function Poll() {
           </div>
 
           {renderVoteHistory()}
+
+          {Object.keys(results).length > 0 && (
+            <Box sx={{ mt: 2, mb: 4 }}>
+              <Button
+                variant="outlined"
+                onClick={downloadPollData}
+                startIcon={<DownloadIcon />}
+              >
+                Download Poll Data
+              </Button>
+            </Box>
+          )}
         </>
       )}
     </div>
