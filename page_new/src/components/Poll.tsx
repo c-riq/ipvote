@@ -8,10 +8,16 @@ import {
   CircularProgress,
   Box,
   LinearProgress,
-  Typography
+  Typography,
+  FormControl,
+  FormGroup,
+  FormLabel,
+  Paper,
+  Popover
 } from '@mui/material'
 import Plot from 'react-plotly.js'
 import DownloadIcon from '@mui/icons-material/Download'
+import FilterListIcon from '@mui/icons-material/FilterList'
 
 interface VoteHistory {
   date: string;
@@ -27,6 +33,8 @@ function Poll() {
   const [results, setResults] = useState<{ [key: string]: number }>({})
   const [userIp, setUserIp] = useState<string>('')
   const [voteHistory, setVoteHistory] = useState<VoteHistory[]>([])
+  const [includeTor, setIncludeTor] = useState(true)
+  const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLButtonElement | null>(null)
 
   useEffect(() => {
     // Get poll ID from URL path or hash
@@ -45,9 +53,19 @@ function Poll() {
       .then(data => setUserIp(data.ip))
   }, [location])
 
+  const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setFilterAnchorEl(event.currentTarget)
+  }
+
+  const handleFilterClose = () => {
+    setFilterAnchorEl(null)
+  }
+
+  const filterOpen = Boolean(filterAnchorEl)
+
   const fetchResults = async (pollId: string) => {
     try {
-      const response = await fetch(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${pollId}`)
+      const response = await fetch(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${pollId}&excludeTor=${!includeTor}`)
       if (response.status === 200) {
         const text = await response.text()
         const votes = text.split('\n').filter(line => line.trim())
@@ -95,6 +113,10 @@ function Poll() {
       console.error('Error fetching results:', error)
     }
   }
+
+  useEffect(() => {
+    fetchResults(poll)
+  }, [includeTor])
 
   const vote = async (option: string) => {
     if (!privacyAccepted) {
@@ -323,7 +345,60 @@ function Poll() {
             {loading ? <CircularProgress /> : renderVoteButtons()}
           </div>
 
-          {renderVoteHistory()}
+          <Box sx={{ position: 'relative' }}>
+            <Box sx={{ 
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              zIndex: 1 
+            }}>
+              <Button
+                variant="outlined"
+                onClick={handleFilterClick}
+                startIcon={<FilterListIcon />}
+                size="small"
+              >
+                Filter Results
+              </Button>
+              <Popover
+                open={filterOpen}
+                anchorEl={filterAnchorEl}
+                onClose={handleFilterClose}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'left',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'left',
+                }}
+              >
+                <Paper sx={{ p: 2 }}>
+                  <FormControl component="fieldset">
+                    <FormLabel component="legend">Filter Options</FormLabel>
+                    <FormGroup>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={includeTor}
+                            onChange={(e) => {
+                              setIncludeTor(e.target.checked);
+                              fetchResults(poll);
+                            }}
+                          />
+                        }
+                        label="Include votes from Tor exit nodes"
+                      />
+                      {/* Additional filters can be added here in the future */}
+                    </FormGroup>
+                  </FormControl>
+                </Paper>
+              </Popover>
+            </Box>
+
+            <div id="results"></div>
+            {renderVoteHistory()}
+          </Box>
 
           {Object.keys(results).length > 0 && (
             <Box sx={{ mt: 2, mb: 4 }}>
