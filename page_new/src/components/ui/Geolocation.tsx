@@ -6,6 +6,17 @@ interface LatencyMessage {
   latency: number
 }
 
+interface NonceResponse {
+  nonce: string
+  lambdaStartTimestamp: number
+  nonceSentTime: number
+}
+
+interface LatencyResponse {
+    lambdaStartTimestamp: number
+    nonce: string
+}
+
 function Geolocation() {
   const [messages, setMessages] = useState<LatencyMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -41,8 +52,10 @@ function Geolocation() {
         `https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/?clientStartTimestamp=${clientStartTimestamp}`
       )
       clientReceivedNonceTimestamp = new Date().getTime()
-      const newNonce = await nonceResponse.text()
-      setNonce(newNonce)
+      const nonceResponseData = (await nonceResponse.json()) as NonceResponse | undefined
+      if (nonceResponseData) {
+        setNonce(nonceResponseData.nonce)
+      }
       setMessages(prev => [...prev, { 
         region: 'System', 
         latency: 0 
@@ -87,12 +100,26 @@ function Geolocation() {
       await Promise.all(
         regions.map(async (region) => {
           const startTime = new Date().getTime()
-          await fetch(`${region.url}?nonce=${newNonce}&clientReceivedNonceTimestamp=${clientReceivedNonceTimestamp}`)
-          const latency = new Date().getTime() - startTime
-          setMessages(prev => [...prev, { 
-            region: region.name, 
-            latency 
-          }])
+          const response = await fetch(`${region.url}?nonce=${nonceResponseData?.nonce}&clientReceivedNonceTimestamp=${
+            clientReceivedNonceTimestamp}`)
+          const LatencyResponseData = await response.json() as LatencyResponse
+          if (LatencyResponseData) {
+            // NTP algorithm for clock offset and latency calculation
+            const t0 = clientStartTimestamp
+            const t1 = nonceResponseData?.lambdaStartTimestamp || 0
+            const t2 = nonceResponseData?.nonceSentTime || 0
+            const t3 = clientReceivedNonceTimestamp
+
+            // Clock offset = ((t1 - t0) + (t2 - t3)) / 2
+            const clockOffset = ((t1 - t0) + (t2 - t3)) / 2
+
+            const latency = (LatencyResponseData.lambdaStartTimestamp - clockOffset) - startTime
+
+            setMessages(prev => [...prev, { 
+              region: region.name, 
+              latency 
+            }])
+          }
         })
       )
 
