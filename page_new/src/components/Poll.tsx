@@ -213,8 +213,8 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
       x: voteHistory.map(day => day.date),
       y: voteHistory.map(day => day.votes[option] || 0),
       name: option,
-      type: 'scatter',
-      mode: 'lines',
+      type: 'scatter' as const,
+      mode: 'lines' as const,
     }))
 
     return (

@@ -89,7 +89,12 @@ function App() {
                 />} />
                 
                 {/* Routes with dots (e.g., file extensions) */}
-                <Route path="*.*" element={<MainContent privacyAccepted={privacyAccepted} userIp={userIp} onPrivacyAcceptChange={handlePrivacyAcceptChange} />} />
+                <Route path="*.*" element={<MainContent 
+                  privacyAccepted={privacyAccepted} 
+                  userIp={userIp} 
+                  onPrivacyAcceptChange={handlePrivacyAcceptChange}
+                  query={searchQuery}
+                />} />
                 
                 {/* All other routes show Poll component */}
                 <Route path="/*" element={

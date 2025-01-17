@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Typography, Paper, Button, Box } from '@mui/material'
 import mapboxgl from 'mapbox-gl'
 import * as turf from '@turf/turf'
@@ -81,8 +81,8 @@ const dataCenters: DataCenter[] = [
   }
 ]
 
-const handleAntimeridian = (circle: turf.Feature) => {
-  const coordinates = circle.geometry.coordinates[0];
+const handleAntimeridian = (circle: GeoJSON.Feature) => {
+  const coordinates = (circle.geometry as GeoJSON.Polygon).coordinates[0];
   
   // Check if circle crosses antimeridian
   let hasPointsEast = false;
@@ -165,7 +165,7 @@ function Geolocation() {
     // Find the smallest valid circle first
     let smallestRadius = Infinity
     let smallestCircleId = ''
-    let smallestCircleFeature = null
+    let smallestCircleFeature: GeoJSON.Feature | null = null
 
     messages.forEach(msg => {
       const dataCenter = dataCenters.find(dc => dc.name === msg.region)
