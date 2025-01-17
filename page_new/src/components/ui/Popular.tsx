@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Card, CardContent, Typography, CircularProgress } from '@mui/material'
+import { CircularProgress } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
+import PollCard from './PollCard'
 
 const LIMIT = 15
 const SEED_RANGE = 4
@@ -66,22 +67,12 @@ function Popular() {
     <div>
       <h1>Let the internet vote!</h1>
       {polls.map((poll) => (
-        <Card 
+        <PollCard
           key={poll.name}
-          sx={{ mb: 2, cursor: 'pointer' }}
+          name={poll.name}
+          votes={poll.votes}
           onClick={() => handlePollClick(poll.name)}
-        >
-          <CardContent>
-            <Typography variant="h6">
-              {poll.name.includes('_or_') 
-                ? poll.name.replace(/_/g, ' ') + '?'
-                : poll.name.replace(/_/g, ' ')}
-            </Typography>
-            <Typography color="textSecondary">
-              {poll.votes} votes
-            </Typography>
-          </CardContent>
-        </Card>
+        />
       ))}
       
       {hasMore && !loading && (
