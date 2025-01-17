@@ -23,7 +23,11 @@ function MainContent({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: 
           query={query}
         />} />
         <Route path="create" element={<CreatePoll />} />
-        <Route path="geolocation" element={<Geolocation />} />
+        <Route path="geolocation" element={<Geolocation 
+          privacyAccepted={privacyAccepted} 
+          userIp={userIp} 
+          onPrivacyAcceptChange={onPrivacyAcceptChange}
+        />} />
         <Route path="/" element={<Navigate to="/ui/popular" replace />} />
       </Routes>
     </main>

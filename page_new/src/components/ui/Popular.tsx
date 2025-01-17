@@ -89,6 +89,7 @@ function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: Popu
         accepted={privacyAccepted}
         onAcceptChange={onPrivacyAcceptChange}
       />
+      <div style={{ marginTop: '20px' }} />
       {polls.map((poll) => (
         <PollCard
           key={poll.name}

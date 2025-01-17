@@ -3,6 +3,7 @@ import { Typography, Paper, Button, Box } from '@mui/material'
 import mapboxgl from 'mapbox-gl'
 import * as turf from '@turf/turf'
 import 'mapbox-gl/dist/mapbox-gl.css'
+import PrivacyAccept from './PrivacyAccept'
 
 // Replace with your Mapbox access token
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || ''
@@ -107,7 +108,13 @@ const handleAntimeridian = (circle: GeoJSON.Feature) => {
   };
 };
 
-function Geolocation() {
+interface GeolocationProps {
+  privacyAccepted: boolean
+  userIp: string | null
+  onPrivacyAcceptChange: (accepted: boolean) => void
+}
+
+function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: GeolocationProps) {
   const [messages, setMessages] = useState<LatencyMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [nonce, setNonce] = useState<string | null>(null)
@@ -309,24 +316,29 @@ function Geolocation() {
   return (
     <Paper sx={{ p: 3, maxWidth: 800, margin: '0 auto' }}>
       <Typography variant="h4" gutterBottom>
-        Geolocation via Network Latency
+        Geolocation via Network Latency <span style={{ fontSize: '20px', color: '#cc8888' }}>(Beta)</span>
       </Typography>
       <Typography paragraph>
-        This allows us to estimate your location and use this for validating where votes come from. Read more <a href="https://ip-vote.com/geolocation_via_latency.html">here</a>
+        This allows us to estimate your location to validate where the hardware that is attached to your IP address is located. Read more <a href="/geolocation_via_latency.html">here</a>
       </Typography>
 
-      <Box sx={{ my: 4 }}>
+      <PrivacyAccept
+        userIp={userIp}
+        accepted={privacyAccepted}
+        onAcceptChange={onPrivacyAcceptChange}
+      />
+
+      <Box sx={{ my: 4, mb: 6 }}>
         <Button 
           variant="contained" 
           onClick={triggerTriangulationMeasurements}
-          disabled={isLoading}
+          disabled={isLoading || !privacyAccepted}
         >
           {isLoading ? 'Testing...' : 'Test Network Triangulation'}
         </Button>
       </Box>
       
       <Box sx={{ my: 4, height: 400 }} ref={mapContainer} />
-
 
       {messages.length > 0 && (
         <Box sx={{ mt: 2 }}>
