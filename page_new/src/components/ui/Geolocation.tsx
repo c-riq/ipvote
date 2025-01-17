@@ -34,7 +34,7 @@ const internetLatencyToDistance = (latency: number) => {
     const GLASS_FIBER_FACTOR = 0.66
     const ROUTING_FACTOR = 1.5
     const LAMBDA_STARTUP_ms = 10
-    const distance_km = LIGHT_SECOND_km * (latency - LAMBDA_STARTUP_ms) / 1000 * GLASS_FIBER_FACTOR * ROUTING_FACTOR
+    const distance_km = LIGHT_SECOND_km * (latency - LAMBDA_STARTUP_ms) / 1000 * GLASS_FIBER_FACTOR / ROUTING_FACTOR
     return distance_km
 }
 
@@ -81,6 +81,32 @@ const dataCenters: DataCenter[] = [
   }
 ]
 
+const handleAntimeridian = (circle: turf.Feature) => {
+  const coordinates = circle.geometry.coordinates[0];
+  
+  // Check if circle crosses antimeridian
+  let hasPointsEast = false;
+  let hasPointsWest = false;
+  let maxLongitudeDiff = 0;
+
+  for (let i = 0; i < coordinates.length; i++) {
+    const point = coordinates[i];
+    const nextPoint = coordinates[i + 1] || coordinates[0];
+    
+    if (point[0] > 90) hasPointsEast = true;
+    if (point[0] < -90) hasPointsWest = true;
+
+    const longDiff = Math.abs(point[0] - nextPoint[0]);
+    maxLongitudeDiff = Math.max(maxLongitudeDiff, longDiff);
+  }
+
+  // Return null for fill and indicate if circle crosses antimeridian
+  return {
+    circle,
+    crossesAntimeridian: hasPointsEast && hasPointsWest && maxLongitudeDiff > 180
+  };
+};
+
 function Geolocation() {
   const [messages, setMessages] = useState<LatencyMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -97,7 +123,12 @@ function Geolocation() {
       style: 'mapbox://styles/mapbox/light-v11',
       center: [0, 20],
       zoom: 0.8,
-      projection: 'globe'
+      projection: 'globe',
+      scrollZoom: false,
+      dragRotate: false,
+      touchZoomRotate: false,
+      doubleClickZoom: false,
+      boxZoom: false
     })
 
     // Add markers for data centers
@@ -122,8 +153,8 @@ function Geolocation() {
       if (map.current!.getLayer(`${id}-fill`)) {
         map.current!.removeLayer(`${id}-fill`)
       }
-      if (map.current!.getLayer(id)) {
-        map.current!.removeLayer(id)
+      if (map.current!.getLayer(`${id}-points`)) {
+        map.current!.removeLayer(`${id}-points`)
       }
       if (map.current!.getSource(id)) {
         map.current!.removeSource(id)
@@ -131,58 +162,77 @@ function Geolocation() {
     })
     circlesLayer.current = []
 
-    // Add new circles based on latency measurements
+    // Find the smallest valid circle first
+    let smallestRadius = Infinity
+    let smallestCircleId = ''
+    let smallestCircleFeature = null
+
     messages.forEach(msg => {
       const dataCenter = dataCenters.find(dc => dc.name === msg.region)
       if (!dataCenter || msg.region === 'System' || msg.region === 'Error') return
 
-      // Convert latency to approximate kilometers
       const radiusKm = internetLatencyToDistance(msg.latency)
-
-      console.log(msg, radiusKm, 'km', dataCenter.coordinates)
-      
-      const circleId = `circle-${msg.region}`
-      circlesLayer.current.push(circleId)
-
-      // Create a circle using Turf.js
       const center = turf.point(dataCenter.coordinates)
       const circle = turf.circle(center, radiusKm, {
-        steps: 64,
+        steps: 128,
         units: 'kilometers'
       })
 
-      console.log(circle)
+      const result = handleAntimeridian(circle)
+      if (!result.crossesAntimeridian && radiusKm < smallestRadius) {
+        smallestRadius = radiusKm
+        smallestCircleId = `circle-${msg.region}`
+        smallestCircleFeature = result.circle
+      }
+    })
 
-      // Only add source if it doesn't exist
-      if (!map.current!.getSource(circleId)) {
-        map.current!.addSource(circleId, {
-          type: 'geojson',
-          data: circle
+    // Add all circles
+    messages.forEach(msg => {
+      const dataCenter = dataCenters.find(dc => dc.name === msg.region)
+      if (!dataCenter || msg.region === 'System' || msg.region === 'Error') return
+
+      const radiusKm = internetLatencyToDistance(msg.latency)
+      const circleId = `circle-${msg.region}`
+      circlesLayer.current.push(circleId)
+
+      const center = turf.point(dataCenter.coordinates)
+      const circle = turf.circle(center, radiusKm, {
+        steps: 128,
+        units: 'kilometers'
+      })
+
+      const result = handleAntimeridian(circle)
+
+      // Add source
+      map.current!.addSource(circleId, {
+        type: 'geojson',
+        data: result.circle
+      })
+
+      // Add points layer for all circles
+      map.current!.addLayer({
+        id: `${circleId}-points`,
+        type: 'circle',
+        source: circleId,
+        paint: {
+          'circle-radius': 2,
+          'circle-color': '#007cbf',
+          'circle-opacity': 0.5
+        }
+      })
+
+      // Add fill only for smallest circle that doesn't cross antimeridian
+      if (circleId === smallestCircleId && smallestCircleFeature) {
+        map.current!.addLayer({
+          id: `${circleId}-fill`,
+          type: 'fill',
+          source: circleId,
+          paint: {
+            'fill-color': '#007cbf',
+            'fill-opacity': 0.1
+          }
         })
       }
-
-      // Add fill layer
-      map.current!.addLayer({
-        id: `${circleId}-fill`,
-        type: 'fill',
-        source: circleId,
-        paint: {
-          'fill-color': '#007cbf',
-          'fill-opacity': 0.1
-        }
-      })
-
-      // Add border layer
-      map.current!.addLayer({
-        id: circleId,
-        type: 'line',
-        source: circleId,
-        paint: {
-          'line-color': '#007cbf',
-          'line-width': 2,
-          'line-opacity': 0.5
-        }
-      })
     })
   }, [messages])
 
