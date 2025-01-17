@@ -6,19 +6,22 @@ import Plot from 'react-plotly.js'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import PrivacyAccept from './PrivacyAccept'
 
-// Add type definition for the country data
+// Add type for the country geometry
+interface CountryGeometry {
+  type: 'Polygon' | 'MultiPolygon';
+  coordinates: number[][][];
+}
+
+// Update CountryData interface
 interface CountryData {
-  type: string
+  type: string;
   features: {
-    type: string
-    geometry: {
-      type: string
-      coordinates: number[][][]
-    }
+    type: string;
+    geometry: CountryGeometry;
     properties: {
-      A3: string  // ISO 3166-1 alpha-3 country code
-    }
-  }[]
+      A3: string;  // ISO 3166-1 alpha-3 country code
+    };
+  }[];
 }
 
 // Import and type the countries data
@@ -154,41 +157,31 @@ interface GeolocationProps {
   onPrivacyAcceptChange: (accepted: boolean) => void
 }
 
-// Add this function to find intersecting countries
-const findIntersectingCountries = (circle1: GeoJSON.Feature, circle2: GeoJSON.Feature) => {
-  if (!countries || !countries.features) {
-    console.error('Countries data not properly loaded:', countries);
-    return [];
-  }
+// Update type definitions for better compatibility with turf.js
+interface CountryProperties {
+  A3: string;
+  [key: string]: any;
+}
 
-  try {
-    const intersectingCountries = new Set<string>();
+interface CountryFeature extends GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon, CountryProperties> {}
 
-    countries.features.forEach(country => {
-      if (!country || !country.properties) return;
-
-      // Convert country to proper GeoJSON feature
-      const countryFeature = turf.feature(country.geometry, country.properties);
-
-      // Check if country intersects with BOTH circles
-      if (turf.booleanIntersects(circle1, countryFeature) && 
-          turf.booleanIntersects(circle2, countryFeature)) {
-        intersectingCountries.add(country.properties.A3 || '');
-      }
-    });
-
-    return Array.from(intersectingCountries).sort();
-  } catch (error) {
-    console.error('Error finding intersecting countries:', error);
-    return [];
-  }
-};
+// Helper function to create boundary points
+const createBoundaryPoints = (circle: GeoJSON.Feature<GeoJSON.Polygon>): GeoJSON.FeatureCollection => ({
+  type: 'FeatureCollection',
+  features: circle.geometry.coordinates[0].map((coord: number[]) => ({
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'Point',
+      coordinates: coord
+    }
+  }))
+});
 
 function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: GeolocationProps) {
   const [messages, setMessages] = useState<LatencyMessage[]>([])
   const [clockOffsets, setClockOffsets] = useState<ClockOffset[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [nonce, setNonce] = useState<string | null>(null)
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const circlesLayer = useRef<string[]>([])
@@ -292,19 +285,6 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
       .filter((c): c is NonNullable<typeof c> => c !== null)
       .sort((a, b) => a.radius - b.radius)
 
-    // Helper function to create boundary points
-    const createBoundaryPoints = (circle: GeoJSON.Feature) => ({
-      type: 'FeatureCollection',
-      features: circle.geometry.coordinates[0].map(coord => ({
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'Point',
-          coordinates: coord
-        }
-      }))
-    });
-
     // Plot all circles as dots
     sortedCircles.forEach((circleData, index) => {
       const circleId = `circle-${index}`;
@@ -349,9 +329,14 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
             const possibleCountriesFeatures = intersectingCountries
               .map(countryCode => {
                 const country = countries.features.find(f => f.properties?.A3 === countryCode);
-                return country ? turf.feature(country.geometry, country.properties) : null;
+                if (!country) return null;
+                return {
+                  type: 'Feature',
+                  geometry: country.geometry,
+                  properties: country.properties
+                } as CountryFeature;
               })
-              .filter((f): f is GeoJSON.Feature => f !== null);
+              .filter((f): f is CountryFeature => f !== null);
 
             if (possibleCountriesFeatures.length > 0) {
               // Add possible countries to the map
@@ -360,7 +345,7 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
                 data: {
                   type: 'FeatureCollection',
                   features: possibleCountriesFeatures
-                }
+                } as GeoJSON.FeatureCollection<GeoJSON.Geometry>
               });
 
               // Add fill layer
@@ -387,15 +372,11 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
               });
             }
           }
-        } else {
-          setPossibleCountries([]);
         }
       } catch (error) {
         console.error('Error computing overlap:', error);
         setPossibleCountries([]);
       }
-    } else {
-      setPossibleCountries([]);
     }
   }, [messages])
 
@@ -492,6 +473,61 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
     setIsLoading(false)
   }
 
+  // Update the Plot data type
+  const plotData = dataCenters.map(dc => ({
+    name: dc.name,
+    type: 'scatter' as const,
+    mode: 'markers+text' as 'text+markers',
+    x: clockOffsets
+      .filter(offset => offset.region === dc.name)
+      .map(offset => offset.offset_slave),
+    y: messages
+      .filter(msg => msg.region === dc.name)
+      .map(msg => msg.latency),
+    text: clockOffsets
+      .filter(offset => offset.region === dc.name)
+      .map(offset => `#${offset.measurementIndex! + 1}`),
+    textposition: 'top center' as const,
+    marker: {
+      color: dc.color,
+      size: 8
+    }
+  }));
+
+  // Update the findIntersectingCountries function
+  const findIntersectingCountries = (circle1: GeoJSON.Feature, circle2: GeoJSON.Feature) => {
+    if (!countries || !countries.features) {
+      console.error('Countries data not properly loaded:', countries);
+      return [];
+    }
+
+    try {
+      const intersectingCountries = new Set<string>();
+
+      countries.features.forEach(country => {
+        if (!country || !country.properties) return;
+
+        // Convert country to proper GeoJSON feature with correct typing
+        const countryFeature = {
+          type: 'Feature',
+          geometry: country.geometry,
+          properties: country.properties
+        } as CountryFeature;
+
+        // Check if country intersects with BOTH circles
+        if (turf.booleanIntersects(circle1, countryFeature) && 
+            turf.booleanIntersects(circle2, countryFeature)) {
+          intersectingCountries.add(country.properties.A3 || '');
+        }
+      });
+
+      return Array.from(intersectingCountries).sort();
+    } catch (error) {
+      console.error('Error finding intersecting countries:', error);
+      return [];
+    }
+  };
+
   return (
     <Paper sx={{ p: 3, maxWidth: 800, margin: '0 auto' }}>
       <Typography variant="h4" gutterBottom>
@@ -527,25 +563,7 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
           </Typography>
           <Box sx={{ height: 300 }}>
             <Plot
-              data={dataCenters.map(dc => ({
-                name: dc.name,
-                type: 'scatter',
-                mode: 'markers+text',
-                x: clockOffsets
-                  .filter(offset => offset.region === dc.name)
-                  .map(offset => offset.offset_slave),
-                y: messages
-                  .filter(msg => msg.region === dc.name)
-                  .map(msg => msg.latency),
-                text: clockOffsets
-                  .filter(offset => offset.region === dc.name)
-                  .map(offset => `#${offset.measurementIndex! + 1}`),
-                textposition: 'top center',
-                marker: {
-                  color: dc.color,
-                  size: 8
-                }
-              }))}
+              data={plotData}
               layout={{
                 margin: { t: 30, r: 120, l: 50, b: 50 },
                 height: 300,
