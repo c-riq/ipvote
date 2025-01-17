@@ -124,20 +124,14 @@ function Poll() {
         <Box key={option} sx={{ 
           mb: 2,
           display: 'flex',
-          alignItems: 'center',
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { xs: 'stretch', sm: 'center' },
           gap: 2
         }}>
-          {!loading && (
-            <Button
-              variant="contained"
-              disabled={!privacyAccepted}
-              onClick={() => vote(option)}
-              sx={{ minWidth: '100px' }}
-            >
-              {option}
-            </Button>
-          )}
-          <Box sx={{ flex: 1 }}>
+          <Box sx={{ 
+            flex: 1,
+            order: { xs: 1, sm: 2 }
+          }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
               <Typography>{count} votes</Typography>
               <Typography>{percentage.toFixed(2)}%</Typography>
@@ -155,6 +149,20 @@ function Poll() {
               }}
             />
           </Box>
+          {!loading && (
+            <Button
+              variant="contained"
+              disabled={!privacyAccepted}
+              onClick={() => vote(option)}
+              sx={{ 
+                minWidth: '100px',
+                order: { xs: 2, sm: 1 },
+                width: { xs: '100%', sm: 'auto' }
+              }}
+            >
+              {option}
+            </Button>
+          )}
         </Box>
       );
     });
