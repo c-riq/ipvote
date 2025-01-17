@@ -109,7 +109,9 @@ function Poll() {
 
   return (
     <div className="content">
-      <h1>{poll.includes('_or_') ? poll.replace(/_/g, ' ') + '?' : poll.replace(/_/g, ' ')}</h1>
+      <h1 style={{ wordBreak: 'break-word' }}>
+        {poll.includes('_or_') ? poll.replace(/_/g, ' ') + '?' : poll.replace(/_/g, ' ')}
+      </h1>
       
       {message && <Alert severity="info" sx={{ mb: 2 }}>{message}</Alert>}
       
@@ -121,11 +123,17 @@ function Poll() {
           />
         }
         label={
-          <>
+          <div style={{ wordBreak: 'break-word' }}>
             I accept the <a href="/privacy_policy.html" target="_blank">privacy policy</a> 
-            and the public sharing of my IP: {userIp}
-          </>
+            {' '}and the public sharing of my IP: {userIp}
+          </div>
         }
+        sx={{ 
+          alignItems: 'flex-start',
+          '.MuiFormControlLabel-label': { 
+            mt: '2px' // Align text with checkbox
+          }
+        }}
       />
 
       <div style={{ margin: '20px 0' }}>

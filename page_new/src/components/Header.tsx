@@ -20,6 +20,7 @@ function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
       <Typography 
         variant="h6" 
         component="div" 
+        className="site-title"
         sx={{ 
           cursor: 'pointer', 
           mr: 2,
@@ -37,7 +38,9 @@ function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
           className="search-bar"
         />
       </div>
-      <button className="create-button" onClick={() => navigate('/ui/create')}>Create Poll</button>
+      <button className="create-button desktop-only" onClick={() => navigate('/ui/create')}>
+        Create Poll
+      </button>
     </header>
   )
 }

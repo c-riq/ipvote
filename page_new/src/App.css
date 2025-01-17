@@ -58,7 +58,7 @@
   top: 0;
   left: 0;
   right: 0;
-  z-index: 100;
+  z-index: 1200;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -110,6 +110,8 @@
   top: 48px;
   left: 0;
   overflow-y: auto;
+  z-index: 1100;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
 }
 
 .sidebar ul {
@@ -147,17 +149,52 @@
   padding: 1rem;
   background-color: #DAE0E6;
   min-height: calc(100vh - 48px);
+  max-width: 100vw;
+  overflow-x: hidden;
+  z-index: 1000;
+  position: relative;
 }
 
-/* Responsive Design */
+.message-container {
+  max-width: 90vw;
+  overflow-wrap: break-word;
+}
+
+.site-title {
+  display: block;
+}
+
+.create-button.desktop-only {
+  display: block;
+}
+
+.mobile-only {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .burger-menu {
     display: block;
   }
 
+  .site-title {
+    display: none;
+  }
+
+  .create-button.desktop-only {
+    display: none;
+  }
+
   .sidebar {
     transform: translateX(-100%);
     transition: transform 0.3s ease;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: auto;
+    padding-top: calc(48px + 1rem);
+    margin: 0;
   }
 
   .sidebar.open {
@@ -166,5 +203,12 @@
 
   .content {
     margin-left: 0;
+    padding: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .mobile-only {
+    display: block;
   }
 }
