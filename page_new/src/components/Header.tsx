@@ -1,9 +1,13 @@
+import { useNavigate } from 'react-router-dom';
+
 interface HeaderProps {
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
 }
 
 function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
+  const navigate = useNavigate();
+  
   return (
     <header className="header">
       <button 
@@ -19,7 +23,7 @@ function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
           className="search-bar"
         />
       </div>
-      <button className="create-button">Create Poll</button>
+      <button className="create-button" onClick={() => navigate('/ui/create')}>Create Poll</button>
     </header>
   )
 }
