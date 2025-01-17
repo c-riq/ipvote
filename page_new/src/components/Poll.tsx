@@ -13,7 +13,8 @@ import {
   FormGroup,
   FormLabel,
   Paper,
-  Popover
+  Popover,
+  Tooltip
 } from '@mui/material'
 import Plot from 'react-plotly.js'
 import DownloadIcon from '@mui/icons-material/Download'
@@ -176,20 +177,34 @@ function Poll() {
               }}
             />
           </Box>
-          {!loading && (
-            <Button
-              variant="contained"
-              disabled={!privacyAccepted}
-              onClick={() => vote(option)}
-              sx={{ 
-                minWidth: '100px',
-                order: { xs: 2, sm: 1 },
-                width: { xs: '100%', sm: 'auto' }
-              }}
-            >
-              {option}
-            </Button>
-          )}
+          <Tooltip 
+            title="Please accept the privacy policy first"
+            arrow
+            disableHoverListener={privacyAccepted}
+            disableFocusListener={privacyAccepted}
+            disableTouchListener={privacyAccepted}
+            placement="top"
+            enterTouchDelay={0}
+            leaveTouchDelay={5000}
+          >
+            <div style={{ display: 'inline-block' }}>
+              <Button
+                variant="contained"
+                disabled={!privacyAccepted}
+                onClick={() => vote(option)}
+                sx={{ 
+                  minWidth: '100px',
+                  order: { xs: 2, sm: 1 },
+                  width: { xs: '100%', sm: 'auto' },
+                  '&.Mui-disabled': {
+                    pointerEvents: 'auto'
+                  }
+                }}
+              >
+                {option}
+              </Button>
+            </div>
+          </Tooltip>
         </Box>
       );
     });
@@ -278,18 +293,34 @@ function Poll() {
             }}
           />
         </Box>
-        <Button
-          variant="contained"
-          disabled={!privacyAccepted}
-          onClick={() => vote(option)}
-          sx={{ 
-            minWidth: '100px',
-            order: { xs: 2, sm: 1 },
-            width: { xs: '100%', sm: 'auto' }
-          }}
+        <Tooltip 
+          title="Please accept the privacy policy first"
+          arrow
+          disableHoverListener={privacyAccepted}
+          disableFocusListener={privacyAccepted}
+          disableTouchListener={privacyAccepted}
+          placement="top"
+          enterTouchDelay={0}
+          leaveTouchDelay={5000}
         >
-          {option}
-        </Button>
+          <div style={{ display: 'inline-block' }}>
+            <Button
+              variant="contained"
+              disabled={!privacyAccepted}
+              onClick={() => vote(option)}
+              sx={{ 
+                minWidth: '100px',
+                order: { xs: 2, sm: 1 },
+                width: { xs: '100%', sm: 'auto' },
+                '&.Mui-disabled': {
+                  pointerEvents: 'auto'
+                }
+              }}
+            >
+              {option}
+            </Button>
+          </div>
+        </Tooltip>
       </Box>
     ));
   };
