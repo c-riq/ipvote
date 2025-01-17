@@ -125,6 +125,18 @@ interface GeolocationProps {
   onPrivacyAcceptChange: (accepted: boolean) => void
 }
 
+// Add color mapping for data centers
+const dataCenterColors = {
+  'Germany': '#FF6B6B',      // Red
+  'Japan': '#4ECDC4',        // Teal
+  'Brazil': '#45B7D1',       // Blue
+  'US (Virginia)': '#96CEB4', // Green
+  'US (Oregon)': '#88D8B0',  // Light Green
+  'India': '#FFBE0B',        // Yellow
+  'Ireland': '#FF006E',      // Pink
+  'South Africa': '#8338EC'  // Purple
+}
+
 function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: GeolocationProps) {
   const [messages, setMessages] = useState<LatencyMessage[]>([])
   const [clockOffsets, setClockOffsets] = useState<ClockOffset[]>([])
@@ -286,7 +298,7 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
           measurementIndex 
         }])
 
-        // Start measurements
+        // Get new nonce for this round
         const clientStartTimestamp = new Date().getTime()
         let clientReceivedNonceTimestamp: number
 
@@ -296,9 +308,8 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
         )
         clientReceivedNonceTimestamp = new Date().getTime()
         const nonceResponseData = (await nonceResponse.json()) as NonceResponse | undefined
-        if (nonceResponseData) {
-          setNonce(nonceResponseData.nonce)
-        }
+        const roundNonce = nonceResponseData?.nonce
+
         setMessages(prev => [...prev, { 
           region: 'System', 
           latency: 0,
@@ -309,7 +320,7 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
         await Promise.all(
           dataCenters.map(async (region) => {
             const clientSendNonceTime = new Date().getTime()
-            const response = await fetch(`${region.url}?nonce=${nonceResponseData?.nonce}&clientReceivedNonceTimestamp=${
+            const response = await fetch(`${region.url}?nonce=${roundNonce}&clientReceivedNonceTimestamp=${
               clientReceivedNonceTimestamp}`);
             const clientReceivedLatencyResponseTimestamp = new Date().getTime()
             const LatencyResponseData = await response.json() as LatencyResponse
@@ -328,7 +339,6 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
 
               const clockOffset_slave = ((t1_1 - t0_1) + (t2_1 - t3_1)) / 2
 
-              // Store clock offset
               setClockOffsets(prev => [...prev, {
                 region: region.name,
                 offset_master: clockOffset_master,
@@ -390,29 +400,6 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
       
       <Box sx={{ my: 4, height: 400 }} ref={mapContainer} />
 
-      {messages.length > 0 && (
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Results:
-          </Typography>
-          {messages.map((msg, index) => (
-            msg.region === 'System' ? (
-              <Typography key={index} color="textSecondary">
-                {index === 0 ? 'Initializing...' : `Nonce received: ${nonce?.substring(0, 10)}...`}
-              </Typography>
-            ) : msg.region === 'Error' ? (
-              <Typography key={index} color="error">
-                Network triangulation failed
-              </Typography>
-            ) : (
-              <Typography key={index}>
-                Latency to {msg.region}: {msg.latency}ms
-              </Typography>
-            )
-          ))}
-        </Box>
-      )}
-
       {clockOffsets.length > 0 && messages.length > 0 && (
         <Box sx={{ mt: 4 }}>
           <Typography variant="h6" gutterBottom>
@@ -420,35 +407,27 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
           </Typography>
           <Box sx={{ height: 300 }}>
             <Plot
-              data={[
-                {
-                  type: 'scatter',
-                  mode: 'markers+text',
-                  x: clockOffsets.map(offset => offset.offset_slave),
-                  y: messages
-                      .filter(msg => msg.region !== 'System' && msg.region !== 'Error')
-                      .map(msg => msg.latency),
-                  text: clockOffsets.map(offset => `${offset.region} #${offset.measurementIndex! + 1}`),
-                  textposition: 'top center',
-                  marker: {
-                    color: '#007cbf',
-                    size: 5
-                  }
-                },
-                {
-                  type: 'scatter',
-                  mode: 'markers+text',
-                  x: clockOffsets.map(offset => offset.offset_slave),
-                  y: messages
-                      .filter(msg => msg.region !== 'System' && msg.region !== 'Error')
-                      .map(msg => msg.halfRoundTripLatency),
-                  line: { color: '#7c00bf', 
-                    size: 5
-                   }
+              data={dataCenters.map(dc => ({
+                name: dc.name,
+                type: 'scatter',
+                mode: 'markers+text',
+                x: clockOffsets
+                  .filter(offset => offset.region === dc.name)
+                  .map(offset => offset.offset_slave),
+                y: messages
+                  .filter(msg => msg.region === dc.name)
+                  .map(msg => msg.latency),
+                text: clockOffsets
+                  .filter(offset => offset.region === dc.name)
+                  .map(offset => `#${offset.measurementIndex! + 1}`),
+                textposition: 'top center',
+                marker: {
+                  color: dataCenterColors[dc.name as keyof typeof dataCenterColors],
+                  size: 8
                 }
-              ]}
+              }))}
               layout={{
-                margin: { t: 30, r: 10, l: 50, b: 50 },
+                margin: { t: 30, r: 120, l: 50, b: 50 },
                 height: 300,
                 xaxis: {
                   title: 'Clock Offset (ms)',
@@ -458,7 +437,14 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
                   title: 'Latency (ms)',
                   zeroline: true
                 },
-                hovermode: 'closest'
+                hovermode: 'closest',
+                showlegend: true,
+                legend: {
+                  x: 1.05,
+                  xanchor: 'left',
+                  y: 1,
+                  yanchor: 'top'
+                }
               }}
               config={{
                 displayModeBar: false,
@@ -467,6 +453,21 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
               style={{ width: '100%' }}
             />
           </Box>
+        </Box>
+      )}
+
+      {messages.length > 0 && (
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Results:
+          </Typography>
+          {Array.from(new Set(messages.map(msg => msg.measurementIndex)))
+            .filter(index => index !== undefined)
+            .map((measurementIndex) => (
+              <Typography key={measurementIndex} color="textSecondary">
+                Measurement round #{(measurementIndex as number) + 1} completed
+              </Typography>
+          ))}
         </Box>
       )}
     </Paper>
