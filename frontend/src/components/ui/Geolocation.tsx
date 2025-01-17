@@ -6,6 +6,26 @@ import Plot from 'react-plotly.js'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import PrivacyAccept from './PrivacyAccept'
 
+// Add type definition for the country data
+interface CountryData {
+  type: string
+  features: {
+    type: string
+    geometry: {
+      type: string
+      coordinates: number[][][]
+    }
+    properties: {
+      A3: string  // ISO 3166-1 alpha-3 country code
+    }
+  }[]
+}
+
+// Import and type the countries data
+// @ts-ignore
+import countriesData from '@geo-maps/countries-land-10km'
+const countries = countriesData() as CountryData
+
 // Replace with your Mapbox access token
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || ''
 
@@ -137,6 +157,36 @@ const dataCenterColors = {
   'South Africa': '#8338EC'  // Purple
 }
 
+// Add this function to find intersecting countries
+const findIntersectingCountries = (circle1: GeoJSON.Feature, circle2: GeoJSON.Feature) => {
+  if (!countries || !countries.features) {
+    console.error('Countries data not properly loaded:', countries);
+    return [];
+  }
+
+  try {
+    const intersectingCountries = new Set<string>();
+
+    countries.features.forEach(country => {
+      if (!country || !country.properties) return;
+
+      // Convert country to proper GeoJSON feature
+      const countryFeature = turf.feature(country.geometry, country.properties);
+
+      // Check if country intersects with BOTH circles
+      if (turf.booleanIntersects(circle1, countryFeature) && 
+          turf.booleanIntersects(circle2, countryFeature)) {
+        intersectingCountries.add(country.properties.A3 || '');
+      }
+    });
+
+    return Array.from(intersectingCountries).sort();
+  } catch (error) {
+    console.error('Error finding intersecting countries:', error);
+    return [];
+  }
+};
+
 function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: GeolocationProps) {
   const [messages, setMessages] = useState<LatencyMessage[]>([])
   const [clockOffsets, setClockOffsets] = useState<ClockOffset[]>([])
@@ -145,6 +195,7 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const circlesLayer = useRef<string[]>([])
+  const [possibleCountries, setPossibleCountries] = useState<string[]>([])
 
   useEffect(() => {
     if (!mapContainer.current) return
@@ -179,13 +230,10 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
   useEffect(() => {
     if (!map.current) return
 
-    // Remove existing circles and their fill layers
+    // Remove existing layers and sources
     circlesLayer.current.forEach(id => {
       if (map.current!.getLayer(`${id}-fill`)) {
         map.current!.removeLayer(`${id}-fill`)
-      }
-      if (map.current!.getLayer(`${id}-points`)) {
-        map.current!.removeLayer(`${id}-points`)
       }
       if (map.current!.getSource(id)) {
         map.current!.removeSource(id)
@@ -202,81 +250,94 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
       return acc
     }, {} as Record<string, LatencyMessage>)
 
-    // Use minimum latencies for drawing circles
-    const minLatencyMessages = Object.values(minLatencyByRegion)
-
-    // Find the smallest valid circle first
-    let smallestRadius = Infinity
-    let smallestCircleId = ''
-    let smallestCircleFeature: GeoJSON.Feature | null = null
-
-    minLatencyMessages.forEach(msg => {
-      const dataCenter = dataCenters.find(dc => dc.name === msg.region)
-      if (!dataCenter || msg.region === 'System' || msg.region === 'Error') return
-
-      const radiusKm = internetLatencyToDistance(msg.latency)
-      const center = turf.point(dataCenter.coordinates)
-      const circle = turf.circle(center, radiusKm, {
-        steps: 128,
-        units: 'kilometers'
-      })
-
-      const result = handleAntimeridian(circle)
-      if (!result.crossesAntimeridian && radiusKm < smallestRadius) {
-        smallestRadius = radiusKm
-        smallestCircleId = `circle-${msg.region}`
-        smallestCircleFeature = result.circle
-      }
-    })
-
-    // Add all circles
-    minLatencyMessages.forEach(msg => {
-      const dataCenter = dataCenters.find(dc => dc.name === msg.region)
-      if (!dataCenter || msg.region === 'System' || msg.region === 'Error') return
-
-      const radiusKm = internetLatencyToDistance(msg.latency)
-      const circleId = `circle-${msg.region}`
-      circlesLayer.current.push(circleId)
-
-      const center = turf.point(dataCenter.coordinates)
-      const circle = turf.circle(center, radiusKm, {
-        steps: 128,
-        units: 'kilometers'
-      })
-
-      const result = handleAntimeridian(circle)
-
-      // Add source
-      map.current!.addSource(circleId, {
-        type: 'geojson',
-        data: result.circle
-      })
-
-      // Add points layer for all circles
-      map.current!.addLayer({
-        id: `${circleId}-points`,
-        type: 'circle',
-        source: circleId,
-        paint: {
-          'circle-radius': 2,
-          'circle-color': '#007cbf',
-          'circle-opacity': 0.5
+    // Get all circles sorted by radius
+    const sortedCircles = Object.values(minLatencyByRegion)
+      .map(msg => {
+        const dataCenter = dataCenters.find(dc => dc.name === msg.region)
+        if (!dataCenter) return null
+        
+        const radiusKm = internetLatencyToDistance(msg.latency)
+        const center = turf.point(dataCenter.coordinates)
+        const circle = turf.circle(center, radiusKm, {
+          steps: 128,
+          units: 'kilometers'
+        })
+        
+        return {
+          circle,
+          radius: radiusKm,
+          region: msg.region
         }
       })
+      .filter((c): c is NonNullable<typeof c> => c !== null)
+      .sort((a, b) => a.radius - b.radius)
 
-      // Add fill only for smallest circle that doesn't cross antimeridian
-      if (circleId === smallestCircleId && smallestCircleFeature) {
-        map.current!.addLayer({
-          id: `${circleId}-fill`,
-          type: 'fill',
-          source: circleId,
-          paint: {
-            'fill-color': '#007cbf',
-            'fill-opacity': 0.1
-          }
-        })
+    // Get the two smallest circles that don't cross antimeridian
+    const validCircles = sortedCircles
+      .filter(c => !handleAntimeridian(c.circle).crossesAntimeridian)
+      .slice(0, 2)
+
+    // Try to get intersection
+    if (validCircles.length === 2) {
+      try {
+        const circle1 = validCircles[0].circle;
+        const circle2 = validCircles[1].circle;
+
+        // Check if circles overlap
+        if (turf.booleanOverlap(circle1, circle2)) {
+          // Create unique IDs for the circles
+          const circle1Id = 'circle-1';
+          const circle2Id = 'circle-2';
+          
+          // Track the sources for cleanup
+          circlesLayer.current.push(circle1Id, circle2Id);
+
+          // Add circles as sources
+          map.current!.addSource(circle1Id, {
+            type: 'geojson',
+            data: circle1
+          });
+
+          map.current!.addSource(circle2Id, {
+            type: 'geojson',
+            data: circle2
+          });
+
+          // Add fill layers
+          map.current!.addLayer({
+            id: `${circle1Id}-fill`,
+            type: 'fill',
+            source: circle1Id,
+            paint: {
+              'fill-color': '#007cbf',
+              'fill-opacity': 0.2
+            }
+          });
+
+          map.current!.addLayer({
+            id: `${circle2Id}-fill`,
+            type: 'fill',
+            source: circle2Id,
+            paint: {
+              'fill-color': '#007cbf',
+              'fill-opacity': 0.2
+            }
+          });
+
+          // Find intersecting countries
+          const countries = findIntersectingCountries(circle1, circle2);
+          setPossibleCountries(countries);
+        } else {
+          console.log('Circles do not overlap');
+          setPossibleCountries([]);
+        }
+      } catch (error) {
+        console.error('Error computing overlap:', error);
+        setPossibleCountries([]);
       }
-    })
+    } else {
+      setPossibleCountries([]);
+    }
   }, [messages])
 
   const triggerTriangulationMeasurements = async () => {
@@ -468,6 +529,18 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
                 Measurement round #{(measurementIndex as number) + 1} completed
               </Typography>
           ))}
+        </Box>
+      )}
+
+      {possibleCountries.length > 0 && (
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Possible Countries:
+          </Typography>
+          <Typography color="textSecondary">
+            Based on the intersection of the two smallest circles, you are assumed to be in one of the following countries: {' '}
+            {possibleCountries.join(', ')}
+          </Typography>
         </Box>
       )}
     </Paper>
