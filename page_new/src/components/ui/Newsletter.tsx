@@ -4,11 +4,13 @@ import { TextField, Button, Alert, CircularProgress } from '@mui/material'
 function Newsletter() {
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
+  const [isError, setIsError] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const handleSubscribe = async () => {
     if (!email) {
       setMessage('Please enter your email address')
+      setIsError(true)
       return
     }
 
@@ -21,9 +23,11 @@ function Newsletter() {
       setMessage(data.message)
       if (response.status === 200) {
         setEmail('')
+        setIsError(false)
       }
     } catch (error) {
       setMessage('An error occurred. Please try again later.')
+      setIsError(true)
     }
     setLoading(false)
   }
@@ -35,7 +39,7 @@ function Newsletter() {
       
       {message && (
         <Alert 
-          severity={message.includes('success') ? 'success' : 'warning'}
+          severity={isError ? 'error' : 'success'}
           sx={{ mb: 2 }}
         >
           {message}

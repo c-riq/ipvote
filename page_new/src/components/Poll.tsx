@@ -105,7 +105,11 @@ function Poll() {
     try {
       const response = await fetch(`https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${poll}&vote=${option}`)
       const data = await response.text()
-      setMessage(JSON.parse(data)?.message || data)
+      if (response.status === 200) {
+        setMessage('Vote submitted successfully!')
+      } else {
+        setMessage(JSON.parse(data)?.message || data)
+      }
       fetchResults(poll)
     } catch (error) {
       setMessage('Error submitting vote')
@@ -218,7 +222,14 @@ function Poll() {
         {poll.includes('_or_') ? poll.replace(/_/g, ' ') + '?' : poll.replace(/_/g, ' ')}
       </h1>
       
-      {message && <Alert severity="info" sx={{ mb: 2 }}>{message}</Alert>}
+      {message && (
+        <Alert 
+          severity={message === 'Vote submitted successfully!' ? 'success' : 'warning'}
+          sx={{ mb: 2 }}
+        >
+          {message}
+        </Alert>
+      )}
       
       {!userIp ? (
         <CircularProgress />
