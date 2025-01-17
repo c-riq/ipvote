@@ -495,14 +495,14 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
   // Update the Plot data type
   const plotData = dataCenters.map(dc => ({
     name: dc.name,
-    type: 'scatter' as const,
+    type: 'scatter',
     mode: 'markers+text' as 'text+markers',
-    x: clockOffsets
-      .filter(offset => offset.region === dc.name)
-      .map(offset => offset.offset_slave),
-    y: messages
+    x: messages
       .filter(msg => msg.region === dc.name)
       .map(msg => msg.latency),
+    y: clockOffsets
+      .filter(offset => offset.region === dc.name)
+      .map(offset => offset.offset_slave),
     text: clockOffsets
       .filter(offset => offset.region === dc.name)
       .map(offset => `#${offset.measurementIndex! + 1}`),
@@ -608,15 +608,23 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
             <Plot
               data={plotData}
               layout={{
-                margin: { t: 30, r: 120, l: 50, b: 50 },
+                margin: { t: 30, r: 120, l: 70, b: 50 },
                 height: 300,
                 xaxis: {
-                  title: 'Clock Offset (ms)',
+                  title: {
+                    text: 'Latency (ms)',
+                    standoff: 10
+                  },
                   zeroline: true
                 },
                 yaxis: {
-                  title: 'Latency (ms)',
-                  zeroline: true
+                  title: {
+                    text: 'Clock Offset (ms)',
+                    standoff: 10
+                  },
+                  zeroline: true,
+                  tickformat: '.1f',
+                  automargin: true
                 },
                 hovermode: 'closest',
                 showlegend: true,
