@@ -326,6 +326,7 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
         userIp={userIp}
         accepted={privacyAccepted}
         onAcceptChange={onPrivacyAcceptChange}
+        textAlign="center"
       />
 
       <Box sx={{ my: 4, mb: 6 }}>

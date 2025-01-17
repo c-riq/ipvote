@@ -4,15 +4,16 @@ interface PrivacyAcceptProps {
   userIp: string | null
   accepted: boolean
   onAcceptChange: (accepted: boolean) => void
+  textAlign?: 'left' | 'center' | 'right'
 }
 
-function PrivacyAccept({ userIp, accepted, onAcceptChange }: PrivacyAcceptProps) {
+function PrivacyAccept({ userIp, accepted, onAcceptChange, textAlign = 'left' }: PrivacyAcceptProps) {
   if (!userIp) {
     return <CircularProgress />
   }
 
   return (
-    <div style={{ textAlign: 'left' }}>
+    <div style={{ textAlign }}>
       <FormControlLabel
         control={
           <Checkbox

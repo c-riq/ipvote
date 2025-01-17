@@ -78,7 +78,7 @@ function App() {
           />
           <div className="main-content">
             <Sidebar isOpen={isSidebarOpen} />
-            <div style={{ padding: '20px' }}>
+            <div>
               <Routes>
                 {/* UI routes */}
                 <Route path="/ui/*" element={<MainContent 
