@@ -5,6 +5,7 @@ import * as turf from '@turf/turf'
 import Plot from 'react-plotly.js'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import PrivacyAccept from './PrivacyAccept'
+import { Data } from 'plotly.js'
 
 // Add type for the country geometry
 interface CountryGeometry {
@@ -493,10 +494,10 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
   }
 
   // Update the Plot data type
-  const plotData = dataCenters.map(dc => ({
+  const plotData: Data[] = dataCenters.map(dc => ({
     name: dc.name,
-    type: 'scatter',
-    mode: 'markers+text' as 'text+markers',
+    type: 'scatter' as const,
+    mode: 'text+markers' as const,
     x: messages
       .filter(msg => msg.region === dc.name)
       .map(msg => msg.latency),
