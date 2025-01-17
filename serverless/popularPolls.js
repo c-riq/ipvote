@@ -26,12 +26,23 @@ async function listAllVoteFiles() {
     return files;
 }
 
-async function aggregateVotes() {
+async function aggregateVotes(query = '') {
     const pollCounts = new Map();
     const files = await listAllVoteFiles();
+    const searchTerms = query.toLowerCase().split(/\s+/);
     
     for (const file of files) {
         try {
+            // Skip files where the poll name doesn't match the search query
+            if (query) {
+                const pollFromPath = file.Key.split('/')[1]?.split('.')[0]; // Extract poll name from path
+                if (!pollFromPath || !searchTerms.every(term => 
+                    pollFromPath.toLowerCase().replace(/_/g, ' ').includes(term)
+                )) {
+                    continue;
+                }
+            }
+
             const response = await s3Client.send(new GetObjectCommand({
                 Bucket: BUCKET_NAME,
                 Key: file.Key
@@ -96,9 +107,10 @@ module.exports.handler = async (event) => {
     const seed = parseInt(event?.queryStringParameters?.seed) || 1;
     const limit = parseInt(event?.queryStringParameters?.limit) || 15;
     const offset = parseInt(event?.queryStringParameters?.offset) || 0;
+    const query = event?.queryStringParameters?.q || '';
     
-    // Create a unique cache key based on parameters
-    const CACHE_KEY = `popular_polls/cached_results_${seed}.json`;
+    // Create a unique cache key based on parameters including search query
+    const CACHE_KEY = `popular_polls/cached_results_${seed}_${query}.json`;
     
     // Try cache first if not forcing refresh
     if (!forceRefresh) {
@@ -141,14 +153,17 @@ module.exports.handler = async (event) => {
     }
 
     // Aggregate votes directly from S3
-    const aggregatedData = await aggregateVotes();
+    const aggregatedData = await aggregateVotes(query);
+    
+    // No need to filter again since we filtered during aggregation
+    const filteredData = aggregatedData;
     
     // Cache the full result set
     const cacheObject = {
         timestamp: Date.now(),
         results: {
             columns: ['poll', 'count'],
-            fullData: aggregatedData
+            fullData: filteredData
         }
     };
 
@@ -161,7 +176,7 @@ module.exports.handler = async (event) => {
     }));
 
     const selectedPolls = generateRandomSelection(
-        aggregatedData,
+        filteredData,
         seed,
         limit,
         offset

@@ -7,14 +7,20 @@ interface MainContentProps {
   privacyAccepted: boolean
   userIp: string | null
   onPrivacyAcceptChange: (accepted: boolean) => void
+  query: string
 }
 
-function MainContent({ privacyAccepted, userIp, onPrivacyAcceptChange }: MainContentProps) {
+function MainContent({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: MainContentProps) {
   return (
     <main className="content">
       <Routes>
         <Route path="newsletter" element={<Newsletter />} />
-        <Route path="popular" element={<Popular privacyAccepted={privacyAccepted} userIp={userIp} onPrivacyAcceptChange={onPrivacyAcceptChange} />} />
+        <Route path="popular" element={<Popular 
+          privacyAccepted={privacyAccepted} 
+          userIp={userIp} 
+          onPrivacyAcceptChange={onPrivacyAcceptChange}
+          query={query}
+        />} />
         <Route path="create" element={<CreatePoll />} />
         <Route path="/" element={<Navigate to="/ui/popular" replace />} />
       </Routes>

@@ -16,9 +16,10 @@ interface PopularProps {
   privacyAccepted: boolean
   userIp: string | null
   onPrivacyAcceptChange: (accepted: boolean) => void
+  query: string
 }
 
-function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange }: PopularProps) {
+function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: PopularProps) {
   const [polls, setPolls] = useState<PollData[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -28,16 +29,26 @@ function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange }: PopularProp
   const navigate = useNavigate()
 
   useEffect(() => {
-    fetchPopularPolls(offset > 0)
+    setOffset(0)
+    setPolls([])
+    fetchPopularPolls(false)
+  }, [query])
+
+  useEffect(() => {
+    if (offset > 0) {
+      fetchPopularPolls(true)
+    }
   }, [offset])
 
   const fetchPopularPolls = async (loadMore = false) => {
     if (loadMore) {
       setLoadingMore(true)
+    } else {
+      setLoading(true)
     }
     try {
       const response = await fetch(
-        `https://iqpemyqp6lwvg7x6ds3osrs6nm0fcjwy.lambda-url.us-east-1.on.aws/?limit=${LIMIT}&offset=${offset}&seed=${seed}`
+        `https://iqpemyqp6lwvg7x6ds3osrs6nm0fcjwy.lambda-url.us-east-1.on.aws/?limit=${LIMIT}&offset=${offset}&seed=${seed}&q=${encodeURIComponent(query)}`
       )
       const res = await response.json()
       const formattedPolls = res.data.map(([name, votes]: [string, number]) => ({

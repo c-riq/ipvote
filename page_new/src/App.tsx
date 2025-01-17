@@ -24,6 +24,7 @@ function App() {
     return false
   })
   const [userIp, setUserIp] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     const handleResize = () => {
@@ -72,13 +73,20 @@ function App() {
           <Header 
             isSidebarOpen={isSidebarOpen}
             setIsSidebarOpen={setIsSidebarOpen}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
           />
           <div className="main-content">
             <Sidebar isOpen={isSidebarOpen} />
             <div style={{ padding: '20px' }}>
               <Routes>
                 {/* UI routes */}
-                <Route path="/ui/*" element={<MainContent privacyAccepted={privacyAccepted} userIp={userIp} onPrivacyAcceptChange={handlePrivacyAcceptChange} />} />
+                <Route path="/ui/*" element={<MainContent 
+                  privacyAccepted={privacyAccepted} 
+                  userIp={userIp} 
+                  onPrivacyAcceptChange={handlePrivacyAcceptChange}
+                  query={searchQuery}
+                />} />
                 
                 {/* Routes with dots (e.g., file extensions) */}
                 <Route path="*.*" element={<MainContent privacyAccepted={privacyAccepted} userIp={userIp} onPrivacyAcceptChange={handlePrivacyAcceptChange} />} />
