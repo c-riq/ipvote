@@ -1,5 +1,10 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Typography, Paper, Button, Box } from '@mui/material'
+import mapboxgl from 'mapbox-gl'
+import 'mapbox-gl/dist/mapbox-gl.css'
+
+// Replace with your Mapbox access token
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || ''
 
 interface LatencyMessage {
   region: string
@@ -13,14 +18,162 @@ interface NonceResponse {
 }
 
 interface LatencyResponse {
-    lambdaStartTimestamp: number
-    nonce: string
+  lambdaStartTimestamp: number
+  nonce: string
 }
+
+interface DataCenter {
+  name: string
+  coordinates: [number, number] // [longitude, latitude]
+  url: string
+}
+
+const internetLatencyToDistance = (latency: number) => {
+    const LIGHT_SECOND_km = 299792.458 
+    const GLASS_FIBER_FACTOR = 0.66
+    const ROUTING_FACTOR = 1.5
+    const LAMBDA_STARTUP_ms = 10
+    const distance_km = LIGHT_SECOND_km * (latency - LAMBDA_STARTUP_ms) * GLASS_FIBER_FACTOR * ROUTING_FACTOR
+    return distance_km
+}
+
+const dataCenters: DataCenter[] = [
+  {
+    name: 'Germany',
+    coordinates: [8.6821, 50.1109], // Frankfurt
+    url: 'https://wpbwaytwexqulyjlmly3rjkkdu0thgrr.lambda-url.eu-central-1.on.aws/'
+  },
+  {
+    name: 'Japan',
+    coordinates: [139.7594, 35.6850], // Tokyo
+    url: 'https://hhhauh3i652elinvl7b37vh2ma0nrujk.lambda-url.ap-northeast-1.on.aws/'
+  },
+  {
+    name: 'Brazil',
+    coordinates: [-46.6333, -23.5505], // São Paulo
+    url: 'https://unw3gvztdtl64g4zbzuyo6rozi0cvulu.lambda-url.sa-east-1.on.aws/'
+  },
+  {
+    name: 'US (Virginia)',
+    coordinates: [-77.0469, 38.8048], // N. Virginia
+    url: 'https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/'
+  },
+  {
+    name: 'US (Oregon)',
+    coordinates: [-122.6765, 45.5231], // Oregon
+    url: 'https://22kcgok5hkce3srzl4xksadj740npzoo.lambda-url.us-west-2.on.aws/'
+  },
+  {
+    name: 'India',
+    coordinates: [72.8777, 19.0760], // Mumbai
+    url: 'https://rchgdkidnerk2gkfiynfgkveje0iujmm.lambda-url.ap-south-1.on.aws/'
+  },
+  {
+    name: 'Ireland',
+    coordinates: [-6.2603, 53.3498], // Dublin
+    url: 'https://5xaynesucez2tdtndxuyyqmjei0txpcw.lambda-url.eu-west-1.on.aws/'
+  },
+  {
+    name: 'South Africa',
+    coordinates: [18.4241, -33.9249], // Cape Town
+    url: 'https://bcjj76sx7xfqoz6yc6ngw6ioma0ajqsb.lambda-url.af-south-1.on.aws/'
+  }
+].splice(0, 2)
 
 function Geolocation() {
   const [messages, setMessages] = useState<LatencyMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [nonce, setNonce] = useState<string | null>(null)
+  const mapContainer = useRef<HTMLDivElement>(null)
+  const map = useRef<mapboxgl.Map | null>(null)
+  const circlesLayer = useRef<string[]>([])
+
+  useEffect(() => {
+    if (!mapContainer.current) return
+
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/light-v11',
+      center: [0, 20], // Center the map
+      zoom: 1.5
+    })
+
+    // Add markers for data centers
+    dataCenters.forEach(dc => {
+      new mapboxgl.Marker()
+        .setLngLat(dc.coordinates)
+        .setPopup(new mapboxgl.Popup().setHTML(dc.name))
+        .addTo(map.current!)
+    })
+
+    return () => {
+      map.current?.remove()
+    }
+  }, [])
+
+  // Update circles on the map when latency measurements change
+  useEffect(() => {
+    if (!map.current) return
+
+    // Remove existing circles
+    circlesLayer.current.forEach(id => {
+      const layer = map.current!.getLayer(id)
+      if (layer) {
+        map.current!.removeLayer(id)
+        map.current!.removeSource(id)
+      }
+    })
+    circlesLayer.current = []
+
+    // Add new circles based on latency measurements
+    messages.forEach(msg => {
+      const dataCenter = dataCenters.find(dc => dc.name === msg.region)
+      if (!dataCenter || msg.region === 'System' || msg.region === 'Error') return
+
+      // Convert latency to approximate kilometers (rough estimation)
+      const radiusKm = internetLatencyToDistance(msg.latency) / 1000
+      
+      const circleId = `circle-${msg.region}`
+      circlesLayer.current.push(circleId)
+
+      // Create a circle around the data center
+      const center = dataCenter.coordinates
+      const points = 64
+      const km = radiusKm
+      const features = []
+      
+      for (let i = 0; i < points; i++) {
+        const angle = (i / points) * 2 * Math.PI
+        const lat = center[1] + (km / 111.32) * Math.cos(angle)
+        const lon = center[0] + (km / (111.32 * Math.cos(center[1] * (Math.PI / 180)))) * Math.sin(angle)
+        features.push([lon, lat])
+      }
+      features.push(features[0]) // Close the circle
+
+      map.current!.addSource(circleId, {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: features
+          }
+        }
+      })
+
+      map.current!.addLayer({
+        id: circleId,
+        type: 'line',
+        source: circleId,
+        paint: {
+          'line-color': '#007cbf',
+          'line-width': 2,
+          'line-opacity': 0.5
+        }
+      })
+    })
+  }, [messages])
 
   const triggerTriangulationMeasurements = async () => {
     setIsLoading(true)
@@ -30,14 +183,7 @@ function Geolocation() {
       // Warm up lambdas
       try {
         await Promise.all([
-          fetch('https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/'),
-          fetch('https://22kcgok5hkce3srzl4xksadj740npzoo.lambda-url.us-west-2.on.aws/'),
-          fetch('https://wpbwaytwexqulyjlmly3rjkkdu0thgrr.lambda-url.eu-central-1.on.aws/'),
-          fetch('https://hhhauh3i652elinvl7b37vh2ma0nrujk.lambda-url.ap-northeast-1.on.aws/'),
-          fetch('https://rchgdkidnerk2gkfiynfgkveje0iujmm.lambda-url.ap-south-1.on.aws/'),
-          fetch('https://5xaynesucez2tdtndxuyyqmjei0txpcw.lambda-url.eu-west-1.on.aws/'),
-          fetch('https://unw3gvztdtl64g4zbzuyo6rozi0cvulu.lambda-url.sa-east-1.on.aws/'),
-          fetch('https://bcjj76sx7xfqoz6yc6ngw6ioma0ajqsb.lambda-url.af-south-1.on.aws/'),
+            dataCenters.map((region) => fetch(region.url))
         ])
       } catch (_) {}
 
@@ -61,45 +207,10 @@ function Geolocation() {
         latency: 0 
       }])
 
-      // Measure latency to different regions
-      const regions = [
-        {
-          url: 'https://wpbwaytwexqulyjlmly3rjkkdu0thgrr.lambda-url.eu-central-1.on.aws/',
-          name: 'Germany'
-        },
-        {
-          url: 'https://hhhauh3i652elinvl7b37vh2ma0nrujk.lambda-url.ap-northeast-1.on.aws/',
-          name: 'Japan'
-        },
-        {
-          url: 'https://unw3gvztdtl64g4zbzuyo6rozi0cvulu.lambda-url.sa-east-1.on.aws/',
-          name: 'Brazil'
-        },
-        {
-          url: 'https://2snia32ceolmfhv45btw62rep40sfndz.lambda-url.us-east-1.on.aws/',
-          name: 'US (Virginia)'
-        },
-        {
-          url: 'https://22kcgok5hkce3srzl4xksadj740npzoo.lambda-url.us-west-2.on.aws/',
-          name: 'US (Oregon)'
-        },
-        {
-          url: 'https://rchgdkidnerk2gkfiynfgkveje0iujmm.lambda-url.ap-south-1.on.aws/',
-          name: 'India'
-        },
-        {
-          url: 'https://5xaynesucez2tdtndxuyyqmjei0txpcw.lambda-url.eu-west-1.on.aws/',
-          name: 'Ireland'
-        },
-        {
-          url: 'https://bcjj76sx7xfqoz6yc6ngw6ioma0ajqsb.lambda-url.af-south-1.on.aws/',
-          name: 'South Africa'
-        }
-      ]
 
       await Promise.all(
-        regions.map(async (region) => {
-          const startTime = new Date().getTime()
+        dataCenters.map(async (region) => {
+          const clientSendNonceTime = new Date().getTime()
           const response = await fetch(`${region.url}?nonce=${nonceResponseData?.nonce}&clientReceivedNonceTimestamp=${
             clientReceivedNonceTimestamp}`)
           const LatencyResponseData = await response.json() as LatencyResponse
@@ -113,7 +224,7 @@ function Geolocation() {
             // Clock offset = ((t1 - t0) + (t2 - t3)) / 2
             const clockOffset = ((t1 - t0) + (t2 - t3)) / 2
 
-            const latency = (LatencyResponseData.lambdaStartTimestamp - clockOffset) - startTime
+            const latency = (LatencyResponseData.lambdaStartTimestamp - clockOffset) - clientSendNonceTime
 
             setMessages(prev => [...prev, { 
               region: region.name, 
@@ -152,6 +263,8 @@ function Geolocation() {
         <li>No precise location or GPS data is collected</li>
         <li>The data helps validate that votes come from diverse locations</li>
       </Typography>
+
+      <Box sx={{ my: 4, height: 400 }} ref={mapContainer} />
 
       <Box sx={{ my: 4 }}>
         <Button 
