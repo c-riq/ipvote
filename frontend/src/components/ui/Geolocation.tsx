@@ -71,7 +71,7 @@ const internetLatencyToDistance = (latency: number) => {
     const GLASS_FIBER_FACTOR = 0.66
     const ROUTING_FACTOR_small_distances = 1.8
     const ROUTING_FACTOR_large_distances = 1.5 // TODO: refine based on data
-    const routingFactor = latency < 150 ? ROUTING_FACTOR_small_distances : ROUTING_FACTOR_large_distances
+    const routingFactor = latency < 70 ? ROUTING_FACTOR_small_distances : ROUTING_FACTOR_large_distances
     const LAMBDA_STARTUP_ms = 10
     const distance_km = LIGHT_SECOND_km * (latency - LAMBDA_STARTUP_ms) / 1000 * GLASS_FIBER_FACTOR / routingFactor
     return distance_km
@@ -196,6 +196,7 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
   const [possibleCountries, setPossibleCountries] = useState<string[]>([])
   const [currentActivity, setCurrentActivity] = useState<string>('');
   const [progress, setProgress] = useState<number>(0);
+  const [hasHighLatency, setHasHighLatency] = useState(false);
 
   useEffect(() => {
     if (!mapContainer.current) return
@@ -395,6 +396,7 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
     setMessages([])
     setClockOffsets([])
     setProgress(0)
+    setHasHighLatency(false)
     
     for (let measurementIndex = 0; measurementIndex < 3; measurementIndex++) {
       try {
@@ -488,6 +490,16 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
         }])
       }
     }
+
+    // After all measurements are complete, check latencies
+    const latencies = messages
+      .filter(msg => msg.region !== 'System' && msg.region !== 'Error')
+      .map(msg => msg.latency);
+    
+    if (latencies.length > 0 && latencies.every(latency => latency > 100)) {
+      setHasHighLatency(true);
+    }
+
     setProgress(100)
     setCurrentActivity('')
     setIsLoading(false)
@@ -654,6 +666,14 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
           <Typography color="textSecondary">
             Based on the measured latencies, you are assumed to be in one of the following countries: {' '}
             {possibleCountries.join(', ')}
+          </Typography>
+        </Box>
+      )}
+
+      {hasHighLatency && (
+        <Box sx={{ mt: 2, p: 2, bgcolor: '#fff3e0', borderRadius: 1 }}>
+          <Typography color="warning.dark">
+            ⚠️ Warning: All measured latencies are above 100ms. The location results may be unreliable due to slow network conditions.
           </Typography>
         </Box>
       )}
