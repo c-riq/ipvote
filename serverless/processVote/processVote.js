@@ -1,5 +1,12 @@
 // Import the S3Client and GetObjectCommand from the AWS SDK
 const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { getIPInfo } = require('./from_ipInfos/ipCountryLookup');
+
+/* schema of csv file:
+time,ip,poll_,vote,country,nonce,country_geoip,asn_name_geoip
+1716891868980,146.103.108.202,1_or_2,2,,sdfsdf,AU,TPG Telecom Limited
+*/
+
 const { Readable } = require('stream');
 
 const s3Client = new S3Client(); 
@@ -101,8 +108,8 @@ module.exports.handler = async (event) => {
         data = await fetchFileFromS3(bucketName, fileName)
     } catch (error) {
         if (error.name === 'NoSuchKey') {
-            // File does not exist, create a new one
-            data = 'time,ip,poll_,vote,country,nonce\n';
+            // File does not exist, create a new one with updated schema
+            data = 'time,ip,poll_,vote,country,nonce,country_geoip,asn_name_geoip\n';
         } else {
             console.log(error);
             return {
@@ -118,16 +125,16 @@ module.exports.handler = async (event) => {
     const isIPv6 = requestIp.includes(':');
     if (!isIPv6) {
         for (let i = 0; i < lines.length; i++) {
-            const [t, ip, v, c] = lines[i].split(',');
-            if (!ip || !v || !t || !parseInt(t)) {
+            const [t, ip] = lines[i].split(',');
+            if (!ip || !t || !parseInt(t)) {
                 continue;
             }
             if (requestIp === ip) {
-                console.log('IP address already voted for ' + v + ' at ' + (new Date(parseInt(t))).toISOString());
+                console.log('IP address already voted for at ' + (new Date(parseInt(t))).toISOString());
                 return {
                     statusCode: 400,
                     body: JSON.stringify({
-                        message: 'IP address already voted for ' + v + ' at ' + (new Date(parseInt(t))).toISOString(),
+                        message: 'IP address already voted at ' + (new Date(parseInt(t))).toISOString(),
                         time: new Date()
                     }),
                 };
@@ -136,8 +143,8 @@ module.exports.handler = async (event) => {
     } else {
         const fullRequestIp = expandIPv6(requestIp);
         for (let i = 0; i < lines.length; i++) {
-            const [t, ip, v, c] = lines[i].split(',');
-            if (!ip || !v || !t || !parseInt(t)) {
+            const [t, ip] = lines[i].split(',');
+            if (!ip || !t || !parseInt(t)) {
                 continue;
             }
             const fullIp = expandIPv6(ip);
@@ -145,21 +152,27 @@ module.exports.handler = async (event) => {
                 return {
                     statusCode: 400,
                     body: JSON.stringify({
-                        message: 'IP within same /64 block ' + ip + ' already voted for ' + v + ' at ' + (new Date(parseInt(t))).toISOString(),
+                        message: 'IP within same /64 block ' + ip + ' already voted at ' + (new Date(parseInt(t))).toISOString(),
                         time: new Date()
                     }),
                 };
             }
         }
     }
-    const newVote = `${timestamp},${requestIp},${poll},${vote},${country},${nonce}\n`;
+
+    // Get GeoIP information
+    const ipInfo = getIPInfo(requestIp);
+    const countryGeoip = ipInfo?.country || 'XX';
+    const asnNameGeoip = ipInfo?.as_name || '';
+
+    // Create new vote line with GeoIP data
+    const newVote = `${timestamp},${requestIp},${poll},${vote},${country},${nonce},${countryGeoip},${asnNameGeoip}\n`;
     const newVotes = data + newVote;
     const putParams = {
         Bucket: 'ipvotes',
         Key: fileName,
         Body: newVotes,
     }; 
-    
 
     // Send the upload command to S3
     const command = new PutObjectCommand(putParams);
