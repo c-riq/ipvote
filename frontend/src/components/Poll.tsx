@@ -20,6 +20,7 @@ import Plot from 'react-plotly.js'
 import DownloadIcon from '@mui/icons-material/Download'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import PrivacyAccept from './ui/PrivacyAccept'
+import VoteMap from './VoteMap'
 
 interface VoteHistory {
   date: string;
@@ -47,6 +48,7 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
   const [voteHistory, setVoteHistory] = useState<VoteHistory[]>([])
   const [includeTor, setIncludeTor] = useState(true)
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLButtonElement | null>(null)
+  const [votesByCountry, setVotesByCountry] = useState<{ [key: string]: { [option: string]: number } }>({})
 
   useEffect(() => {
     // Get poll ID from URL path or hash
@@ -70,6 +72,8 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
 
   const filterOpen = Boolean(filterAnchorEl)
 
+  console.log(votesByCountry)
+
   const fetchResults = async (pollId: string) => {
     try {
       const response = await fetch(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${pollId}&excludeTor=${!includeTor}`)
@@ -88,6 +92,19 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
           const noVotes = votes.filter(vote => vote.split(',')[3] === 'no').length
           setResults({ yes: yesVotes, no: noVotes })
         }
+
+        // Process votes by country
+        const countryVotes: { [key: string]: { [option: string]: number } } = {};
+        votes.forEach(vote => {
+          const [, , , option, , , country] = vote.split(',');
+          if (country && country !== 'XX') {
+            if (!countryVotes[country]) {
+              countryVotes[country] = {};
+            }
+            countryVotes[country][option] = (countryVotes[country][option] || 0) + 1;
+          }
+        });
+        setVotesByCountry(countryVotes);
 
         // Process historical data
         const dailyVotes: { [key: string]: { [key: string]: number } } = {}
@@ -422,15 +439,22 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
           </Box>
 
           {Object.keys(results).length > 0 && (
-            <Box sx={{ mt: 2, mb: 4 }}>
-              <Button
-                variant="outlined"
-                onClick={downloadPollData}
-                startIcon={<DownloadIcon />}
-              >
-                Download Poll Data
-              </Button>
-            </Box>
+            <>
+              <VoteMap 
+                votesByCountry={votesByCountry} 
+                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']} 
+              />
+              
+              <Box sx={{ mt: 2, mb: 4 }}>
+                <Button
+                  variant="outlined"
+                  onClick={downloadPollData}
+                  startIcon={<DownloadIcon />}
+                >
+                  Download Poll Data
+                </Button>
+              </Box>
+            </>
           )}
         </>
       )}
