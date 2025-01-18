@@ -31,6 +31,12 @@ interface PollProps {
   userIp: string | null
   onPrivacyAcceptChange: (accepted: boolean) => void
 }
+/* voting data schema:
+time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip
+1730688934736,5.45.104.XXX,harris_or_trump,trump,,,DE,netcup GmbH
+1730689251360,2.58.56.XXX,harris_or_trump,trump,,,NL,1337 Services GmbH
+1730690649238,5.255.99.XXX,harris_or_trump,trump,,,NL,The Infrastructure Group B.V.
+*/
 
 function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
   const location = useLocation()
@@ -66,7 +72,7 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
 
   const fetchResults = async (pollId: string) => {
     try {
-      const response = await fetch(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${pollId}&excludeTor=${!includeTor}`)
+      const response = await fetch(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${pollId}&excludeTor=${!includeTor}`)
       if (response.status === 200) {
         const text = await response.text()
         const votes = text.split('\n').filter(line => line.trim())
