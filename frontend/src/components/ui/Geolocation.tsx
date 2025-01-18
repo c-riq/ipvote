@@ -28,6 +28,7 @@ interface CountryData {
 // Import and type the countries data
 // @ts-ignore
 import countriesData from '@geo-maps/countries-land-10km'
+import { IpInfoResponse } from '../../App'
 const countries = countriesData() as CountryData
 
 // Replace with your Mapbox access token
@@ -156,7 +157,7 @@ const handleAntimeridian = (circle: GeoJSON.Feature) => {
 
 interface GeolocationProps {
   privacyAccepted: boolean
-  userIp: string | null
+  userIpInfo: IpInfoResponse | null
   onPrivacyAcceptChange: (accepted: boolean) => void
 }
 
@@ -186,7 +187,7 @@ const MEASUREMENT_DELAY_MS = 800;
 // Helper function for delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: GeolocationProps) {
+function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange }: GeolocationProps) {
   const [messages, setMessages] = useState<LatencyMessage[]>([])
   const [clockOffsets, setClockOffsets] = useState<ClockOffset[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -570,7 +571,7 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
       </Typography>
 
       <PrivacyAccept
-        userIp={userIp}
+        userIp={userIpInfo?.ip || null}
         accepted={privacyAccepted}
         onAcceptChange={onPrivacyAcceptChange}
         textAlign="center"
@@ -675,6 +676,25 @@ function Geolocation({ privacyAccepted, userIp, onPrivacyAcceptChange }: Geoloca
           <Typography color="warning.dark">
             ⚠️ Warning: All measured latencies are above 100ms. The location results may be unreliable due to slow network conditions.
           </Typography>
+        </Box>
+      )}
+
+      {userIpInfo && (
+        <Box sx={{ mt: 2, p: 2, bgcolor: '#eeeeee', borderRadius: 1 }}>
+        <Typography variant="h6" gutterBottom>
+            IP Address Data:
+          </Typography>
+          <p>
+              Independent of the network latency triangulation, publicly available data sets allow the inference of one's location in most cases.
+              The following IP address data is powered by <a href="https://ipinfo.io">IPinfo</a>. Where we donloaded a corresponding dataset.
+              <br/>
+              IP Address: {userIpInfo.ip}
+              <br/>
+              Country: <b>{userIpInfo.geo.country_name}</b>
+              <br/>
+              Autonomous System Name: {userIpInfo.geo.as_name}
+              
+          </p>
         </Box>
       )}
     </Paper>

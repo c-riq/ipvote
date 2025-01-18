@@ -32,10 +32,10 @@ exports.handler = async (event) => {
                 continent_name: null,
                 asn: null,
                 as_name: null,
-                as_domain: null,
-                attribution: '<p>IP address data powered by <a href="https://ipinfo.io">IPinfo</a></p>'
+                as_domain: null
             },
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            attribution: '<p>IP address data powered by <a href="https://ipinfo.io">IPinfo</a></p>'
         })
     };
 }; 

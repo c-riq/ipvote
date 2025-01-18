@@ -4,25 +4,26 @@ import { lazy } from 'react'
 import Newsletter from './ui/Newsletter'
 import Popular from './ui/Popular'
 import CreatePoll from './ui/CreatePoll'
+import { IpInfoResponse } from '../App'
 
 // Lazy load Geolocation component
 const Geolocation = lazy(() => import('./ui/Geolocation'))
 
 interface MainContentProps {
   privacyAccepted: boolean
-  userIp: string | null
+  userIpInfo: IpInfoResponse | null
   onPrivacyAcceptChange: (accepted: boolean) => void
   query: string
 }
 
-function MainContent({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: MainContentProps) {
+function MainContent({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query }: MainContentProps) {
   return (
     <main className="content">
       <Routes>
         <Route path="newsletter" element={<Newsletter />} />
         <Route path="popular" element={<Popular 
           privacyAccepted={privacyAccepted} 
-          userIp={userIp} 
+          userIp={userIpInfo?.ip || null} 
           onPrivacyAcceptChange={onPrivacyAcceptChange}
           query={query}
         />} />
@@ -36,7 +37,7 @@ function MainContent({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: 
           }>
             <Geolocation 
               privacyAccepted={privacyAccepted} 
-              userIp={userIp} 
+              userIpInfo={userIpInfo} 
               onPrivacyAcceptChange={onPrivacyAcceptChange}
             />
           </Suspense>
