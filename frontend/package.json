@@ -7,11 +7,13 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@geo-maps/countries-land-10km": "^0.6.0",
     "@mui/icons-material": "^6.4.0",
     "@mui/material": "^6.4.0",
     "@turf/turf": "^7.2.0",
@@ -24,6 +26,9 @@
     "react-router-dom": "^7.1.2"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/react": "^14.2.1",
+    "@testing-library/user-event": "^14.5.2",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@types/react-plotly.js": "^2.6.3",
@@ -31,8 +36,10 @@
     "eslint": "^8.55.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "jsdom": "^24.0.0",
     "typescript": "^5.2.2",
     "typescript-eslint": "^7.0.0",
-    "vite": "^5.0.8"
+    "vite": "^5.0.8",
+    "vitest": "^1.3.1"
   }
 }

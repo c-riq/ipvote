@@ -13,6 +13,21 @@ interface PrivacyState {
   timestamp?: string;  // ISO string format
 }
 
+export interface IpInfoResponse {
+  ip: string
+  geo: {
+    country: string | null
+    country_name: string | null
+    continent: string | null
+    continent_name: string | null
+    asn: string | null
+    as_name: string | null
+    as_domain: string | null
+  }
+  timestamp: string
+  attribution: string
+}
+
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768)
   const [privacyAccepted, setPrivacyAccepted] = useState<boolean>(() => {
@@ -23,7 +38,7 @@ function App() {
     }
     return false
   })
-  const [userIp, setUserIp] = useState<string | null>(null)
+  const [userIpInfo, setUserIpInfo] = useState<IpInfoResponse | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
@@ -37,9 +52,9 @@ function App() {
 
   useEffect(() => {
     // Fetch user's IP
-    fetch('https://rudno6667jmowgyjqruw7dkd2i0bhcpo.lambda-url.us-east-1.on.aws/')
-      .then(response => response.json())
-      .then(data => setUserIp(data.ip))
+    fetch('https://awcntp2t5izba44go77lc4evvy0ewfzy.lambda-url.us-east-1.on.aws/')
+      .then(response => response.json() as Promise<IpInfoResponse>)
+      .then(data => setUserIpInfo(data))
   }, [])
 
   const lightTheme = createTheme({
@@ -83,7 +98,7 @@ function App() {
                 {/* UI routes */}
                 <Route path="/ui/*" element={<MainContent 
                   privacyAccepted={privacyAccepted} 
-                  userIp={userIp} 
+                  userIpInfo={userIpInfo} 
                   onPrivacyAcceptChange={handlePrivacyAcceptChange}
                   query={searchQuery}
                 />} />
@@ -91,7 +106,7 @@ function App() {
                 {/* Routes with dots (e.g., file extensions) */}
                 <Route path="*.*" element={<MainContent 
                   privacyAccepted={privacyAccepted} 
-                  userIp={userIp} 
+                  userIpInfo={userIpInfo} 
                   onPrivacyAcceptChange={handlePrivacyAcceptChange}
                   query={searchQuery}
                 />} />
@@ -100,7 +115,7 @@ function App() {
                 <Route path="/*" element={
                   <Poll 
                     privacyAccepted={privacyAccepted}
-                    userIp={userIp}
+                    userIp={userIpInfo?.ip || null}
                     onPrivacyAcceptChange={handlePrivacyAcceptChange}
                   />
                 } />
