@@ -2,3 +2,5 @@ node_modules
 .venv
 .DS_Store
 .env
+data/
+serverless/ipInfos/ip_info_io_country_asn_partitioned/
