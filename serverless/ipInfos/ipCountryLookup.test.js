@@ -26,12 +26,14 @@ if (!fs.existsSync(TEST_DIR)) {
     fs.mkdirSync(TEST_DIR, { recursive: true });
 }
 
-// Create sample files
-Object.entries(SAMPLE_FILES).forEach(([filename, content]) => {
-    const filePath = path.join(TEST_DIR, filename);
-    // Ensure we're writing the content with proper line endings
-    fs.writeFileSync(filePath, content.trim() + '\n', 'utf8');
-});
+// Only create sample files if directory is empty
+const existingFiles = fs.readdirSync(TEST_DIR);
+if (existingFiles.length === 0) {
+    Object.entries(SAMPLE_FILES).forEach(([filename, content]) => {
+        const filePath = path.join(TEST_DIR, filename);
+        fs.writeFileSync(filePath, content.trim() + '\n', 'utf8');
+    });
+}
 
 // Now we can safely require the module
 const { getIPInfo, ipv4ToInt, ipv6ToBigInt } = require('./ipCountryLookup');
