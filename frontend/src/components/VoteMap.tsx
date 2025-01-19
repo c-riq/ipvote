@@ -6,7 +6,7 @@ import {
   ZoomableGroup 
 } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
-import { Box, Typography, Paper } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import geoData from './VoteMapCountries.json';
 import InfoBox from './InfoBox';
 
