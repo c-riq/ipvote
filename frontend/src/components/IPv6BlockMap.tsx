@@ -29,8 +29,11 @@ const IPv6BlockMap: React.FC<IPv6BlockMapProps> = ({ votes, options }) => {
       // Only process IPv6 addresses
       if (!ip.includes(':')) return;
       
-      // Get first 8 bits (2 hex digits)
-      const firstBlock = ip.split(':')[0].padStart(4, '0').slice(0, 2);
+      // Get first 28 bits (7 hex digits)
+      const parts = ip.split(':');
+      const firstPart = parts[0].padStart(4, '0');
+      const secondPart = parts[1] ? parts[1].padStart(4, '0') : '0000';
+      const firstBlock = firstPart + secondPart.slice(0, 3);
       
       if (!blocks[firstBlock]) {
         blocks[firstBlock] = {
@@ -79,8 +82,8 @@ const IPv6BlockMap: React.FC<IPv6BlockMapProps> = ({ votes, options }) => {
         Votes by IPv6 Block
       </Typography>
       <Typography variant="body2" gutterBottom>
-        Each square represents a /8 IPv6 block (first 2 hex digits). Color intensity indicates number of votes,
-        color indicates majority vote in that block.
+        Each square represents a /28 IPv6 block (first 7 hex digits). Color intensity indicates number of votes,
+        color indicates majority vote in that block. Only blocks with votes are shown.
       </Typography>
 
       {/* Grid container */}
@@ -95,11 +98,9 @@ const IPv6BlockMap: React.FC<IPv6BlockMapProps> = ({ votes, options }) => {
         p: 1,
         backgroundColor: '#f5f5f5'
       }}>
-        {Array.from({ length: 256 }, (_, i) => {
-          const block = i.toString(16).padStart(2, '0');
-          const data = blockData[block] || { total: 0, votes: {}, asns: {}, countries: {} };
-          
-          return (
+        {Object.entries(blockData)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([block, data]) => (
             <Box
               key={block}
               sx={{
@@ -117,8 +118,7 @@ const IPv6BlockMap: React.FC<IPv6BlockMapProps> = ({ votes, options }) => {
               onMouseEnter={() => setSelectedBlock({ block, data })}
               onMouseLeave={() => setSelectedBlock(null)}
             />
-          );
-        })}
+          ))}
       </Box>
 
       {/* Legend */}
@@ -148,7 +148,7 @@ const IPv6BlockMap: React.FC<IPv6BlockMapProps> = ({ votes, options }) => {
         {selectedBlock ? (
           <Box>
             <Typography variant="subtitle1" gutterBottom>
-              IPv6 Block: {selectedBlock.block}xx::/16
+              IPv6 Block: {selectedBlock.block.slice(0, 4)}:{selectedBlock.block.slice(4)}0::/28
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Total votes: {selectedBlock.data.total}
