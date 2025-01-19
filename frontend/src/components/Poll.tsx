@@ -49,6 +49,8 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
   const [results, setResults] = useState<{ [key: string]: number }>({})
   const [voteHistory, setVoteHistory] = useState<VoteHistory[]>([])
   const [includeTor, setIncludeTor] = useState(true)
+  const [includeVpn, setIncludeVpn] = useState(true)
+  const [includeCloud, setIncludeCloud] = useState(true)
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLButtonElement | null>(null)
   const [votesByCountry, setVotesByCountry] = useState<{ [key: string]: { [option: string]: number } }>({})
   const [votes, setVotes] = useState<string[]>([])
@@ -70,7 +72,7 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
     if (allVotes.length > 0 && poll) {
       processVotes(allVotes)
     }
-  }, [includeTor, allVotes, poll])
+  }, [includeTor, includeVpn, includeCloud, allVotes, poll])
 
   const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setFilterAnchorEl(event.currentTarget)
@@ -98,13 +100,13 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
   }
 
   const processVotes = (voteData: string[]) => {
-    // Filter out Tor votes if includeTor is false
-    const filteredVotes = includeTor 
-      ? voteData 
-      : voteData.filter(vote => {
-          const [,,,,,,,,is_tor] = vote.split(',')
-          return is_tor !== '1'
-        })
+    // Filter votes based on user preferences
+    const filteredVotes = voteData.filter(vote => {
+      const [,,,,,,,,is_tor,is_vpn,is_cloud_provider] = vote.split(',')
+      return (includeTor || is_tor !== '1') && 
+             (includeVpn || is_vpn !== '1') && 
+             (includeCloud || is_cloud_provider.trim() === '')
+    })
 
     // Process current totals
     if (poll.includes('_or_')) {
@@ -437,13 +439,33 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
                             checked={includeTor}
                             onChange={(e) => {
                               setIncludeTor(e.target.checked);
-                              fetchResults(poll);
                             }}
                           />
                         }
                         label="Include votes from Tor exit nodes"
                       />
-                      {/* Additional filters can be added here in the future */}
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={includeVpn}
+                            onChange={(e) => {
+                              setIncludeVpn(e.target.checked);
+                            }}
+                          />
+                        }
+                        label="Include votes from VPN services"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={includeCloud}
+                            onChange={(e) => {
+                              setIncludeCloud(e.target.checked);
+                            }}
+                          />
+                        }
+                        label="Include votes from cloud providers"
+                      />
                     </FormGroup>
                   </FormControl>
                 </Paper>
