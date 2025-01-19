@@ -46,20 +46,27 @@ function Header({ isSidebarOpen, setIsSidebarOpen, onSearchChange }: HeaderProps
       >
         ☰
       </button>
-      <Typography 
-        variant="h6" 
-        component="div" 
-        className="site-title"
-        sx={{ 
-          cursor: 'pointer', 
-          mr: 2,
-          fontWeight: 'bold',
-          '&:hover': { color: 'primary.main' }
-        }}
-        onClick={() => navigate('/')}
-      >
-        ip-vote.com
-      </Typography>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <img 
+          src="/img/logo.png" 
+          alt="IP Vote Logo" 
+          style={{ height: '24px', marginRight: '8px' }}
+        />
+        <Typography 
+          variant="h6" 
+          component="div" 
+          className="site-title"
+          sx={{ 
+            cursor: 'pointer', 
+            mr: 2,
+            fontWeight: 'bold',
+            '&:hover': { color: 'primary.main' }
+          }}
+          onClick={() => navigate('/')}
+        >
+          ip-vote.com
+        </Typography>
+      </div>
       <div className="search-container">
         <input 
           type="search" 
