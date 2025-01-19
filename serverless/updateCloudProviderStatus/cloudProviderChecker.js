@@ -6,18 +6,27 @@ function ipToInt(ip) {
 }
 
 function ipv6ToBytes(ip) {
-    const fullAddress = ip.split('::').map(part => {
-        const segments = part.split(':');
-        return segments.concat(Array(8 - segments.length).fill('0')).slice(0, 8);
-    }).join(':');
-    
-    return fullAddress.split(':')
-        .map(group => parseInt(group || '0', 16))
-        .reduce((acc, val) => {
-            acc.push((val >> 8) & 0xff);
-            acc.push(val & 0xff);
-            return acc;
-        }, []);
+    // Expand compressed notation
+    let fullAddress = ip;
+    if (ip.includes('::')) {
+        const parts = ip.split('::');
+        const missing = 8 - (parts[0].split(':').length + parts[1].split(':').length);
+        const zeros = Array(missing).fill('0000').join(':');
+        fullAddress = `${parts[0]}:${zeros}${parts[1] ? ':' + parts[1] : ''}`;
+    }
+
+    // Ensure all parts are 4 digits
+    const bytes = [];
+    fullAddress.split(':').forEach(part => {
+        // Pad each part to 4 digits
+        const paddedPart = part.padStart(4, '0');
+        // Convert each 16-bit group to two bytes
+        const value = parseInt(paddedPart, 16);
+        bytes.push((value >> 8) & 0xff);
+        bytes.push(value & 0xff);
+    });
+
+    return bytes;
 }
 
 function isIPInRange(ip, cidr) {
@@ -34,10 +43,12 @@ function isIPInRange(ip, cidr) {
         const rangeBytes = ipv6ToBytes(rangeIP);
         
         const fullBytes = Math.floor(prefixLength / 8);
+        // Check full bytes
         for (let i = 0; i < fullBytes; i++) {
             if (ipBytes[i] !== rangeBytes[i]) return false;
         }
         
+        // Check remaining bits
         const remainingBits = prefixLength % 8;
         if (remainingBits > 0) {
             const mask = 0xff << (8 - remainingBits);
@@ -57,22 +68,52 @@ function isIPInRange(ip, cidr) {
     }
 }
 
+function getFirstIPv4Byte(ip) {
+    return ip.split('.')[0];
+}
+
+function getFirstIPv6Section(ip) {
+    return ip.split(':')[0];
+}
+
 function createIPRangeLookup(ranges) {
-    const ipv4Ranges = [];
-    const ipv6Ranges = [];
+    const ipv4RangeMap = {};
+    const ipv6RangeMap = {};
     
     for (const range of ranges) {
-        if (range.ip_prefix.includes(':')) {
-            ipv6Ranges.push(range);
+        const { ip_prefix } = range;
+        
+        if (ip_prefix.includes(':')) {
+            // IPv6
+            const firstSection = getFirstIPv6Section(ip_prefix);
+            if (!ipv6RangeMap[firstSection]) {
+                ipv6RangeMap[firstSection] = [];
+            }
+            ipv6RangeMap[firstSection].push(range);
         } else {
-            ipv4Ranges.push(range);
+            // IPv4
+            const firstByte = getFirstIPv4Byte(ip_prefix);
+            if (!ipv4RangeMap[firstByte]) {
+                ipv4RangeMap[firstByte] = [];
+            }
+            ipv4RangeMap[firstByte].push(range);
         }
     }
     
-    ipv4Ranges.sort((a, b) => parseInt(b.ip_prefix.split('/')[1]) - parseInt(a.ip_prefix.split('/')[1]));
-    ipv6Ranges.sort((a, b) => parseInt(b.ip_prefix.split('/')[1]) - parseInt(a.ip_prefix.split('/')[1]));
+    // Sort ranges within each block by prefix length (most specific first)
+    for (const block in ipv4RangeMap) {
+        ipv4RangeMap[block].sort((a, b) => 
+            parseInt(b.ip_prefix.split('/')[1]) - parseInt(a.ip_prefix.split('/')[1])
+        );
+    }
     
-    return { ipv4Ranges, ipv6Ranges };
+    for (const block in ipv6RangeMap) {
+        ipv6RangeMap[block].sort((a, b) => 
+            parseInt(b.ip_prefix.split('/')[1]) - parseInt(a.ip_prefix.split('/')[1])
+        );
+    }
+    
+    return { ipv4RangeMap, ipv6RangeMap };
 }
 
 function findCloudProvider(ip, rangeLookup) {
@@ -80,13 +121,29 @@ function findCloudProvider(ip, rangeLookup) {
         return ipCache.get(ip);
     }
     
-    const ranges = ip.includes(':') ? rangeLookup.ipv6Ranges : rangeLookup.ipv4Ranges;
     let result = null;
     
-    for (const range of ranges) {
-        if (isIPInRange(ip, range.ip_prefix)) {
-            result = `${range.cloud_provider}:${range.tag}`;
-            break;
+    if (ip.includes(':')) {
+        // IPv6
+        const firstSection = getFirstIPv6Section(ip);
+        const relevantRanges = rangeLookup.ipv6RangeMap[firstSection] || [];
+        
+        for (const range of relevantRanges) {
+            if (isIPInRange(ip, range.ip_prefix)) {
+                result = `${range.cloud_provider}:${range.tag}`;
+                break;
+            }
+        }
+    } else {
+        // IPv4
+        const firstByte = getFirstIPv4Byte(ip);
+        const relevantRanges = rangeLookup.ipv4RangeMap[firstByte] || [];
+        
+        for (const range of relevantRanges) {
+            if (isIPInRange(ip, range.ip_prefix)) {
+                result = `${range.cloud_provider}:${range.tag}`;
+                break;
+            }
         }
     }
     
