@@ -185,6 +185,7 @@ const VoteMap: React.FC<VoteMapProps> = ({ votesByCountry, options }) => {
     total: number;
     winner: string;
   } | null>(null);
+  const [zoomEnabled, setZoomEnabled] = useState(false);
 
   // Convert country codes to names for mapping
   const votesByCountryName = Object.entries(votesByCountry).reduce((acc, [code, votes]) => {
@@ -265,58 +266,120 @@ const VoteMap: React.FC<VoteMapProps> = ({ votesByCountry, options }) => {
       {/* Map container */}
       <Box sx={{ 
         width: '100%', 
-        height: '400px',
+        height: {
+          xs: '300px', // Small screens
+          sm: '340px', // Medium screens
+          md: '380px'  // Large screens
+        },
         border: '1px solid #ddd',
         borderRadius: 1,
         overflow: 'hidden'
       }}>
-        <ComposableMap projectionConfig={{ scale: 147 }}>
-          <ZoomableGroup>
-            <Geographies geography={geoData}>
-              {({ geographies }) =>
-                geographies.map((geo) => {
-                  const countryName = geo.properties.name;
-                  const votes = countryTotals[countryName] || 0;
-                  const winner = countryWinners[countryName];
-                  const countryVotes = votesByCountryName[countryName] || {};
-                  
-                  return (
-                    <Geography
-                      key={geo.rsmKey}
-                      geography={geo}
-                      fill={getCountryColor(countryName)}
-                      stroke="#D6D6DA"
-                      style={{
-                        default: {
-                          outline: 'none'
-                        },
-                        hover: {
-                          fill: '#FFFFFF',
-                          outline: 'none'
-                        },
-                        pressed: {
-                          outline: 'none'
-                        }
-                      }}
-                      onMouseEnter={() => {
-                        setSelectedCountry({
-                          country: countryName,
-                          votes: countryVotes,
-                          total: votes,
-                          winner: winner
-                        });
-                      }}
-                      onMouseLeave={() => {
-                        setSelectedCountry(null);
-                      }}
-                    />
-                  );
-                })
-              }
-            </Geographies>
-          </ZoomableGroup>
+        <ComposableMap 
+          projectionConfig={{ scale: 130 }}
+          height={350}
+        >
+          {zoomEnabled ? (
+            <ZoomableGroup>
+              <g>
+                <Geographies geography={geoData}>
+                  {({ geographies }) =>
+                    geographies.map((geo) => {
+                      const countryName = geo.properties.name;
+                      const votes = countryTotals[countryName] || 0;
+                      const winner = countryWinners[countryName];
+                      const countryVotes = votesByCountryName[countryName] || {};
+                      
+                      return (
+                        <Geography
+                          key={geo.rsmKey}
+                          geography={geo}
+                          fill={getCountryColor(countryName)}
+                          stroke="#D6D6DA"
+                          style={{
+                            default: {
+                              outline: 'none'
+                            },
+                            hover: {
+                              fill: '#FFFFFF',
+                              outline: 'none'
+                            },
+                            pressed: {
+                              outline: 'none'
+                            }
+                          }}
+                          onMouseEnter={() => {
+                            setSelectedCountry({
+                              country: countryName,
+                              votes: countryVotes,
+                              total: votes,
+                              winner: winner
+                            });
+                          }}
+                          onMouseLeave={() => {
+                            setSelectedCountry(null);
+                          }}
+                        />
+                      );
+                    })
+                  }
+                </Geographies>
+              </g>
+            </ZoomableGroup>
+          ) : (
+            <g onClick={() => setZoomEnabled(true)}>
+              <Geographies geography={geoData}>
+                {({ geographies }) =>
+                  geographies.map((geo) => {
+                    const countryName = geo.properties.name;
+                    const votes = countryTotals[countryName] || 0;
+                    const winner = countryWinners[countryName];
+                    const countryVotes = votesByCountryName[countryName] || {};
+                    
+                    return (
+                      <Geography
+                        key={geo.rsmKey}
+                        geography={geo}
+                        fill={getCountryColor(countryName)}
+                        stroke="#D6D6DA"
+                        style={{
+                          default: {
+                            outline: 'none'
+                          },
+                          hover: {
+                            fill: '#FFFFFF',
+                            outline: 'none'
+                          },
+                          pressed: {
+                            outline: 'none'
+                          }
+                        }}
+                        onMouseEnter={() => {
+                          setSelectedCountry({
+                            country: countryName,
+                            votes: countryVotes,
+                            total: votes,
+                            winner: winner
+                          });
+                        }}
+                        onMouseLeave={() => {
+                          setSelectedCountry(null);
+                        }}
+                      />
+                    );
+                  })
+                }
+              </Geographies>
+            </g>
+          )}
         </ComposableMap>
       </Box>
+
+      {!zoomEnabled && (
+        <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>
+          Click the map to enable zoom and pan
+        </Typography>
+      )}
 
       {/* Updated legend to show flipped colors */}
       <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 2 }}>

@@ -21,6 +21,8 @@ import DownloadIcon from '@mui/icons-material/Download'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import PrivacyAccept from './ui/PrivacyAccept'
 import VoteMap from './VoteMap'
+import IPBlockMap from './IPBlockMap'
+import IPv6BlockMap from './IPv6BlockMap'
 
 interface VoteHistory {
   date: string;
@@ -49,6 +51,7 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
   const [includeTor, setIncludeTor] = useState(true)
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLButtonElement | null>(null)
   const [votesByCountry, setVotesByCountry] = useState<{ [key: string]: { [option: string]: number } }>({})
+  const [votes, setVotes] = useState<string[]>([])
 
   useEffect(() => {
     // Get poll ID from URL path or hash
@@ -130,6 +133,7 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
         })).sort((a, b) => a.date.localeCompare(b.date))
 
         setVoteHistory(history)
+        setVotes(votes)
       }
     } catch (error) {
       console.error('Error fetching results:', error)
@@ -441,6 +445,16 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
               <VoteMap 
                 votesByCountry={votesByCountry} 
                 options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']} 
+              />
+              
+              <IPBlockMap
+                votes={votes}
+                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']}
+              />
+              
+              <IPv6BlockMap
+                votes={votes}
+                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']}
               />
               
               <Box sx={{ mt: 2, mb: 4 }}>
