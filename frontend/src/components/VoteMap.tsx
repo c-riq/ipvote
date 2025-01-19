@@ -263,13 +263,60 @@ const VoteMap: React.FC<VoteMapProps> = ({ votesByCountry, options }) => {
         <a href="/ui/geolocation">Geolocation</a>.
       </Typography>
 
+      {/* Country info display - Moved above the map */}
+      <Paper 
+        elevation={3}
+        sx={{ 
+          p: 2, 
+          mb: 2, // Changed from mt to mb
+          height: '120px',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          overflow: 'auto'
+        }}
+      >
+        {selectedCountry ? (
+          <Box sx={{ height: '100%' }}>
+            <Typography variant="subtitle1" gutterBottom>
+              {selectedCountry.country}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Total votes: {selectedCountry.total}
+            </Typography>
+            {Object.entries(selectedCountry.votes).map(([option, count]) => (
+              <Typography 
+                key={option} 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ 
+                  color: option === selectedCountry.winner ? 'success.main' : 'inherit',
+                  fontWeight: option === selectedCountry.winner ? 'bold' : 'normal'
+                }}
+              >
+                {option}: {count}
+              </Typography>
+            ))}
+          </Box>
+        ) : (
+          <Box sx={{ 
+            height: '100%', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center' 
+          }}>
+            <Typography variant="body2" color="text.secondary">
+              Hover over a country to see voting details
+            </Typography>
+          </Box>
+        )}
+      </Paper>
+
       {/* Map container */}
       <Box sx={{ 
         width: '100%', 
         height: {
-          xs: '300px', // Small screens
-          sm: '340px', // Medium screens
-          md: '380px'  // Large screens
+          xs: '300px',
+          sm: '340px',
+          md: '380px'
         },
         border: '1px solid #ddd',
         borderRadius: 1,
@@ -393,53 +440,6 @@ const VoteMap: React.FC<VoteMapProps> = ({ votesByCountry, options }) => {
           No data
         </Typography>
       </Box>
-
-      {/* Country info display */}
-      <Paper 
-        elevation={3}
-        sx={{ 
-          p: 2, 
-          mt: 2, 
-          height: '120px',
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-          overflow: 'auto'
-        }}
-      >
-        {selectedCountry ? (
-          <Box sx={{ height: '100%' }}>
-            <Typography variant="subtitle1" gutterBottom>
-              {selectedCountry.country}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Total votes: {selectedCountry.total}
-            </Typography>
-            {Object.entries(selectedCountry.votes).map(([option, count]) => (
-              <Typography 
-                key={option} 
-                variant="body2" 
-                color="text.secondary"
-                sx={{ 
-                  color: option === selectedCountry.winner ? 'success.main' : 'inherit',
-                  fontWeight: option === selectedCountry.winner ? 'bold' : 'normal'
-                }}
-              >
-                {option}: {count}
-              </Typography>
-            ))}
-          </Box>
-        ) : (
-          <Box sx={{ 
-            height: '100%', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center' 
-          }}>
-            <Typography variant="body2" color="text.secondary">
-              Hover over a country to see voting details
-            </Typography>
-          </Box>
-        )}
-      </Paper>
     </Box>
   );
 };

@@ -79,6 +79,55 @@ const IPBlockMap: React.FC<IPBlockMapProps> = ({ votes, options }) => {
         color indicates majority vote in that block.
       </Typography>
 
+      {/* Block info display - Moved above the grid */}
+      <Paper 
+        elevation={3}
+        sx={{ 
+          p: 2, 
+          mb: 2, // Changed from mt to mb
+          height: '160px',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          overflow: 'auto'
+        }}
+      >
+        {selectedBlock ? (
+          <Box>
+            <Typography variant="subtitle1" gutterBottom>
+              IP Block: {selectedBlock.block}.0.0.0/8
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Total votes: {selectedBlock.data.total}
+            </Typography>
+            {Object.entries(selectedBlock.data.votes).map(([option, count]) => (
+              <Typography 
+                key={option} 
+                variant="body2" 
+                color="text.secondary"
+              >
+                {option}: {count} ({((count / selectedBlock.data.total) * 100).toFixed(1)}%)
+              </Typography>
+            ))}
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Countries: {Object.keys(selectedBlock.data.countries).length}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              ASNs: {Object.keys(selectedBlock.data.asns).length}
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ 
+            height: '100%', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center' 
+          }}>
+            <Typography variant="body2" color="text.secondary">
+              Hover over an IPv4 block to see voting details
+            </Typography>
+          </Box>
+        )}
+      </Paper>
+
       {/* Grid container */}
       <Box sx={{ 
         maxWidth: '600px',  // Add max width
@@ -129,55 +178,6 @@ const IPBlockMap: React.FC<IPBlockMapProps> = ({ votes, options }) => {
           No data
         </Typography>
       </Box>
-
-      {/* Block info display */}
-      <Paper 
-        elevation={3}
-        sx={{ 
-          p: 2, 
-          mt: 2, 
-          height: '160px',
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-          overflow: 'auto'
-        }}
-      >
-        {selectedBlock ? (
-          <Box>
-            <Typography variant="subtitle1" gutterBottom>
-              IP Block: {selectedBlock.block}.0.0.0/8
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Total votes: {selectedBlock.data.total}
-            </Typography>
-            {Object.entries(selectedBlock.data.votes).map(([option, count]) => (
-              <Typography 
-                key={option} 
-                variant="body2" 
-                color="text.secondary"
-              >
-                {option}: {count} ({((count / selectedBlock.data.total) * 100).toFixed(1)}%)
-              </Typography>
-            ))}
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Countries: {Object.keys(selectedBlock.data.countries).length}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              ASNs: {Object.keys(selectedBlock.data.asns).length}
-            </Typography>
-          </Box>
-        ) : (
-          <Box sx={{ 
-            height: '100%', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center' 
-          }}>
-            <Typography variant="body2" color="text.secondary">
-              Hover over an IPv4 block to see voting details
-            </Typography>
-          </Box>
-        )}
-      </Paper>
     </Box>
   );
 };
