@@ -63,7 +63,6 @@ const IPv6BlockMap: React.FC<IPv6BlockMapProps> = ({ votes, options }) => {
     }
 
     const option1Votes = data.votes[options[0]] || 0;
-    const option2Votes = data.votes[options[1]] || 0;
     const ratio = option1Votes / data.total;
     const opacity = (data.total / maxVotes) * 0.8 + 0.2;
 
