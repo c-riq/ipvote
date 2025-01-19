@@ -72,9 +72,7 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
 
   const filterOpen = Boolean(filterAnchorEl)
 
-  console.log(votesByCountry)
-
-  const fetchResults = async (pollId: string, refresh: boolean = false) => {
+  const fetchResults = async (pollId: string, refresh: boolean = true) => {
     try {
       const response = await fetch(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${pollId}&excludeTor=${!includeTor}&refresh=${refresh}`)
       if (response.status === 200) {

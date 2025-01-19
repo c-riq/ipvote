@@ -68,7 +68,7 @@ module.exports.handler = async (event) => {
     const poll = event.queryStringParameters.poll;
     const country = event.queryStringParameters.country;
     const nonce = event.queryStringParameters.nonce;
-    const forbiddenStringsRegex = /,|\\n|\\r|\\t|>|</;
+    const forbiddenStringsRegex = /,|\\n|\\r|\\t|>|<|"/;
     if (!vote || !poll) {
         return {
             statusCode: 400,
@@ -166,7 +166,8 @@ module.exports.handler = async (event) => {
     const asnNameGeoip = ipInfo?.as_name || '';
 
     // Create new vote line with GeoIP data
-    const newVote = `${timestamp},${requestIp},${poll},${vote},${country},${nonce},${countryGeoip},${asnNameGeoip}\n`;
+    // TODO: fix csv parsing
+    const newVote = `${timestamp},${requestIp},${poll},${vote},${country},${nonce},${countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')}\n`;
     const newVotes = data + newVote;
     const putParams = {
         Bucket: 'ipvotes',

@@ -5,11 +5,11 @@ import PollCard from './PollCard'
 import PrivacyAccept from './PrivacyAccept'
 
 const LIMIT = 15
-const SEED_RANGE = 4
 
 interface PollData {
   name: string
   votes: number
+  isUpdating?: boolean
 }
 
 interface PopularProps {
@@ -25,7 +25,7 @@ function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: Popu
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [offset, setOffset] = useState(0)
-  const [seed] = useState(() => Math.floor(Math.random() * SEED_RANGE) + 1)
+  const [seed] = useState(1)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -40,15 +40,25 @@ function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: Popu
     }
   }, [offset])
 
-  const fetchPopularPolls = async (loadMore = false) => {
+  const fetchPopularPolls = async (loadMore = false, pollToUpdate: string = '') => {
     if (loadMore) {
       setLoadingMore(true)
     } else {
-      setLoading(true)
+      if (!pollToUpdate) {
+        setLoading(true)
+      } else {
+        // Set updating state for specific poll
+        setPolls(prev => prev.map(poll => 
+          poll.name === pollToUpdate 
+            ? { ...poll, isUpdating: true }
+            : poll
+        ))
+      }
     }
+
     try {
       const response = await fetch(
-        `https://iqpemyqp6lwvg7x6ds3osrs6nm0fcjwy.lambda-url.us-east-1.on.aws/?limit=${LIMIT}&offset=${offset}&seed=${seed}&q=${encodeURIComponent(query)}`
+        `https://iqpemyqp6lwvg7x6ds3osrs6nm0fcjwy.lambda-url.us-east-1.on.aws/?limit=${LIMIT}&offset=${offset}&seed=${seed}&q=${encodeURIComponent(query)}&pollToUpdate=${pollToUpdate}`
       )
       const res = await response.json()
       const formattedPolls = res.data.map(([name, votes]: [string, number]) => ({
@@ -58,12 +68,27 @@ function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: Popu
       
       if (loadMore) {
         setPolls(prev => [...prev, ...formattedPolls])
+      } else if (pollToUpdate) {
+        // Update only the specific poll's votes and remove updating state
+        setPolls(prev => prev.map(poll => 
+          poll.name === pollToUpdate 
+            ? { ...formattedPolls[0], isUpdating: false }
+            : poll
+        ))
       } else {
         setPolls(formattedPolls)
       }
       setHasMore(formattedPolls.length === LIMIT)
     } catch (error) {
       console.error('Error fetching popular polls:', error)
+      // Remove updating state in case of error
+      if (pollToUpdate) {
+        setPolls(prev => prev.map(poll => 
+          poll.name === pollToUpdate 
+            ? { ...poll, isUpdating: false }
+            : poll
+        ))
+      }
     }
     setLoading(false)
     setLoadingMore(false)
@@ -75,6 +100,10 @@ function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: Popu
 
   const handlePollClick = (pollName: string) => {
     navigate(`/${pollName}`)
+  }
+
+  const handleVote = (pollName: string) => {
+    fetchPopularPolls(false, pollName)
   }
 
   if (loading) {
@@ -96,7 +125,9 @@ function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: Popu
           name={poll.name}
           votes={poll.votes}
           onClick={() => handlePollClick(poll.name)}
+          handleVote={handleVote}
           privacyAccepted={privacyAccepted}
+          isUpdating={poll.isUpdating}
         />
       ))}
       

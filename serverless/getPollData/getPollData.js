@@ -7,6 +7,10 @@ time,ip,poll_,vote,country,nonce,country_geoip,asn_name_geoip
 
 const s3Client = new S3Client(); 
 
+const removeForbiddenStrings = (str) => {
+    return str.replace(/,|\\n|\\r|\\t|>|<|"/g, '');
+}
+
 exports.handler = async (event) => {
     const bucket = 'ipvotes';
     const poll = event?.queryStringParameters?.poll;
@@ -160,6 +164,12 @@ async function aggregateCSVFiles(bucket, files, excludeTor) {
                             
                             // Just mask the IP and keep existing data
                             columns[1] = maskIP(columns[1]);
+
+                            // TODO: fix csv parsing
+                            if (columns.length >= 8) {
+                                columns[7] = removeForbiddenStrings(columns[7]);
+                                columns[6] = removeForbiddenStrings(columns[6]);
+                            }
                         }
                         return columns.join(',');
                     })
