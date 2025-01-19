@@ -18,17 +18,50 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 const content = fs.readFileSync(INPUT_FILE, 'utf8');
 const [header, ...lines] = content.split('\n');
 
-// Separate and sort IPv4 and IPv6 entries
+function parseCSVLine(line) {
+    const cells = [];
+    let currentCell = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+            cells.push(currentCell);
+            currentCell = '';
+        } else {
+            currentCell += char;
+        }
+    }
+    cells.push(currentCell); // Push the last cell
+    
+    // Remove surrounding quotes, encode commas, and clean special characters
+    return cells.map(cell => {
+        if (cell.startsWith('"') && cell.endsWith('"')) {
+            cell = cell.slice(1, -1);
+        }
+        return cell
+            .replace(/,/g, '%2C')
+            .replace(/[\n\r]/g, ' ')  // Replace newlines with spaces
+            .replace(/[\x00-\x1F\x7F-\x9F]/g, '')  // Remove control characters
+            .replace(/\s+/g, ' ')  // Normalize multiple spaces to single space
+            .trim();  // Remove leading/trailing whitespace
+    });
+}
+
+// Modify the entries mapping to use the new parser
 const entries = lines
     .filter(line => line.trim())  // Remove empty lines
     .map(line => {
-        const parts = line.split(',');
+        const parts = parseCSVLine(line);
         const startIP = parts[0];
         const endIP = parts[1];
         const isIPv4 = startIP.includes('.');
         const numericIP = isIPv4 ? ipv4ToInt(startIP) : ipv6ToBigInt(startIP);
         return {
-            line,
+            line: parts.join(','),  // Join with regular comma since we've encoded internal commas
             isIPv4,
             numericIP,
             startIP: isIPv4 ? startIP : startIP.replace(/:/g, ';'),
