@@ -23,7 +23,7 @@ exports.handler = async (event) => {
         };
     }
 
-    const cacheKey = `votes_aggregated_and_masked/poll=${poll}/votes.csv`;
+    const cacheKey = `votes_aggregated_and_masked/poll=${poll}/excludeTor=${excludeTor}.csv`;
     
     try {
         // Check cache first if not forcing refresh

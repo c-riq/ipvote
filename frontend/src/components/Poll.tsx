@@ -74,9 +74,9 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
 
   console.log(votesByCountry)
 
-  const fetchResults = async (pollId: string) => {
+  const fetchResults = async (pollId: string, refresh: boolean = false) => {
     try {
-      const response = await fetch(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${pollId}&excludeTor=${!includeTor}`)
+      const response = await fetch(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${pollId}&excludeTor=${!includeTor}&refresh=${refresh}`)
       if (response.status === 200) {
         const text = await response.text()
         const votes = text.split('\n').filter(line => line.trim())
@@ -347,7 +347,7 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
     if (!poll) return;
     
     // Direct download from the API endpoint
-    window.open(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}`, '_blank');
+    window.open(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=true`, '_blank');
   };
 
   return (
