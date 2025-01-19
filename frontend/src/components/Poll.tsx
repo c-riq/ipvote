@@ -57,14 +57,12 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
   const [allVotes, setAllVotes] = useState<string[]>([])
 
   useEffect(() => {
-    // Get poll ID from URL path or hash
+    // Get poll ID from URL path only
     const pollFromPath = decodeURIComponent(location.pathname.split('/')[1])
-    const pollFromHash = location.hash ? decodeURIComponent(location.hash.substring(1)) : ''
-    const currentPoll = pollFromHash || pollFromPath
 
-    if (currentPoll) {
-      setPoll(currentPoll)
-      fetchResults(currentPoll)
+    if (pollFromPath) {
+      setPoll(pollFromPath)
+      fetchResults(pollFromPath)
     }
   }, [location])
 
