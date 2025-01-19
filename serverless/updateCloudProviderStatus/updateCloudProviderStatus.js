@@ -2,7 +2,7 @@ const { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } = r
 const { createIPRangeLookup, findCloudProvider } = require('./cloudProviderChecker');
 
 const s3Client = new S3Client();
-const BUCKET_NAME = 'ipvotes-test';
+const BUCKET_NAME = 'ipvotes';
 
 async function fetchCloudProviderRanges() {
     try {

@@ -183,6 +183,15 @@ function parseApplePrivateRelayRanges(filePath) {
 }
 
 function writeCSV(records, outputPath) {
+  // Validate records first
+  for (const record of records) {
+    if (record.ip_prefix.includes(',') || record.ip_prefix.includes('"') ||
+        record.cloud_provider.includes(',') || record.cloud_provider.includes('"') ||
+        record.tag.includes(',') || record.tag.includes('"')) {
+      throw new Error('Invalid characters (comma or double quote) found in data');
+    }
+  }
+
   const header = 'ip_prefix,cloud_provider,tag\n';
   const rows = records.map(record => 
     `${record.ip_prefix},${record.cloud_provider},${record.tag}`

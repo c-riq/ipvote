@@ -21,9 +21,14 @@ if [ ! -f "combined-ip-ranges.csv" ]; then
     exit 1
 fi
 
+if [ ! -f "cloudProviderChecker.js" ]; then
+    echo "Error: cloudProviderChecker.js not found"
+    exit 1
+fi
+
 # Create deployment package
 rm -f $ZIP_FILE  # Remove any existing zip file
-zip -r $ZIP_FILE updateCloudProviderStatus.js combined-ip-ranges.csv
+zip -r $ZIP_FILE updateCloudProviderStatus.js combined-ip-ranges.csv cloudProviderChecker.js
 
 # Check if zip file was created successfully
 if [ ! -f "$ZIP_FILE" ]; then
