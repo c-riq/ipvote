@@ -26,16 +26,22 @@ async function listAllVoteFiles() {
     return files;
 }
 
-async function aggregateVotes(query = '') {
+async function aggregateVotes(query = '', pollToUpdate = null) {
     const pollCounts = new Map();
     const files = await listAllVoteFiles();
     const searchTerms = query.toLowerCase().split(/\s+/);
     
     for (const file of files) {
         try {
-            // Skip files where the poll name doesn't match the search query
-            if (query) {
-                const pollFromPath = file.Key.split('/')[1]?.split('.')[0]; // Extract poll name from path
+            // If pollToUpdate is set, only process files for that specific poll
+            if (pollToUpdate) {
+                const pollPath = `votes/poll=${pollToUpdate}/`;
+                if (!file.Key.startsWith(pollPath)) {
+                    continue;
+                }
+            } else if (query) {
+                // Skip files where the poll name doesn't match the search query
+                const pollFromPath = file.Key.split('/')[1]?.split('.')[0];
                 if (!pollFromPath || !searchTerms.every(term => 
                     pollFromPath.toLowerCase().replace(/_/g, ' ').includes(term)
                 )) {
@@ -71,6 +77,11 @@ async function aggregateVotes(query = '') {
     const results = Array.from(pollCounts.entries())
         .map(([poll, count]) => [poll, count])
         .sort((a, b) => b[1] - a[1]);
+
+    // If pollToUpdate is set, only return that poll's data
+    if (pollToUpdate) {
+        return results.filter(([poll]) => poll === pollToUpdate);
+    }
     
     return results;
 }
@@ -104,6 +115,7 @@ function generateRandomSelection(fullData, seed, limit = 30, offset = 0) {
 
 module.exports.handler = async (event) => {
     const forceRefresh = event?.queryStringParameters?.refresh === 'true';
+    const pollToUpdate = event?.queryStringParameters?.pollToUpdate;
     const seed = parseInt(event?.queryStringParameters?.seed) || 1;
     const limit = parseInt(event?.queryStringParameters?.limit) || 15;
     const offset = parseInt(event?.queryStringParameters?.offset) || 0;
@@ -126,6 +138,40 @@ module.exports.handler = async (event) => {
             const cacheValid = cacheAge < 24 * 60 * 60 * 1000;
             
             if (cacheValid) {
+                // If updating specific poll, update just that poll's data
+                if (pollToUpdate) {
+                    const updatedPollData = await aggregateVotes(query, pollToUpdate);
+                    if (updatedPollData.length > 0) {
+                        console.log('Updating poll:', pollToUpdate);
+                        // Update the specific poll's count in cached data
+                        const pollIndex = data.results.fullData.findIndex(([poll]) => poll === pollToUpdate);
+                        if (pollIndex !== -1) {
+                            data.results.fullData[pollIndex] = updatedPollData[0];
+                            // Re-sort the data
+                            data.results.fullData.sort((a, b) => b[1] - a[1]);
+                        }
+
+                        // await the cache update
+                        await s3Client.send(new PutObjectCommand({
+                            Bucket: BUCKET_NAME,
+                            Key: CACHE_KEY,
+                            Body: JSON.stringify(data),
+                            ContentType: 'application/json'
+                        }));
+
+                        // send only the updated poll
+                        return {
+                            statusCode: 200,
+                            body: JSON.stringify({
+                                columns: ['poll', 'count'],
+                                data: updatedPollData
+                            })
+                        }
+                    } else {
+                        console.log('No data found for poll to update:', pollToUpdate);
+                    }
+                }
+                
                 console.log('Cache hit - returning paginated selection from cached data');
                 const selectedPolls = generateRandomSelection(
                     data.results.fullData,
@@ -153,7 +199,18 @@ module.exports.handler = async (event) => {
     }
 
     // Aggregate votes directly from S3
-    const aggregatedData = await aggregateVotes(query);
+    const aggregatedData = await aggregateVotes(query, pollToUpdate);
+
+    if (pollToUpdate) {
+        // send response already
+        return {
+            statusCode: 200,
+            body: JSON.stringify({
+                columns: ['poll', 'count'],
+                data: aggregatedData
+            })
+        }
+    }
     
     // No need to filter again since we filtered during aggregation
     const filteredData = aggregatedData;

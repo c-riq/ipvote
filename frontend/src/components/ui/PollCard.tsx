@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { Card, CardContent, Typography, Box, Button, Tooltip, Alert } from '@mui/material'
+import { Card, CardContent, Typography, Box, Button, Tooltip, Alert, CircularProgress } from '@mui/material'
 
 interface PollCardProps {
   name: string
   votes: number
   onClick: () => void
+  handleVote: (pollName: string) => void
   privacyAccepted: boolean
+  isUpdating?: boolean
 }
 
-function PollCard({ name, votes, onClick, privacyAccepted }: PollCardProps) {
+function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdating }: PollCardProps) {
   const [message, setMessage] = useState<string>('')
   const [loading, setLoading] = useState(false)
 
@@ -19,6 +21,7 @@ function PollCard({ name, votes, onClick, privacyAccepted }: PollCardProps) {
       const data = await response.text()
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')
+        handleVote(name)
       } else {
         setMessage(JSON.parse(data)?.message || data)
       }
@@ -88,7 +91,7 @@ function PollCard({ name, votes, onClick, privacyAccepted }: PollCardProps) {
             : name.replace(/_/g, ' ')}
         </Typography>
         <Typography color="textSecondary">
-          {votes} votes
+          {votes} votes {isUpdating && <CircularProgress size={10} sx={{ ml: 1 }} />}
         </Typography>
         {message && (
           <Alert 

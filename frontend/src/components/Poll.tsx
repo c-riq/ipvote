@@ -20,6 +20,9 @@ import Plot from 'react-plotly.js'
 import DownloadIcon from '@mui/icons-material/Download'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import PrivacyAccept from './ui/PrivacyAccept'
+import VoteMap from './VoteMap'
+import IPBlockMap from './IPBlockMap'
+import IPv6BlockMap from './IPv6BlockMap'
 
 interface VoteHistory {
   date: string;
@@ -31,6 +34,12 @@ interface PollProps {
   userIp: string | null
   onPrivacyAcceptChange: (accepted: boolean) => void
 }
+/* voting data schema:
+time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip
+1730688934736,5.45.104.XXX,harris_or_trump,trump,,,DE,netcup GmbH
+1730689251360,2.58.56.XXX,harris_or_trump,trump,,,NL,1337 Services GmbH
+1730690649238,5.255.99.XXX,harris_or_trump,trump,,,NL,The Infrastructure Group B.V.
+*/
 
 function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
   const location = useLocation()
@@ -41,6 +50,8 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
   const [voteHistory, setVoteHistory] = useState<VoteHistory[]>([])
   const [includeTor, setIncludeTor] = useState(true)
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLButtonElement | null>(null)
+  const [votesByCountry, setVotesByCountry] = useState<{ [key: string]: { [option: string]: number } }>({})
+  const [votes, setVotes] = useState<string[]>([])
 
   useEffect(() => {
     // Get poll ID from URL path or hash
@@ -64,9 +75,9 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
 
   const filterOpen = Boolean(filterAnchorEl)
 
-  const fetchResults = async (pollId: string) => {
+  const fetchResults = async (pollId: string, refresh: boolean = true) => {
     try {
-      const response = await fetch(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${pollId}&excludeTor=${!includeTor}`)
+      const response = await fetch(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${pollId}&excludeTor=${!includeTor}&refresh=${refresh}`)
       if (response.status === 200) {
         const text = await response.text()
         const votes = text.split('\n').filter(line => line.trim())
@@ -82,6 +93,19 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
           const noVotes = votes.filter(vote => vote.split(',')[3] === 'no').length
           setResults({ yes: yesVotes, no: noVotes })
         }
+
+        // Process votes by country
+        const countryVotes: { [key: string]: { [option: string]: number } } = {};
+        votes.forEach(vote => {
+          const [, , , option, , , country] = vote.split(',');
+          if (country && country !== 'XX') {
+            if (!countryVotes[country]) {
+              countryVotes[country] = {};
+            }
+            countryVotes[country][option] = (countryVotes[country][option] || 0) + 1;
+          }
+        });
+        setVotesByCountry(countryVotes);
 
         // Process historical data
         const dailyVotes: { [key: string]: { [key: string]: number } } = {}
@@ -109,6 +133,7 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
         })).sort((a, b) => a.date.localeCompare(b.date))
 
         setVoteHistory(history)
+        setVotes(votes)
       }
     } catch (error) {
       console.error('Error fetching results:', error)
@@ -324,7 +349,7 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
     if (!poll) return;
     
     // Direct download from the API endpoint
-    window.open(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}`, '_blank');
+    window.open(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=true`, '_blank');
   };
 
   return (
@@ -416,15 +441,32 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
           </Box>
 
           {Object.keys(results).length > 0 && (
-            <Box sx={{ mt: 2, mb: 4 }}>
-              <Button
-                variant="outlined"
-                onClick={downloadPollData}
-                startIcon={<DownloadIcon />}
-              >
-                Download Poll Data
-              </Button>
-            </Box>
+            <>
+              <VoteMap 
+                votesByCountry={votesByCountry} 
+                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']} 
+              />
+              
+              <IPBlockMap
+                votes={votes}
+                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']}
+              />
+              
+              <IPv6BlockMap
+                votes={votes}
+                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']}
+              />
+              
+              <Box sx={{ mt: 2, mb: 4 }}>
+                <Button
+                  variant="outlined"
+                  onClick={downloadPollData}
+                  startIcon={<DownloadIcon />}
+                >
+                  Download Poll Data
+                </Button>
+              </Box>
+            </>
           )}
         </>
       )}

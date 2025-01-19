@@ -1,6 +1,15 @@
 const { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 
+/* schema of csv file:
+time,ip,poll_,vote,country,nonce,country_geoip,asn_name_geoip
+1716891868980,146.103.108.202,1_or_2,2,,sdfsdf,AU,TPG Telecom Limited
+*/
+
 const s3Client = new S3Client(); 
+
+const removeForbiddenStrings = (str) => {
+    return str.replace(/,|\\n|\\r|\\t|>|<|"/g, '');
+}
 
 exports.handler = async (event) => {
     const bucket = 'ipvotes';
@@ -152,7 +161,14 @@ async function aggregateCSVFiles(bucket, files, excludeTor) {
                             if (excludeTor && torExitNodes.has(columns[1])) {
                                 return null;
                             }
+                            
+                            // Just mask the IP and keep existing data
                             columns[1] = maskIP(columns[1]);
+
+                            if (columns.length >= 8) {
+                                columns[7] = removeForbiddenStrings(columns[7]);
+                                columns[6] = removeForbiddenStrings(columns[6]);
+                            }
                         }
                         return columns.join(',');
                     })
@@ -169,6 +185,7 @@ async function aggregateCSVFiles(bucket, files, excludeTor) {
             throw new Error('No valid data found in files');
         }
         
+        // Keep the header as is, just replace poll_ with poll and ip with masked_ip
         const aggregatedData = results[0].header.replace('poll_', 'poll').replace('ip', 'masked_ip') + '\n' + 
             results.flatMap(result => result.rows).join('\n');
         return aggregatedData;
