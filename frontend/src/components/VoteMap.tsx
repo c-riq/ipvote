@@ -265,7 +265,7 @@ const VoteMap: React.FC<VoteMapProps> = ({ votesByCountry, options }) => {
       </Typography>
 
       <InfoBox
-        height="120px"
+        height="80px"
         selected={selectedCountry ? {
           title: selectedCountry.country,
           total: selectedCountry.total,

@@ -13,7 +13,7 @@ interface InfoBoxProps {
 }
 
 const InfoBox: React.FC<InfoBoxProps> = ({ 
-  height = '160px', 
+  height = '80px',  // Reduced default height
   selected, 
   placeholder 
 }) => {
@@ -29,32 +29,59 @@ const InfoBox: React.FC<InfoBoxProps> = ({
       }}
     >
       {selected ? (
-        <Box>
-          <Typography variant="subtitle1" gutterBottom>
-            {selected.title}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Total votes: {selected.total}
-          </Typography>
-          {Object.entries(selected.votes).map(([option, count]) => (
-            <Typography 
-              key={option} 
-              variant="body2" 
-              color="text.secondary"
-            >
-              {option}: {count} ({((count / selected.total) * 100).toFixed(1)}%)
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          height: '100%'
+        }}>
+          {/* Left section - Title */}
+          <Box sx={{ flex: '0 0 auto', mr: 2 }}>
+            <Typography variant="subtitle1">
+              {selected.title}
             </Typography>
-          ))}
-          {selected.extraInfo && Object.entries(selected.extraInfo).map(([label, value]) => (
-            <Typography 
-              key={label} 
-              variant="body2" 
-              color="text.secondary" 
-              sx={{ mt: label === Object.keys(selected.extraInfo!)[0] ? 1 : 0 }}
-            >
-              {label}: {value}
+          </Box>
+
+          {/* Middle section - Votes */}
+          <Box sx={{ 
+            flex: '1 1 auto',
+            display: 'flex',
+            gap: 2,
+            justifyContent: 'center'
+          }}>
+            <Typography variant="body2" color="text.secondary">
+              Total: {selected.total}
             </Typography>
-          ))}
+            {Object.entries(selected.votes).map(([option, count]) => (
+              <Typography 
+                key={option} 
+                variant="body2" 
+                color="text.secondary"
+              >
+                {option}: {count} ({((count / selected.total) * 100).toFixed(1)}%)
+              </Typography>
+            ))}
+          </Box>
+
+          {/* Right section - Extra Info */}
+          {selected.extraInfo && (
+            <Box sx={{ 
+              flex: '0 0 auto',
+              ml: 2,
+              display: 'flex',
+              gap: 2
+            }}>
+              {Object.entries(selected.extraInfo).map(([label, value]) => (
+                <Typography 
+                  key={label} 
+                  variant="body2" 
+                  color="text.secondary"
+                >
+                  {label}: {value}
+                </Typography>
+              ))}
+            </Box>
+          )}
         </Box>
       ) : (
         <Box sx={{ 
