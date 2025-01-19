@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Box, Typography, Paper } from '@mui/material';
+import { Box, Typography } from '@mui/material';
+import InfoBox from './InfoBox';
 
 interface IPBlockMapProps {
   votes: string[];  // Array of CSV lines: time,ip,poll,vote,country,nonce,country_geoip,asn_name_geoip
@@ -79,54 +80,18 @@ const IPBlockMap: React.FC<IPBlockMapProps> = ({ votes, options }) => {
         color indicates majority vote in that block.
       </Typography>
 
-      {/* Block info display - Moved above the grid */}
-      <Paper 
-        elevation={3}
-        sx={{ 
-          p: 2, 
-          mb: 2, // Changed from mt to mb
-          height: '160px',
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-          overflow: 'auto'
-        }}
-      >
-        {selectedBlock ? (
-          <Box>
-            <Typography variant="subtitle1" gutterBottom>
-              IP Block: {selectedBlock.block}.0.0.0/8
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Total votes: {selectedBlock.data.total}
-            </Typography>
-            {Object.entries(selectedBlock.data.votes).map(([option, count]) => (
-              <Typography 
-                key={option} 
-                variant="body2" 
-                color="text.secondary"
-              >
-                {option}: {count} ({((count / selectedBlock.data.total) * 100).toFixed(1)}%)
-              </Typography>
-            ))}
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Countries: {Object.keys(selectedBlock.data.countries).length}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              ASNs: {Object.keys(selectedBlock.data.asns).length}
-            </Typography>
-          </Box>
-        ) : (
-          <Box sx={{ 
-            height: '100%', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center' 
-          }}>
-            <Typography variant="body2" color="text.secondary">
-              Hover over an IPv4 block to see voting details
-            </Typography>
-          </Box>
-        )}
-      </Paper>
+      <InfoBox
+        selected={selectedBlock ? {
+          title: `IP Block: ${selectedBlock.block}.0.0.0/8`,
+          total: selectedBlock.data.total,
+          votes: selectedBlock.data.votes,
+          extraInfo: {
+            Countries: Object.keys(selectedBlock.data.countries).length,
+            ASNs: Object.keys(selectedBlock.data.asns).length
+          }
+        } : undefined}
+        placeholder="Hover over an IPv4 block to see voting details"
+      />
 
       {/* Grid container */}
       <Box sx={{ 
