@@ -80,6 +80,13 @@ function App() {
     localStorage.setItem('privacyState', JSON.stringify(privacyState))
   }
 
+  const handleMainContentClick = () => {
+    // Only close sidebar on mobile
+    if (window.innerWidth <= 768) {
+      setIsSidebarOpen(false);
+    }
+  };
+
   return (
     <BrowserRouter>
       <ThemeProvider theme={lightTheme}>
@@ -93,7 +100,7 @@ function App() {
           />
           <div className="main-content">
             <Sidebar isOpen={isSidebarOpen} />
-            <div>
+            <div onClick={handleMainContentClick}>
               <Routes>
                 {/* UI routes */}
                 <Route path="/ui/*" element={<MainContent 
