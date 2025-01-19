@@ -1,0 +1,14 @@
+{
+  "name": "updatecloudproviderstatus",
+  "version": "1.0.0",
+  "description": "Aggregated Cloud provider IP ranges are copied from this repo and aggregated into a single CSV file:",
+  "main": "updateCloudProviderStatus.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "jest": "^29.7.0"
+  }
+}

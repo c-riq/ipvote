@@ -77,7 +77,8 @@ const IPBlockMap: React.FC<IPBlockMapProps> = ({ votes, options }) => {
       </Typography>
       <Typography variant="body2" gutterBottom>
         Each square represents a /8 IP block (first octet). Color intensity indicates number of votes,
-        color indicates majority vote in that block.
+        color indicates majority vote in that block. <br />
+        An uneven distribution of responses across blocks may indicate manipulation attempts.
       </Typography>
 
       <InfoBox

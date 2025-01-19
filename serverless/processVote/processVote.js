@@ -109,7 +109,7 @@ module.exports.handler = async (event) => {
     } catch (error) {
         if (error.name === 'NoSuchKey') {
             // File does not exist, create a new one with updated schema
-            data = 'time,ip,poll_,vote,country,nonce,country_geoip,asn_name_geoip\n';
+            data = 'time,ip,poll_,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider\n';
         } else {
             console.log(error);
             return {
@@ -166,7 +166,7 @@ module.exports.handler = async (event) => {
     const asnNameGeoip = ipInfo?.as_name || '';
 
     // Create new vote line with GeoIP data
-    const newVote = `${timestamp},${requestIp},${poll},${vote},${country},${nonce},${countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')}\n`;
+    const newVote = `${timestamp},${requestIp},${poll},${vote},${country},${nonce},${countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')},,,\n`;
     const newVotes = data + newVote;
     const putParams = {
         Bucket: 'ipvotes',

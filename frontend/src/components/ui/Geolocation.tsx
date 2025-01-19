@@ -686,7 +686,7 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange }: Geo
           </Typography>
           <p>
               Independent of the network latency triangulation, publicly available data sets allow the inference of one's location in most cases.
-              The following IP address data is powered by <a href="https://ipinfo.io">IPinfo</a>. Where we donloaded a corresponding dataset.
+              The following IP address data is powered by <a href="https://ipinfo.io">IPinfo</a>.
               <br/>
               IP Address: {userIpInfo.ip}
               <br/>

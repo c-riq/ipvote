@@ -6,4 +6,4 @@ if [ -z "$AWS_PROFILE" ]; then
 fi
 
 # Run the migration script
-node updateGeoIPinfo.js 
+node addProxyColumns.js 

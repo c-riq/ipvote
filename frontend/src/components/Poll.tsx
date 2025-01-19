@@ -35,10 +35,10 @@ interface PollProps {
   onPrivacyAcceptChange: (accepted: boolean) => void
 }
 /* voting data schema:
-time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip
-1730688934736,5.45.104.XXX,harris_or_trump,trump,,,DE,netcup GmbH
-1730689251360,2.58.56.XXX,harris_or_trump,trump,,,NL,1337 Services GmbH
-1730690649238,5.255.99.XXX,harris_or_trump,trump,,,NL,The Infrastructure Group B.V.
+time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider
+1730623803558,12.158.241.XXX,harris_or_trump,trump,,,TW,HostingInside LTD.,0,1,
+1730763791706,52.194.133.XXX,harris_or_trump,harris,,,US,Amazon.com%2C Inc.,0,1,aws:us-east-1
+1731672863490,62.126.89.XXX,harris_or_trump,trump,,,BG,Vivacom Bulgaria EAD,0,0,
 */
 
 function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
@@ -49,9 +49,12 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
   const [results, setResults] = useState<{ [key: string]: number }>({})
   const [voteHistory, setVoteHistory] = useState<VoteHistory[]>([])
   const [includeTor, setIncludeTor] = useState(true)
+  const [includeVpn, setIncludeVpn] = useState(true)
+  const [includeCloud, setIncludeCloud] = useState(true)
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLButtonElement | null>(null)
   const [votesByCountry, setVotesByCountry] = useState<{ [key: string]: { [option: string]: number } }>({})
   const [votes, setVotes] = useState<string[]>([])
+  const [allVotes, setAllVotes] = useState<string[]>([])
 
   useEffect(() => {
     // Get poll ID from URL path or hash
@@ -65,6 +68,12 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
     }
   }, [location])
 
+  useEffect(() => {
+    if (allVotes.length > 0 && poll) {
+      processVotes(allVotes)
+    }
+  }, [includeTor, includeVpn, includeCloud, allVotes, poll])
+
   const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setFilterAnchorEl(event.currentTarget)
   }
@@ -77,72 +86,79 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
 
   const fetchResults = async (pollId: string, refresh: boolean = true) => {
     try {
-      const response = await fetch(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${pollId}&excludeTor=${!includeTor}&refresh=${refresh}`)
+      const response = await fetch(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${pollId}&refresh=${refresh}`)
       if (response.status === 200) {
         const text = await response.text()
-        const votes = text.split('\n').filter(line => line.trim())
+        const allVoteData = text.split('\n').filter(line => line.trim())
+        setAllVotes(allVoteData)
         
-        // Process current totals
-        if (pollId.includes('_or_')) {
-          const options = pollId.split('_or_')
-          const option1Votes = votes.filter(vote => vote.split(',')[3] === options[0]).length
-          const option2Votes = votes.filter(vote => vote.split(',')[3] === options[1]).length
-          setResults({ [options[0]]: option1Votes, [options[1]]: option2Votes })
-        } else {
-          const yesVotes = votes.filter(vote => vote.split(',')[3] === 'yes').length
-          const noVotes = votes.filter(vote => vote.split(',')[3] === 'no').length
-          setResults({ yes: yesVotes, no: noVotes })
-        }
-
-        // Process votes by country
-        const countryVotes: { [key: string]: { [option: string]: number } } = {};
-        votes.forEach(vote => {
-          const [, , , option, , , country] = vote.split(',');
-          if (country && country !== 'XX') {
-            if (!countryVotes[country]) {
-              countryVotes[country] = {};
-            }
-            countryVotes[country][option] = (countryVotes[country][option] || 0) + 1;
-          }
-        });
-        setVotesByCountry(countryVotes);
-
-        // Process historical data
-        const dailyVotes: { [key: string]: { [key: string]: number } } = {}
-        
-        votes.forEach(vote => {
-          try {
-            const [timestamp, , , option] = vote.split(',')
-            // Convert milliseconds to seconds if needed
-            const ts = timestamp.length === 13 ? parseInt(timestamp) : parseInt(timestamp) * 1000
-            const date = new Date(ts).toISOString().split('T')[0]
-            
-            if (!dailyVotes[date]) {
-              dailyVotes[date] = {}
-            }
-            dailyVotes[date][option] = (dailyVotes[date][option] || 0) + 1
-          } catch (error) {
-            console.warn('Invalid timestamp in vote:', vote)
-          }
-        })
-
-        // Convert to array and sort by date
-        const history = Object.entries(dailyVotes).map(([date, votes]) => ({
-          date,
-          votes
-        })).sort((a, b) => a.date.localeCompare(b.date))
-
-        setVoteHistory(history)
-        setVotes(votes)
+        processVotes(allVoteData)
       }
     } catch (error) {
       console.error('Error fetching results:', error)
     }
   }
 
-  useEffect(() => {
-    fetchResults(poll)
-  }, [includeTor])
+  const processVotes = (voteData: string[]) => {
+    // Filter votes based on user preferences
+    const filteredVotes = voteData.filter(vote => {
+      const [,,,,,,,,is_tor,is_vpn,is_cloud_provider] = vote.split(',')
+      return (includeTor || is_tor !== '1') && 
+             (includeVpn || is_vpn !== '1') && 
+             (includeCloud || is_cloud_provider.trim() === '')
+    })
+
+    // Process current totals
+    if (poll.includes('_or_')) {
+      const options = poll.split('_or_')
+      const option1Votes = filteredVotes.filter(vote => vote.split(',')[3] === options[0]).length
+      const option2Votes = filteredVotes.filter(vote => vote.split(',')[3] === options[1]).length
+      setResults({ [options[0]]: option1Votes, [options[1]]: option2Votes })
+    } else {
+      const yesVotes = filteredVotes.filter(vote => vote.split(',')[3] === 'yes').length
+      const noVotes = filteredVotes.filter(vote => vote.split(',')[3] === 'no').length
+      setResults({ yes: yesVotes, no: noVotes })
+    }
+
+    // Process votes by country
+    const countryVotes: { [key: string]: { [option: string]: number } } = {};
+    filteredVotes.forEach(vote => {
+      const [, , , option, , , country] = vote.split(',');
+      if (country && country !== 'XX') {
+        if (!countryVotes[country]) {
+          countryVotes[country] = {};
+        }
+        countryVotes[country][option] = (countryVotes[country][option] || 0) + 1;
+      }
+    });
+    setVotesByCountry(countryVotes);
+
+    // Process historical data
+    const dailyVotes: { [key: string]: { [key: string]: number } } = {}
+    
+    filteredVotes.forEach(vote => {
+      try {
+        const [timestamp, , , option] = vote.split(',')
+        const ts = timestamp.length === 13 ? parseInt(timestamp) : parseInt(timestamp) * 1000
+        const date = new Date(ts).toISOString().split('T')[0]
+        
+        if (!dailyVotes[date]) {
+          dailyVotes[date] = {}
+        }
+        dailyVotes[date][option] = (dailyVotes[date][option] || 0) + 1
+      } catch (error) {
+        console.warn('Invalid timestamp in vote:', vote)
+      }
+    })
+
+    const history = Object.entries(dailyVotes).map(([date, votes]) => ({
+      date,
+      votes
+    })).sort((a, b) => a.date.localeCompare(b.date))
+
+    setVoteHistory(history)
+    setVotes(filteredVotes)
+  }
 
   const vote = async (option: string) => {
     setLoading(true)
@@ -423,13 +439,33 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
                             checked={includeTor}
                             onChange={(e) => {
                               setIncludeTor(e.target.checked);
-                              fetchResults(poll);
                             }}
                           />
                         }
                         label="Include votes from Tor exit nodes"
                       />
-                      {/* Additional filters can be added here in the future */}
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={includeVpn}
+                            onChange={(e) => {
+                              setIncludeVpn(e.target.checked);
+                            }}
+                          />
+                        }
+                        label="Include votes from VPN services"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={includeCloud}
+                            onChange={(e) => {
+                              setIncludeCloud(e.target.checked);
+                            }}
+                          />
+                        }
+                        label="Include votes from cloud providers"
+                      />
                     </FormGroup>
                   </FormControl>
                 </Paper>
