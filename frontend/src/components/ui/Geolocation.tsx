@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Typography, Paper, Button, Box, LinearProgress } from '@mui/material'
+import { Typography, Paper, Button, Box, LinearProgress, Checkbox, FormControlLabel } from '@mui/material'
 import mapboxgl from 'mapbox-gl'
 import * as turf from '@turf/turf'
 import Plot from 'react-plotly.js'
@@ -201,6 +201,11 @@ interface TriangulationReport {
   userIpInfo: {ip: string, country: string};
   measurementRounds: MeasurementRound[];
   possibleCountries: string[];
+  browserCoordinates?: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+  };
 }
 
 interface MeasurementRound {
@@ -294,6 +299,12 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange }: Geo
   const [currentActivity, setCurrentActivity] = useState<string>('');
   const [progress, setProgress] = useState<number>(0);
   const [hasHighLatency, setHasHighLatency] = useState(false);
+  const [shareCoordinates, setShareCoordinates] = useState(false);
+  const [browserCoordinates, setBrowserCoordinates] = useState<{
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!mapContainer.current) return
@@ -661,7 +672,8 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange }: Geo
     const reportData: TriangulationReport = {
       userIpInfo: {ip: userIpInfo?.ip || '', country: userIpInfo?.geo.country || ''},
       measurementRounds: allMeasurementRounds,
-      possibleCountries: detectedCountries
+      possibleCountries: detectedCountries,
+      ...(browserCoordinates && shareCoordinates ? { browserCoordinates } : {})
     };
 
     try {
@@ -689,6 +701,30 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange }: Geo
       setHasHighLatency(true);
     }
   }
+
+  const handleShareCoordinatesChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = event.target.checked;
+    setShareCoordinates(checked);
+    
+    if (checked) {
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
+        
+        setBrowserCoordinates({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        });
+      } catch (error) {
+        console.error('Error getting coordinates:', error);
+        setShareCoordinates(false);
+      }
+    } else {
+      setBrowserCoordinates(null);
+    }
+  };
 
   // Update the Plot data type
   const plotData: Data[] = dataCenters.map(dc => ({
@@ -726,6 +762,28 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange }: Geo
         onAcceptChange={onPrivacyAcceptChange}
         textAlign="center"
       />
+
+      <Box sx={{ my: 2 }}>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={shareCoordinates}
+              onChange={handleShareCoordinatesChange}
+              disabled={isLoading}
+            />
+          }
+          label={
+            <Typography variant="body2">
+              Share browser location coordinates for validation
+              {browserCoordinates && (
+                <span style={{ color: 'text.secondary', marginLeft: '8px' }}>
+                  ({browserCoordinates.latitude.toFixed(2)}, {browserCoordinates.longitude.toFixed(2)})
+                </span>
+              )}
+            </Typography>
+          }
+        />
+      </Box>
 
       <Box sx={{ my: 4, mb: 6 }}>
         <Button 
