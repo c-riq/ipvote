@@ -404,35 +404,97 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
     const options = poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']
     const colors = ['#4169E1', '#ff6969']  // Royal Blue and Crimson
 
+    // Calculate ASN-level votes
+    const asnVotes: { [key: string]: { [key: string]: number } } = {}
+    asnData.forEach(d => {
+      if (!asnVotes[d.name]) {
+        asnVotes[d.name] = {}
+      }
+      asnVotes[d.name][d.option] = (asnVotes[d.name][d.option] || 0) + d.value
+    })
+
+    // Calculate majority vote for each ASN
+    const asnMajorityVotes = Object.entries(asnVotes).reduce((acc, [asn, votes]) => {
+      const winner = Object.entries(votes).reduce((max, [option, count]) => 
+        count > (votes[max] || 0) ? option : max
+      , Object.keys(votes)[0])
+      acc[winner] = (acc[winner] || 0) + 1
+      return acc
+    }, {} as { [key: string]: number })
+
+    const totalAsnVotes = Object.values(asnMajorityVotes).reduce((a, b) => a + b, 0)
+
     return (
-      <Box sx={{ mt: 4, height: '500px' }}>
-        <Plot
-          data={[{
-            type: 'treemap',
-            labels: asnData.map(d => `${d.name}\n(${d.value} votes)`),
-            parents: asnData.map(() => ''),
-            values: asnData.map(d => d.value),
-            marker: {
-              colors: asnData.map(d => colors[options.indexOf(d.option)])
-            },
-            textinfo: 'label',
-            hovertemplate: '<b>%{label}</b><extra></extra>',
-            hoverlabel: {
-              bgcolor: 'white',
-              bordercolor: '#ddd',
-              font: { color: 'black' }
-            }
-          }]}
-          layout={{
-            title: 'Votes by Network Provider (ASN)',
-            autosize: true,
-            margin: { t: 30, r: 10, b: 10, l: 10 },
-            paper_bgcolor: 'transparent',
-          }}
-          useResizeHandler={true}
-          style={{ width: '100%', height: '100%' }}
-        />
-      </Box>
+      <>
+        <Box sx={{ mt: 4, height: '500px' }}>
+          <Plot
+            data={[{
+              type: 'treemap',
+              labels: asnData.map(d => `${d.name}\n(${d.value} votes)`),
+              parents: asnData.map(() => ''),
+              values: asnData.map(d => d.value),
+              marker: {
+                colors: asnData.map(d => colors[options.indexOf(d.option)])
+              },
+              textinfo: 'label',
+              hovertemplate: '<b>%{label}</b><extra></extra>',
+              hoverlabel: {
+                bgcolor: 'white',
+                bordercolor: '#ddd',
+                font: { color: 'black' }
+              }
+            }]}
+            layout={{
+              title: 'Votes by Network Provider (ASN)',
+              autosize: true,
+              margin: { t: 30, r: 10, b: 10, l: 10 },
+              paper_bgcolor: 'transparent',
+            }}
+            useResizeHandler={true}
+            style={{ width: '100%', height: '100%' }}
+          />
+        </Box>
+        
+        <Box sx={{ 
+          mt: 2, 
+          p: 2, 
+          bgcolor: 'background.paper',
+          borderRadius: 1,
+          boxShadow: 1
+        }}>
+          <Typography variant="h6" gutterBottom>
+            ASN-level Vote Results
+          </Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Each network provider (ASN) gets one vote based on the majority preference of its users.
+          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 4,
+            alignItems: 'center',
+            mt: 1
+          }}>
+            {options.map((option, i) => (
+              <Box key={option} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ 
+                  width: 16, 
+                  height: 16, 
+                  bgcolor: colors[i],
+                  borderRadius: '50%'
+                }} />
+                <Typography>
+                  {option}: {asnMajorityVotes[option] || 0} ASNs
+                  {' '}
+                  ({totalAsnVotes ? ((asnMajorityVotes[option] || 0) / totalAsnVotes * 100).toFixed(1) : 0}%)
+                </Typography>
+              </Box>
+            ))}
+            <Typography color="text.secondary">
+              Total ASNs: {totalAsnVotes}
+            </Typography>
+          </Box>
+        </Box>
+      </>
     )
   }
 
