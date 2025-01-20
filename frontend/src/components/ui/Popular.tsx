@@ -99,7 +99,7 @@ function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: Popu
   }
 
   const handlePollClick = (pollName: string) => {
-    navigate(`/${pollName}`)
+    navigate(`/${encodeURIComponent(pollName)}`)
   }
 
   const handleVote = (pollName: string) => {

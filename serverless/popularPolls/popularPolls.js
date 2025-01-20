@@ -33,15 +33,14 @@ async function aggregateVotes(query = '', pollToUpdate = null) {
     
     for (const file of files) {
         try {
-            // If pollToUpdate is set, only process files for that specific poll
+            let pollFromPath = file.Key.split('/')[1]?.split('.')[0];
+            pollFromPath = pollFromPath?.replace('poll=', '');
             if (pollToUpdate) {
                 const pollPath = `votes/poll=${pollToUpdate}/`;
                 if (!file.Key.startsWith(pollPath)) {
                     continue;
                 }
             } else if (query) {
-                // Skip files where the poll name doesn't match the search query
-                const pollFromPath = file.Key.split('/')[1]?.split('.')[0];
                 if (!pollFromPath || !searchTerms.every(term => 
                     pollFromPath.toLowerCase().replace(/_/g, ' ').includes(term)
                 )) {
@@ -63,10 +62,10 @@ async function aggregateVotes(query = '', pollToUpdate = null) {
                 if (!line) continue;
                 
                 const [, , poll] = line.split(',');
-                if (!poll) continue;
+                if (poll !== pollFromPath) continue;
                 
-                const currentCount = pollCounts.get(poll) || 0;
-                pollCounts.set(poll, currentCount + 1);
+                const currentCount = pollCounts.get(pollFromPath) || 0;
+                pollCounts.set(pollFromPath, currentCount + 1);
             }
         } catch (error) {
             console.error(`Error processing file ${file.Key}:`, error);
