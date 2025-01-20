@@ -5,3 +5,5 @@ node_modules
 data/
 serverless/ipInfos/ip_info_io_country_asn_partitioned/
 serverless/ipInfos/_ip_info_io_country_asn_partitioned/
+notebooks/validate_triangulation.ipynb
+.ipynb_checkpoints/

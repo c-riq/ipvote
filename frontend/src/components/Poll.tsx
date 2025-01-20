@@ -29,6 +29,12 @@ interface VoteHistory {
   votes: { [key: string]: number };
 }
 
+interface ASNData {
+  name: string
+  value: number
+  option: string
+}
+
 interface PollProps {
   privacyAccepted: boolean
   userIp: string | null
@@ -55,6 +61,7 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
   const [votesByCountry, setVotesByCountry] = useState<{ [key: string]: { [option: string]: number } }>({})
   const [votes, setVotes] = useState<string[]>([])
   const [allVotes, setAllVotes] = useState<string[]>([])
+  const [asnData, setAsnData] = useState<ASNData[]>([])
 
   useEffect(() => {
     // Get poll ID from URL path only
@@ -156,6 +163,28 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
 
     setVoteHistory(history)
     setVotes(filteredVotes)
+
+    // Process ASN data
+    const asnVotes: { [key: string]: { [option: string]: number } } = {}
+    filteredVotes.forEach(vote => {
+      const [, , , option, , , , asn_name] = vote.split(',')
+      if (asn_name && asn_name !== '') {
+        const decodedName = decodeURIComponent(asn_name)
+        if (!asnVotes[decodedName]) {
+          asnVotes[decodedName] = {}
+        }
+        asnVotes[decodedName][option] = (asnVotes[decodedName][option] || 0) + 1
+      }
+    })
+
+    // Convert to array format for treemap
+    const asnArray: ASNData[] = []
+    Object.entries(asnVotes).forEach(([name, votes]) => {
+      Object.entries(votes).forEach(([option, count]) => {
+        asnArray.push({ name, value: count, option })
+      })
+    })
+    setAsnData(asnArray)
   }
 
   const vote = async (option: string) => {
@@ -366,6 +395,39 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
     window.open(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=true`, '_blank');
   };
 
+  const renderASNTreemap = () => {
+    if (asnData.length === 0) return null
+
+    const options = poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']
+    const colors = options.map((_, i) => i === 0 ? '#1f77b4' : '#ff7f0e')
+
+    return (
+      <Box sx={{ mt: 4, height: '500px' }}>
+        <Plot
+          data={[{
+            type: 'treemap',
+            labels: asnData.map(d => `${d.name}\n(${d.value} votes)`),
+            parents: asnData.map(() => ''),
+            values: asnData.map(d => d.value),
+            marker: {
+              colors: asnData.map(d => colors[options.indexOf(d.option)])
+            },
+            textinfo: 'label',
+            hovertemplate: '%{label}<extra></extra>'
+          }]}
+          layout={{
+            title: 'Votes by Network Provider (ASN)',
+            autosize: true,
+            margin: { t: 30, r: 10, b: 10, l: 10 },
+            paper_bgcolor: 'transparent',
+          }}
+          useResizeHandler={true}
+          style={{ width: '100%', height: '100%' }}
+        />
+      </Box>
+    )
+  }
+
   return (
     <div className="content">
       <h1 style={{ wordBreak: 'break-word' }}>
@@ -480,6 +542,8 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
                 votesByCountry={votesByCountry} 
                 options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']} 
               />
+              
+              {renderASNTreemap()}
               
               <IPBlockMap
                 votes={votes}
