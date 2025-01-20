@@ -277,12 +277,15 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
     if (voteHistory.length === 0) return null
 
     const options = poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']
-    const traces = options.map(option => ({
+    const traces = options.map((option, i) => ({
       x: voteHistory.map(day => day.date),
       y: voteHistory.map(day => day.votes[option] || 0),
       name: option,
       type: 'scatter' as const,
       mode: 'lines' as const,
+      line: {
+        color: i === 0 ? '#4169E1' : '#ff6969'  // Royal Blue and Crimson
+      }
     }))
 
     return (
@@ -399,7 +402,7 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
     if (asnData.length === 0) return null
 
     const options = poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']
-    const colors = options.map((_, i) => i === 0 ? '#1f77b4' : '#ff7f0e')
+    const colors = ['#4169E1', '#ff6969']  // Royal Blue and Crimson
 
     return (
       <Box sx={{ mt: 4, height: '500px' }}>
@@ -413,7 +416,12 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
               colors: asnData.map(d => colors[options.indexOf(d.option)])
             },
             textinfo: 'label',
-            hovertemplate: '%{label}<extra></extra>'
+            hovertemplate: '<b>%{label}</b><extra></extra>',
+            hoverlabel: {
+              bgcolor: 'white',
+              bordercolor: '#ddd',
+              font: { color: 'black' }
+            }
           }]}
           layout={{
             title: 'Votes by Network Provider (ASN)',
