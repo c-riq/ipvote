@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { 
   Button, 
   Checkbox, 
@@ -48,6 +48,7 @@ time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vp
 */
 
 function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
+  const navigate = useNavigate()
   const location = useLocation()
   const [poll, setPoll] = useState<string>('')
   const [message, setMessage] = useState<string>('')
@@ -66,6 +67,10 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
   useEffect(() => {
     // Get poll ID from URL path only
     const pollFromPath = decodeURIComponent(location.pathname.split('/')[1])
+    if (pollFromPath.includes('.')) {
+      // navigate to home
+      navigate('/')
+    }
 
     if (pollFromPath) {
       setPoll(pollFromPath)
