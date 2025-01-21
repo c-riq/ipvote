@@ -509,32 +509,53 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
           <Typography variant="h6" gutterBottom>
             ASN-level Vote Results
           </Typography>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Each network provider (ASN) gets one vote based on the majority preference of its users.
-            Color indicates voting preference (blue/red) and its strength.
           </Typography>
+          
           <Box sx={{ 
-            display: 'flex', 
-            gap: 4,
-            alignItems: 'center',
-            mt: 1
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { sm: 'center' },
+            justifyContent: { sm: 'space-between' },
+            gap: { xs: 1, sm: 2 }
           }}>
-            {options.map((option, i) => (
-              <Box key={option} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ 
-                  width: 16, 
-                  height: 16, 
-                  bgcolor: i === 0 ? 'rgb(0, 0, 255)' : 'rgb(255, 0, 0)',
-                  borderRadius: '50%'
-                }} />
-                <Typography>
-                  {option}: {asnMajorityVotes[option] || 0} ASNs
-                  {' '}
-                  ({totalAsnVotes ? ((asnMajorityVotes[option] || 0) / totalAsnVotes * 100).toFixed(1) : 0}%)
-                </Typography>
-              </Box>
-            ))}
-            <Typography color="text.secondary">
+            <Box sx={{ 
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, auto)' },
+              gap: 2
+            }}>
+              {options.map((option, i) => (
+                <Box key={option} sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  minWidth: 0
+                }}>
+                  <Box sx={{ 
+                    width: 12, 
+                    height: 12, 
+                    flexShrink: 0,
+                    bgcolor: i === 0 ? 'rgb(0, 0, 255)' : 'rgb(255, 0, 0)',
+                    borderRadius: '50%'
+                  }} />
+                  <Typography noWrap>
+                    {option}: {asnMajorityVotes[option] || 0}
+                    {' '}
+                    ({totalAsnVotes ? ((asnMajorityVotes[option] || 0) / totalAsnVotes * 100).toFixed(1) : 0}%)
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+            
+            <Typography 
+              color="text.secondary"
+              sx={{ 
+                borderLeft: { sm: 1 },
+                borderColor: { sm: 'divider' },
+                pl: { sm: 2 }
+              }}
+            >
               Total ASNs: {totalAsnVotes}
             </Typography>
           </Box>
