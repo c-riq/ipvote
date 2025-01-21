@@ -402,7 +402,6 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
     if (asnData.length === 0) return null
 
     const options = poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']
-    const colors = ['#4169E1', '#ff6969']  // Royal Blue and Crimson
 
     // Calculate ASN-level votes
     const asnVotes: { [key: string]: { [key: string]: number } } = {}
@@ -413,12 +412,57 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
       asnVotes[d.name][d.option] = (asnVotes[d.name][d.option] || 0) + d.value
     })
 
+    // Calculate colors based on vote ratios
+    const getColor = (name: string) => {
+      const votes = asnVotes[name]
+      const total = Object.values(votes).reduce((a, b) => a + b, 0)
+      
+      if (total === 0) {
+        return 'rgba(128, 128, 128, 0.7)' // No votes
+      }
+
+      const option1Votes = votes[options[0]] || 0
+      const ratio = option1Votes / total
+      
+      if (ratio === 0.5) {
+        return 'rgba(128, 0, 128, 0.7)' // Tie: light purple
+      }
+
+      // Interpolate between red (255,0,0) and blue (0,0,255)
+      // ratio = 0 -> pure red
+      // ratio = 1 -> pure blue
+      const red = Math.round(255 * (1 - ratio))
+      const blue = Math.round(255 * ratio)
+      return `rgba(${red}, 0, ${blue}, 0.7)`
+    }
+
+    // Create hover text with vote breakdown
+    const getHoverText = (name: string) => {
+      const votes = asnVotes[name]
+      const total = Object.values(votes).reduce((a, b) => a + b, 0)
+      const breakdown = options.map(option => 
+        `${option}: ${votes[option] || 0} (${((votes[option] || 0) / total * 100).toFixed(1)}%)`
+      ).join('<br>')
+      return `<b>${name}</b><br>${breakdown}<br>Total: ${total}`
+    }
+
+    // Group data by ASN name to get unique entries
+    const uniqueAsns = Array.from(new Set(asnData.map(d => d.name)))
+
     // Calculate majority vote for each ASN
     const asnMajorityVotes = Object.entries(asnVotes).reduce((acc, [asn, votes]) => {
-      const winner = Object.entries(votes).reduce((max, [option, count]) => 
-        count > (votes[max] || 0) ? option : max
-      , Object.keys(votes)[0])
-      acc[winner] = (acc[winner] || 0) + 1
+      const total = Object.values(votes).reduce((a, b) => a + b, 0)
+      if (total === 0) return acc
+      
+      const option1Votes = votes[options[0]] || 0
+      const ratio = option1Votes / total
+      
+      if (ratio === 0.5) {
+        acc['tie'] = (acc['tie'] || 0) + 1
+      } else {
+        const winner = ratio > 0.5 ? options[0] : options[1]
+        acc[winner] = (acc[winner] || 0) + 1
+      }
       return acc
     }, {} as { [key: string]: number })
 
@@ -430,14 +474,15 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
           <Plot
             data={[{
               type: 'treemap',
-              labels: asnData.map(d => `${d.name}\n(${d.value} votes)`),
-              parents: asnData.map(() => ''),
-              values: asnData.map(d => d.value),
+              labels: uniqueAsns.map(name => name),
+              parents: uniqueAsns.map(() => ''),
+              values: uniqueAsns.map(name => Object.values(asnVotes[name]).reduce((a, b) => a + b, 0)),
               marker: {
-                colors: asnData.map(d => colors[options.indexOf(d.option)])
+                colors: uniqueAsns.map(name => getColor(name))
               },
               textinfo: 'label',
-              hovertemplate: '<b>%{label}</b><extra></extra>',
+              hovertemplate: '%{customdata}<extra></extra>',
+              customdata: uniqueAsns.map(name => getHoverText(name)),
               hoverlabel: {
                 bgcolor: 'white',
                 bordercolor: '#ddd',
@@ -467,6 +512,7 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
           </Typography>
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Each network provider (ASN) gets one vote based on the majority preference of its users.
+            Color indicates voting preference (blue/red) and its strength.
           </Typography>
           <Box sx={{ 
             display: 'flex', 
@@ -479,7 +525,7 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
                 <Box sx={{ 
                   width: 16, 
                   height: 16, 
-                  bgcolor: colors[i],
+                  bgcolor: i === 0 ? 'rgb(0, 0, 255)' : 'rgb(255, 0, 0)',
                   borderRadius: '50%'
                 }} />
                 <Typography>
@@ -489,6 +535,19 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
                 </Typography>
               </Box>
             ))}
+            {(asnMajorityVotes['tie'] || 0) > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ 
+                  width: 16, 
+                  height: 16, 
+                  bgcolor: 'rgba(128, 0, 128, 0.2)',
+                  borderRadius: '50%'
+                }} />
+                <Typography>
+                  Ties: {asnMajorityVotes['tie']} ASNs
+                </Typography>
+              </Box>
+            )}
             <Typography color="text.secondary">
               Total ASNs: {totalAsnVotes}
             </Typography>
