@@ -450,7 +450,7 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
     const uniqueAsns = Array.from(new Set(asnData.map(d => d.name)))
 
     // Calculate majority vote for each ASN
-    const asnMajorityVotes = Object.entries(asnVotes).reduce((acc, [asn, votes]) => {
+    const asnMajorityVotes = Object.entries(asnVotes).reduce((acc, [_, votes]) => {
       const total = Object.values(votes).reduce((a, b) => a + b, 0)
       if (total === 0) return acc
       
