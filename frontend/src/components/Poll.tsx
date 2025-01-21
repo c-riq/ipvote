@@ -457,9 +457,8 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
       const option1Votes = votes[options[0]] || 0
       const ratio = option1Votes / total
       
-      if (ratio === 0.5) {
-        acc['tie'] = (acc['tie'] || 0) + 1
-      } else {
+      // Only count non-ties
+      if (ratio !== 0.5) {
         const winner = ratio > 0.5 ? options[0] : options[1]
         acc[winner] = (acc[winner] || 0) + 1
       }
@@ -535,19 +534,6 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
                 </Typography>
               </Box>
             ))}
-            {(asnMajorityVotes['tie'] || 0) > 0 && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ 
-                  width: 16, 
-                  height: 16, 
-                  bgcolor: 'rgba(128, 0, 128, 0.2)',
-                  borderRadius: '50%'
-                }} />
-                <Typography>
-                  Ties: {asnMajorityVotes['tie']} ASNs
-                </Typography>
-              </Box>
-            )}
             <Typography color="text.secondary">
               Total ASNs: {totalAsnVotes}
             </Typography>
