@@ -168,6 +168,8 @@ interface GeolocationProps {
   privacyAccepted: boolean
   userIpInfo: IpInfoResponse | null
   onPrivacyAcceptChange: (accepted: boolean) => void
+  captchaToken: string | undefined
+  setCaptchaToken: (token: string) => void
 }
 
 // Update type definitions for better compatibility with turf.js
@@ -288,7 +290,7 @@ const calculateIntersectingCountries = (sortedCircles: {
   return [];
 };
 
-function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange }: GeolocationProps) {
+function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captchaToken, setCaptchaToken }: GeolocationProps) {
   const [messages, setMessages] = useState<LatencyMessage[]>([])
   const [clockOffsets, setClockOffsets] = useState<ClockOffset[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -305,6 +307,7 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange }: Geo
     longitude: number;
     accuracy: number;
   } | null>(null);
+  const [geoLocationError, setGeoLocationError] = useState<string>('');
 
   useEffect(() => {
     if (!mapContainer.current) return
@@ -705,11 +708,15 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange }: Geo
   const handleShareCoordinatesChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const checked = event.target.checked;
     setShareCoordinates(checked);
+    setGeoLocationError(''); // Reset error when trying again
     
     if (checked) {
       try {
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject);
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            timeout: 10000, // 10 second timeout
+            maximumAge: 0,  // Don't use cached position
+          });
         });
         
         setBrowserCoordinates({
@@ -720,6 +727,23 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange }: Geo
       } catch (error) {
         console.error('Error getting coordinates:', error);
         setShareCoordinates(false);
+        if (error instanceof GeolocationPositionError) {
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              setGeoLocationError('Location access was denied. Please enable location services in your browser settings.');
+              break;
+            case error.POSITION_UNAVAILABLE:
+              setGeoLocationError('Location information is unavailable.');
+              break;
+            case error.TIMEOUT:
+              setGeoLocationError('Location request timed out.');
+              break;
+            default:
+              setGeoLocationError('An unknown error occurred while retrieving location.');
+          }
+        } else {
+          setGeoLocationError('Failed to get location information.');
+        }
       }
     } else {
       setBrowserCoordinates(null);
@@ -761,6 +785,8 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange }: Geo
         accepted={privacyAccepted}
         onAcceptChange={onPrivacyAcceptChange}
         textAlign="center"
+        captchaToken={captchaToken}
+        setCaptchaToken={setCaptchaToken}
       />
 
       <Box sx={{ my: 2 }}>
@@ -783,6 +809,11 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange }: Geo
             </Typography>
           }
         />
+        {geoLocationError && (
+          <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+            {geoLocationError}
+          </Typography>
+        )}
       </Box>
 
       <Box sx={{ my: 4, mb: 6 }}>

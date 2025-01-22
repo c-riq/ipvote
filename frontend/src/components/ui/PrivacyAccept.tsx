@@ -7,10 +7,12 @@ interface PrivacyAcceptProps {
   accepted: boolean
   onAcceptChange: (accepted: boolean) => void
   setCaptchaToken: (token: string, ip: string, timestamp: string) => void
+  captchaToken: string | undefined
   textAlign?: 'left' | 'center' | 'right'
 }
 
 function maskIP(ip: string) {
+  if (!ip) return '';
   if (ip.includes('.')) {
     // IPv4
     const parts = ip.split('.');
@@ -25,30 +27,28 @@ function maskIP(ip: string) {
   }
 }
 
-function PrivacyAccept({ userIp, accepted, onAcceptChange, setCaptchaToken, textAlign = 'left' }: PrivacyAcceptProps) {
-  const [isHuman, setIsHuman] = useState(false);
+function PrivacyAccept({ userIp, accepted, onAcceptChange, setCaptchaToken, captchaToken, textAlign = 'left' }: PrivacyAcceptProps) {
   const [privacyChecked, setPrivacyChecked] = useState(accepted);
-
 
   const handlePrivacyChange = useCallback((checked: boolean) => {
     setPrivacyChecked(checked);
-    if (checked && isHuman) {
-      onAcceptChange(true);
-    } else {
-      onAcceptChange(false);
-    }
-  }, [isHuman, onAcceptChange]);
+    onAcceptChange(checked);
+  }, [onAcceptChange]);
 
-  const handleHCaptchaVerify = (token: string) => {
+  const handleHCaptchaVerify = useCallback((token: string) => {
     if (userIp) {
       const timestamp = new Date().toISOString();
       setCaptchaToken(token, userIp, timestamp);
-      onAcceptChange(true, token);
     }
-  };
+  }, [userIp, setCaptchaToken]);
+
+  // Early returns after all hooks are defined
+  if (accepted && captchaToken) {
+    return null;
+  }
 
   if (!userIp) {
-    return <CircularProgress />
+    return <CircularProgress />;
   }
 
   const maskedIp = maskIP(userIp);
@@ -85,7 +85,7 @@ function PrivacyAccept({ userIp, accepted, onAcceptChange, setCaptchaToken, text
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default PrivacyAccept 
+export default PrivacyAccept; 

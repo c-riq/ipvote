@@ -599,6 +599,7 @@ function Poll({ privacyAccepted, userIp, captchaToken, setCaptchaToken, onPrivac
               onPrivacyAcceptChange(accepted)
             }}
             setCaptchaToken={setCaptchaToken}
+            captchaToken={captchaToken}
           />
 
           {loading ? (

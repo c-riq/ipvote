@@ -17,9 +17,11 @@ interface PopularProps {
   userIp: string | null
   onPrivacyAcceptChange: (accepted: boolean) => void
   query: string
+  captchaToken: string | undefined
+  setCaptchaToken: (token: string) => void
 }
 
-function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: PopularProps) {
+function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange, query, captchaToken, setCaptchaToken }: PopularProps) {
   const [polls, setPolls] = useState<PollData[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -117,6 +119,8 @@ function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: Popu
         userIp={userIp}
         accepted={privacyAccepted}
         onAcceptChange={onPrivacyAcceptChange}
+        setCaptchaToken={setCaptchaToken}
+        captchaToken={captchaToken}
       />
       <div style={{ marginTop: '20px' }} />
       {polls.map((poll) => (
@@ -128,6 +132,7 @@ function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange, query }: Popu
           handleVote={handleVote}
           privacyAccepted={privacyAccepted}
           isUpdating={poll.isUpdating}
+          captchaToken={captchaToken}
         />
       ))}
       

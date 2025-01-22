@@ -46,18 +46,30 @@ function App() {
   })
   const [userIpInfo, setUserIpInfo] = useState<IpInfoResponse | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [captchaToken, setCaptchaToken] = useState<string | undefined>(() => {
+  const [captchaState, setCaptchaState] = useState<CaptchaState | null>(() => {
     const stored = localStorage.getItem('captchaState');
     if (stored) {
-      const state: CaptchaState = JSON.parse(stored);
-      // Only use stored token if it's less than 2 minutes old
-      const age = Date.now() - new Date(state.timestamp).getTime();
-      if (age < 2 * 60 * 1000) {
-        return state.token;
-      }
+      return JSON.parse(stored);
     }
     return undefined;
   });
+  const [captchaVerified, setCaptchaVerified] = useState(false);
+
+  useEffect(() => {
+    if (captchaState) {
+      const age = Date.now() - new Date(captchaState.timestamp).getTime();
+      console.log('Captcha age', age);
+      if (age < 24 * 60 * 1000) {
+        if (captchaState.ip === userIpInfo?.ip) {
+          setCaptchaVerified(true);
+          return;
+        } else {
+          console.error('Captcha IP does not match user IP', captchaState.ip, userIpInfo?.ip);
+        }
+      }
+    }
+    setCaptchaVerified(false);
+  }, [userIpInfo, captchaState]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -88,11 +100,8 @@ function App() {
     },
   })
 
-  const handlePrivacyAcceptChange = (accepted: boolean, token?: string) => {
+  const handlePrivacyAcceptChange = (accepted: boolean) => {
     setPrivacyAccepted(accepted);
-    if (token) {
-      setCaptchaToken(token);
-    }
     const privacyState: PrivacyState = {
       accepted,
       timestamp: accepted ? new Date().toISOString() : undefined
@@ -100,14 +109,19 @@ function App() {
     localStorage.setItem('privacyState', JSON.stringify(privacyState))
   }
 
-  const handleCaptchaToken = (token: string, ip: string, timestamp: string) => {
-    setCaptchaToken(token);
-    const captchaState: CaptchaState = {
-      token,
-      ip,
-      timestamp
-    };
-    localStorage.setItem('captchaState', JSON.stringify(captchaState));
+  const handleCaptchaToken = (token: string) => {
+    if (userIpInfo?.ip) {
+      const captchaState: CaptchaState = {
+        token,
+        ip: userIpInfo.ip,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem('captchaState', JSON.stringify(captchaState));
+      setCaptchaState(captchaState);
+    }
+    else {
+      console.error('User IP is not available');
+    }
   };
 
   const handleMainContentClick = () => {
@@ -138,6 +152,8 @@ function App() {
                   userIpInfo={userIpInfo} 
                   onPrivacyAcceptChange={handlePrivacyAcceptChange}
                   query={searchQuery}
+                  captchaToken={captchaVerified && captchaState?.token || undefined}
+                  setCaptchaToken={handleCaptchaToken}
                 />} />
                 
                 {/* Routes with dots (e.g., file extensions) */}
@@ -146,6 +162,8 @@ function App() {
                   userIpInfo={userIpInfo} 
                   onPrivacyAcceptChange={handlePrivacyAcceptChange}
                   query={searchQuery}
+                  captchaToken={captchaVerified && captchaState?.token || undefined}
+                  setCaptchaToken={handleCaptchaToken}
                 />} />
                 
                 {/* All other routes show Poll component */}
@@ -154,7 +172,7 @@ function App() {
                     privacyAccepted={privacyAccepted}
                     userIp={userIpInfo?.ip || null}
                     onPrivacyAcceptChange={handlePrivacyAcceptChange}
-                    captchaToken={captchaToken}
+                    captchaToken={captchaVerified && captchaState?.token || undefined}
                     setCaptchaToken={handleCaptchaToken}
                   />
                 } />
