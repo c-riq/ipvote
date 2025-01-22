@@ -23,6 +23,7 @@ import PrivacyAccept from './ui/PrivacyAccept'
 import VoteMap from './VoteMap'
 import IPBlockMap from './IPBlockMap'
 import IPv6BlockMap from './IPv6BlockMap'
+import { IpInfoResponse } from '../App'
 
 interface VoteHistory {
   date: string;
@@ -37,9 +38,9 @@ interface ASNData {
 
 interface PollProps {
   privacyAccepted: boolean
-  userIp: string | null
+  userIpInfo: IpInfoResponse | null
   captchaToken: string | undefined
-  setCaptchaToken: (token: string, ip: string, timestamp: string) => void
+  setCaptchaToken: (token: string) => void
   onPrivacyAcceptChange: (accepted: boolean, captchaToken?: string) => void
 }
 /* voting data schema:
@@ -49,7 +50,7 @@ time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vp
 1731672863490,62.126.89.XXX,harris_or_trump,trump,,,BG,Vivacom Bulgaria EAD,0,0,
 */
 
-function Poll({ privacyAccepted, userIp, captchaToken, setCaptchaToken, onPrivacyAcceptChange }: PollProps) {
+function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPrivacyAcceptChange }: PollProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const [poll, setPoll] = useState<string>('')
@@ -204,6 +205,9 @@ function Poll({ privacyAccepted, userIp, captchaToken, setCaptchaToken, onPrivac
         setMessage('Vote submitted successfully!')
       } else {
         setMessage(JSON.parse(data)?.message || data)
+        if (data.includes('captcha')) {
+          setCaptchaToken('')
+        }
       }
       fetchResults(poll)
     } catch (error) {
@@ -625,12 +629,12 @@ function Poll({ privacyAccepted, userIp, captchaToken, setCaptchaToken, onPrivac
         </Alert>
       )}
       
-      {!userIp ? (
+      {!userIpInfo ? (
         <CircularProgress />
       ) : (
         <>
           <PrivacyAccept
-            userIp={userIp}
+            userIpInfo={userIpInfo}
             accepted={privacyAccepted}
             onAcceptChange={(accepted) => {
               onPrivacyAcceptChange(accepted)

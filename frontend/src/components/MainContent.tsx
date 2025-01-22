@@ -25,7 +25,7 @@ function MainContent({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query
         <Route path="newsletter" element={<Newsletter />} />
         <Route path="popular" element={<Popular 
           privacyAccepted={privacyAccepted} 
-          userIp={userIpInfo?.ip || null} 
+          userIpInfo={userIpInfo} 
           onPrivacyAcceptChange={onPrivacyAcceptChange}
           query={query}
           captchaToken={captchaToken}

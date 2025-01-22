@@ -3,6 +3,7 @@ import { CircularProgress } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import PollCard from './PollCard'
 import PrivacyAccept from './PrivacyAccept'
+import { IpInfoResponse } from '../../App'
 
 const LIMIT = 15
 
@@ -14,14 +15,14 @@ interface PollData {
 
 interface PopularProps {
   privacyAccepted: boolean
-  userIp: string | null
+  userIpInfo: IpInfoResponse | null
   onPrivacyAcceptChange: (accepted: boolean) => void
   query: string
   captchaToken: string | undefined
   setCaptchaToken: (token: string) => void
 }
 
-function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange, query, captchaToken, setCaptchaToken }: PopularProps) {
+function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, captchaToken, setCaptchaToken }: PopularProps) {
   const [polls, setPolls] = useState<PollData[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -116,7 +117,7 @@ function Popular({ privacyAccepted, userIp, onPrivacyAcceptChange, query, captch
     <div>
       <h2>Let the internet vote!</h2>
       <PrivacyAccept
-        userIp={userIp}
+        userIpInfo={userIpInfo}
         accepted={privacyAccepted}
         onAcceptChange={onPrivacyAcceptChange}
         setCaptchaToken={setCaptchaToken}

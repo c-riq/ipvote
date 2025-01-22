@@ -170,7 +170,7 @@ function App() {
                 <Route path="/*" element={
                   <Poll 
                     privacyAccepted={privacyAccepted}
-                    userIp={userIpInfo?.ip || null}
+                    userIpInfo={userIpInfo}
                     onPrivacyAcceptChange={handlePrivacyAcceptChange}
                     captchaToken={captchaVerified && captchaState?.token || undefined}
                     setCaptchaToken={handleCaptchaToken}

@@ -781,7 +781,7 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
       </Typography>
 
       <PrivacyAccept
-        userIp={userIpInfo?.ip || null}
+        userIpInfo={userIpInfo}
         accepted={privacyAccepted}
         onAcceptChange={onPrivacyAcceptChange}
         textAlign="center"

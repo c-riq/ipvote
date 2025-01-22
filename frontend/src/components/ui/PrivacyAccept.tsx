@@ -1,9 +1,10 @@
 import { FormControlLabel, Checkbox, CircularProgress } from '@mui/material'
 import HCaptcha from '@hcaptcha/react-hcaptcha'
 import { useState, useCallback } from 'react'
+import { IpInfoResponse } from '../../App'
 
 interface PrivacyAcceptProps {
-  userIp: string | null
+  userIpInfo: IpInfoResponse | null
   accepted: boolean
   onAcceptChange: (accepted: boolean) => void
   setCaptchaToken: (token: string, ip: string, timestamp: string) => void
@@ -27,7 +28,7 @@ function maskIP(ip: string) {
   }
 }
 
-function PrivacyAccept({ userIp, accepted, onAcceptChange, setCaptchaToken, captchaToken, textAlign = 'center' }: PrivacyAcceptProps) {
+function PrivacyAccept({ userIpInfo, accepted, onAcceptChange, setCaptchaToken, captchaToken, textAlign = 'center' }: PrivacyAcceptProps) {
   const [privacyChecked, setPrivacyChecked] = useState(accepted);
   const [verificationError, setVerificationError] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -40,7 +41,7 @@ function PrivacyAccept({ userIp, accepted, onAcceptChange, setCaptchaToken, capt
   const handleHCaptchaVerify = async (token: string) => {
     setVerificationError(false);
     setIsVerifying(true);
-    if (userIp) {
+    if (userIpInfo?.ip) {
       try {
         const response = await fetch('https://fvy6d5uwjmmhjv3bvbtlrcw5xu0ldcjf.lambda-url.us-east-1.on.aws/', {
           method: 'POST',
@@ -49,7 +50,7 @@ function PrivacyAccept({ userIp, accepted, onAcceptChange, setCaptchaToken, capt
           },
           body: JSON.stringify({
             captchaToken: token,
-            ip: userIp
+            ip: userIpInfo?.ip
           })
         });
         if (response.status !== 200) {
@@ -57,7 +58,7 @@ function PrivacyAccept({ userIp, accepted, onAcceptChange, setCaptchaToken, capt
           setVerificationError(true);
         } else {
           const timestamp = new Date().toISOString();
-          setCaptchaToken(token, userIp, timestamp);
+          setCaptchaToken(token, userIpInfo?.ip, timestamp);
         }
       } finally {
         setIsVerifying(false);
@@ -70,11 +71,11 @@ function PrivacyAccept({ userIp, accepted, onAcceptChange, setCaptchaToken, capt
     return null;
   }
 
-  if (!userIp) {
+  if (!userIpInfo?.ip) {
     return <CircularProgress />;
   }
 
-  const maskedIp = maskIP(userIp);
+  const maskedIp = maskIP(userIpInfo.ip);
   console.log('captchaToken', captchaToken);
   return (
     <div style={{ textAlign }}>
@@ -88,7 +89,8 @@ function PrivacyAccept({ userIp, accepted, onAcceptChange, setCaptchaToken, capt
         label={
           <div style={{ wordBreak: 'break-word' }}>
             I accept the <a href="/privacy_policy.html" target="_blank">privacy policy</a>
-            {' '}and the public sharing of my IP: {maskedIp}
+            {' '}and the public sharing of my redacted IP: {maskedIp} ({userIpInfo?.geo?.country_name}) <br/>
+            <p>IP info is powered by <a href="https://ipinfo.io" target="_blank">ipinfo.io</a></p>
           </div>
         }
         sx={{
