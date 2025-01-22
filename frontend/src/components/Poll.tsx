@@ -65,6 +65,7 @@ function Poll({ privacyAccepted, userIp, captchaToken, setCaptchaToken, onPrivac
   const [votes, setVotes] = useState<string[]>([])
   const [allVotes, setAllVotes] = useState<string[]>([])
   const [asnData, setAsnData] = useState<ASNData[]>([])
+  const [chartZoomEnabled, setChartZoomEnabled] = useState(false);
 
   useEffect(() => {
     // Get poll ID from URL path only
@@ -292,38 +293,74 @@ function Poll({ privacyAccepted, userIp, captchaToken, setCaptchaToken, onPrivac
       type: 'scatter' as const,
       mode: 'lines' as const,
       line: {
-        color: i === 0 ? '#4169E1' : '#ff6969'  // Royal Blue and Crimson
+        color: i === 0 ? '#4169E1' : '#ff6969'
       }
     }))
 
     return (
-      <Box sx={{ mt: 4, height: '300px' }}>
-        <Plot
-          data={traces}
-          layout={{
-            title: 'Votes over time',
-            autosize: true,
-            margin: { t: 30, r: 10, b: 30, l: 40 },
-            xaxis: {
-              title: 'Date',
-              showgrid: false,
-            },
-            yaxis: {
-              title: 'Votes',
-              showgrid: true,
-            },
-            showlegend: true,
-            legend: {
-              x: 0,
-              y: 1,
-              orientation: 'h'
-            },
-            paper_bgcolor: 'transparent',
-            plot_bgcolor: 'transparent',
-          }}
-          useResizeHandler={true}
-          style={{ width: '100%', height: '100%' }}
-        />
+      <Box sx={{ mt: 4 }}>
+        <Box sx={{ mb: 1, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            size="small"
+            variant={chartZoomEnabled ? "contained" : "outlined"}
+            onClick={() => setChartZoomEnabled(!chartZoomEnabled)}
+          >
+            {chartZoomEnabled ? "Disable Zoom" : "Enable Zoom"}
+          </Button>
+        </Box>
+        <Box sx={{ height: '300px' }}>
+          <Plot
+            data={traces}
+            layout={{
+              title: 'Votes over time',
+              autosize: true,
+              margin: { t: 30, r: 10, b: 30, l: 40 },
+              xaxis: {
+                title: 'Date',
+                showgrid: false,
+                fixedrange: !chartZoomEnabled
+              },
+              yaxis: {
+                title: 'Votes',
+                showgrid: true,
+                fixedrange: !chartZoomEnabled
+              },
+              showlegend: true,
+              legend: {
+                x: 0,
+                y: 1,
+                orientation: 'h'
+              },
+              paper_bgcolor: 'transparent',
+              plot_bgcolor: 'transparent',
+              dragmode: chartZoomEnabled ? 'zoom' : false,
+              hovermode: false
+            }}
+            config={{
+              displayModeBar: true,
+              scrollZoom: false,
+              doubleClick: false,
+              displaylogo: false,
+              modeBarButtonsToRemove: [
+                'pan2d',
+                'select2d',
+                'lasso2d',
+                'autoScale2d',
+                'resetScale2d',
+                'zoom2d',
+                'zoomIn2d',
+                'zoomOut2d'
+              ],
+              responsive: true,
+              toImageButtonOptions: {
+                format: 'png',
+                filename: 'vote_history'
+              }
+            }}
+            useResizeHandler={true}
+            style={{ width: '100%', height: '100%' }}
+          />
+        </Box>
       </Box>
     )
   }
