@@ -27,20 +27,43 @@ function maskIP(ip: string) {
   }
 }
 
-function PrivacyAccept({ userIp, accepted, onAcceptChange, setCaptchaToken, captchaToken, textAlign = 'left' }: PrivacyAcceptProps) {
+function PrivacyAccept({ userIp, accepted, onAcceptChange, setCaptchaToken, captchaToken, textAlign = 'center' }: PrivacyAcceptProps) {
   const [privacyChecked, setPrivacyChecked] = useState(accepted);
+  const [verificationError, setVerificationError] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const handlePrivacyChange = useCallback((checked: boolean) => {
     setPrivacyChecked(checked);
     onAcceptChange(checked);
   }, [onAcceptChange]);
 
-  const handleHCaptchaVerify = useCallback((token: string) => {
+  const handleHCaptchaVerify = async (token: string) => {
+    setVerificationError(false);
+    setIsVerifying(true);
     if (userIp) {
-      const timestamp = new Date().toISOString();
-      setCaptchaToken(token, userIp, timestamp);
+      try {
+        const response = await fetch('https://fvy6d5uwjmmhjv3bvbtlrcw5xu0ldcjf.lambda-url.us-east-1.on.aws/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            captchaToken: token,
+            ip: userIp
+          })
+        });
+        if (response.status !== 200) {
+          console.error('Captcha verification failed', response);
+          setVerificationError(true);
+        } else {
+          const timestamp = new Date().toISOString();
+          setCaptchaToken(token, userIp, timestamp);
+        }
+      } finally {
+        setIsVerifying(false);
+      }
     }
-  }, [userIp, setCaptchaToken]);
+  };
 
   // Early returns after all hooks are defined
   if (accepted && captchaToken) {
@@ -52,7 +75,7 @@ function PrivacyAccept({ userIp, accepted, onAcceptChange, setCaptchaToken, capt
   }
 
   const maskedIp = maskIP(userIp);
-
+  console.log('captchaToken', captchaToken);
   return (
     <div style={{ textAlign }}>
       <FormControlLabel
@@ -64,24 +87,34 @@ function PrivacyAccept({ userIp, accepted, onAcceptChange, setCaptchaToken, capt
         }
         label={
           <div style={{ wordBreak: 'break-word' }}>
-            I accept the <a href="/privacy_policy.html" target="_blank">privacy policy</a> 
+            I accept the <a href="/privacy_policy.html" target="_blank">privacy policy</a>
             {' '}and the public sharing of my IP: {maskedIp}
           </div>
         }
-        sx={{ 
+        sx={{
           alignItems: 'flex-start',
-          '.MuiFormControlLabel-label': { 
+          '.MuiFormControlLabel-label': {
             mt: '2px'
           }
         }}
       />
       {privacyChecked && (
         <div style={{ marginTop: '10px' }}>
-          <HCaptcha
+          {isVerifying ? (
+            <div style={{ marginTop: '5px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <CircularProgress size={20} />
+              <span>Verifying captcha...</span>
+            </div>
+          ) : <HCaptcha
             sitekey="1f6c862a-be6e-4304-82b8-6ba6d5d851c2"
             onVerify={handleHCaptchaVerify}
             theme="light"
-          />
+          />}
+          {verificationError && (
+            <div style={{ color: 'red', marginTop: '5px' }}>
+              Captcha verification failed. Please try again.
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -64,50 +64,30 @@ const getPartitionKey = (ip) => {
     }
 };
 
-const verifyHCaptcha = async (token) => {
-    const secret = process.env.HCAPTCHA_SECRET_KEY;
-    
-    return new Promise((resolve, reject) => {
-        const data = `secret=${secret}&response=${token}`;
+const validateCachedCaptcha = async (ip, token, bucketName) => {
+    const fileName = 'captcha_cache/verifications.csv';
+    try {
+        const data = await fetchFileFromS3(bucketName, fileName);
+        const lines = data.split('\n');
         
-        const options = {
-            hostname: 'hcaptcha.com',
-            port: 443,
-            path: '/siteverify',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Content-Length': data.length
-            }
-        };
-
-        const req = https.request(options, (res) => {
-            let response = '';
+        for (let i = 1; i < lines.length; i++) { // Skip header
+            const [cachedIp, cachedToken, timestamp] = lines[i].split(',');
+            if (!cachedIp || !cachedToken || !timestamp) continue;
             
-            res.on('data', (chunk) => {
-                response += chunk;
-            });
-            
-            res.on('end', () => {
-                try {
-                    const parsedResponse = JSON.parse(response);
-                    console.log('hCaptcha verification response:', parsedResponse);
-                    resolve(parsedResponse.success);
-                } catch (e) {
-                    reject(e);
-                    console.error('hCaptcha verification error:', e);
+            // Check if this verification is for the same IP and token
+            if (cachedIp === ip && cachedToken === token) {
+                const verificationTime = parseInt(timestamp);
+                const now = Date.now();
+                // Verify that the token is not older than 5 minutes
+                if (now - verificationTime < 5 * 60 * 1000) {
+                    return true;
                 }
-            });
-        });
-
-        req.on('error', (error) => {
-            console.error('hCaptcha verification error:', error);
-            reject(error);
-        });
-
-        req.write(data);
-        req.end();
-    });
+            }
+        }
+    } catch (error) {
+        console.error('Error validating cached captcha:', error);
+    }
+    return false;
 };
 
 module.exports.handler = async (event) => {
@@ -166,23 +146,27 @@ module.exports.handler = async (event) => {
     }
 
     try {
-        const isHuman = await verifyHCaptcha(hcaptchaToken);
-        console.log('hCaptcha verification result:', isHuman);
+        const isHuman = await validateCachedCaptcha(
+            event.requestContext.http.sourceIp,
+            hcaptchaToken,
+            'ipvotes'
+        );
+        console.log('Cached captcha verification result:', isHuman);
         if (!isHuman) {
             return {
                 statusCode: 400,
                 body: JSON.stringify({
-                    message: 'hCaptcha verification failed',
+                    message: 'Invalid or expired captcha verification',
                     time: new Date()
                 }),
             };
         }
     } catch (error) {
-        console.error('hCaptcha verification error:', error);
+        console.error('Captcha verification error:', error);
         return {
             statusCode: 500,
             body: JSON.stringify({
-                message: 'Failed to verify hCaptcha',
+                message: 'Failed to verify captcha',
                 time: new Date()
             }),
         };

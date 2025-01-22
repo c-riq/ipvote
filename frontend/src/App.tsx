@@ -59,7 +59,7 @@ function App() {
     if (captchaState) {
       const age = Date.now() - new Date(captchaState.timestamp).getTime();
       console.log('Captcha age', age);
-      if (age < 24 * 60 * 1000) {
+      if (age < 24 * 60 * 60 * 1000) {
         if (captchaState.ip === userIpInfo?.ip) {
           setCaptchaVerified(true);
           return;
@@ -109,15 +109,15 @@ function App() {
     localStorage.setItem('privacyState', JSON.stringify(privacyState))
   }
 
-  const handleCaptchaToken = (token: string) => {
+  const handleCaptchaToken = async (token: string) => {
     if (userIpInfo?.ip) {
       const captchaState: CaptchaState = {
         token,
         ip: userIpInfo.ip,
         timestamp: new Date().toISOString()
-      };
-      localStorage.setItem('captchaState', JSON.stringify(captchaState));
-      setCaptchaState(captchaState);
+        };
+        localStorage.setItem('captchaState', JSON.stringify(captchaState));
+        setCaptchaState(captchaState);
     }
     else {
       console.error('User IP is not available');
