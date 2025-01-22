@@ -1,9 +1,12 @@
 import { FormControlLabel, Checkbox, CircularProgress } from '@mui/material'
+import HCaptcha from '@hcaptcha/react-hcaptcha'
+import { useState, useCallback } from 'react'
 
 interface PrivacyAcceptProps {
   userIp: string | null
   accepted: boolean
   onAcceptChange: (accepted: boolean) => void
+  setCaptchaToken: (token: string, ip: string, timestamp: string) => void
   textAlign?: 'left' | 'center' | 'right'
 }
 
@@ -22,7 +25,28 @@ function maskIP(ip: string) {
   }
 }
 
-function PrivacyAccept({ userIp, accepted, onAcceptChange, textAlign = 'left' }: PrivacyAcceptProps) {
+function PrivacyAccept({ userIp, accepted, onAcceptChange, setCaptchaToken, textAlign = 'left' }: PrivacyAcceptProps) {
+  const [isHuman, setIsHuman] = useState(false);
+  const [privacyChecked, setPrivacyChecked] = useState(accepted);
+
+
+  const handlePrivacyChange = useCallback((checked: boolean) => {
+    setPrivacyChecked(checked);
+    if (checked && isHuman) {
+      onAcceptChange(true);
+    } else {
+      onAcceptChange(false);
+    }
+  }, [isHuman, onAcceptChange]);
+
+  const handleHCaptchaVerify = (token: string) => {
+    if (userIp) {
+      const timestamp = new Date().toISOString();
+      setCaptchaToken(token, userIp, timestamp);
+      onAcceptChange(true, token);
+    }
+  };
+
   if (!userIp) {
     return <CircularProgress />
   }
@@ -34,14 +58,14 @@ function PrivacyAccept({ userIp, accepted, onAcceptChange, textAlign = 'left' }:
       <FormControlLabel
         control={
           <Checkbox
-            checked={accepted}
-            onChange={(e) => onAcceptChange(e.target.checked)}
+            checked={privacyChecked}
+            onChange={(e) => handlePrivacyChange(e.target.checked)}
           />
         }
         label={
           <div style={{ wordBreak: 'break-word' }}>
             I accept the <a href="/privacy_policy.html" target="_blank">privacy policy</a> 
-            {' '}and the public sharing of my redacted IP: {maskedIp}
+            {' '}and the public sharing of my IP: {maskedIp}
           </div>
         }
         sx={{ 
@@ -51,6 +75,15 @@ function PrivacyAccept({ userIp, accepted, onAcceptChange, textAlign = 'left' }:
           }
         }}
       />
+      {privacyChecked && (
+        <div style={{ marginTop: '10px' }}>
+          <HCaptcha
+            sitekey="1f6c862a-be6e-4304-82b8-6ba6d5d851c2"
+            onVerify={handleHCaptchaVerify}
+            theme="light"
+          />
+        </div>
+      )}
     </div>
   )
 }

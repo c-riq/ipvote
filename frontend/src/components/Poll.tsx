@@ -38,7 +38,9 @@ interface ASNData {
 interface PollProps {
   privacyAccepted: boolean
   userIp: string | null
-  onPrivacyAcceptChange: (accepted: boolean) => void
+  captchaToken: string | undefined
+  setCaptchaToken: (token: string, ip: string, timestamp: string) => void
+  onPrivacyAcceptChange: (accepted: boolean, captchaToken?: string) => void
 }
 /* voting data schema:
 time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider
@@ -47,7 +49,7 @@ time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vp
 1731672863490,62.126.89.XXX,harris_or_trump,trump,,,BG,Vivacom Bulgaria EAD,0,0,
 */
 
-function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
+function Poll({ privacyAccepted, userIp, captchaToken, setCaptchaToken, onPrivacyAcceptChange }: PollProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const [poll, setPoll] = useState<string>('')
@@ -192,10 +194,10 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
     setAsnData(asnArray)
   }
 
-  const vote = async (option: string) => {
+  const handleVote = async (vote: string) => {
     setLoading(true)
-    try {
-      const response = await fetch(`https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${poll}&vote=${option}`)
+    try { 
+      const response = await fetch(`https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${poll}&vote=${vote}&captchaToken=${captchaToken}`)
       const data = await response.text()
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')
@@ -246,11 +248,12 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
             />
           </Box>
           <Tooltip 
-            title="Please accept the privacy policy first"
+            title={!privacyAccepted ? "Please accept the privacy policy first" : 
+                  !captchaToken ? "Please complete the captcha verification" : ""}
             arrow
-            disableHoverListener={privacyAccepted}
-            disableFocusListener={privacyAccepted}
-            disableTouchListener={privacyAccepted}
+            disableHoverListener={privacyAccepted && !!captchaToken}
+            disableFocusListener={privacyAccepted && !!captchaToken}
+            disableTouchListener={privacyAccepted && !!captchaToken}
             placement="top"
             enterTouchDelay={0}
             leaveTouchDelay={5000}
@@ -258,8 +261,8 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
             <div style={{ display: 'inline-block' }}>
               <Button
                 variant="contained"
-                disabled={!privacyAccepted}
-                onClick={() => vote(option)}
+                disabled={!privacyAccepted || !captchaToken}
+                onClick={() => handleVote(option)}
                 sx={{ 
                   minWidth: '100px',
                   order: { xs: 2, sm: 1 },
@@ -365,11 +368,12 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
           />
         </Box>
         <Tooltip 
-          title="Please accept the privacy policy first"
+          title={!privacyAccepted ? "Please accept the privacy policy first" : 
+                !captchaToken ? "Please complete the captcha verification" : ""}
           arrow
-          disableHoverListener={privacyAccepted}
-          disableFocusListener={privacyAccepted}
-          disableTouchListener={privacyAccepted}
+          disableHoverListener={privacyAccepted && !!captchaToken}
+          disableFocusListener={privacyAccepted && !!captchaToken}
+          disableTouchListener={privacyAccepted && !!captchaToken}
           placement="top"
           enterTouchDelay={0}
           leaveTouchDelay={5000}
@@ -377,8 +381,8 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
           <div style={{ display: 'inline-block' }}>
             <Button
               variant="contained"
-              disabled={!privacyAccepted}
-              onClick={() => vote(option)}
+              disabled={!privacyAccepted || !captchaToken}
+              onClick={() => handleVote(option)}
               sx={{ 
                 minWidth: '100px',
                 order: { xs: 2, sm: 1 },
@@ -591,7 +595,10 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
           <PrivacyAccept
             userIp={userIp}
             accepted={privacyAccepted}
-            onAcceptChange={onPrivacyAcceptChange}
+            onAcceptChange={(accepted) => {
+              onPrivacyAcceptChange(accepted)
+            }}
+            setCaptchaToken={setCaptchaToken}
           />
 
           {loading ? (

@@ -13,6 +13,12 @@ interface PrivacyState {
   timestamp?: string;  // ISO string format
 }
 
+interface CaptchaState {
+  token: string;
+  ip: string;
+  timestamp: string;
+}
+
 export interface IpInfoResponse {
   ip: string
   geo: {
@@ -40,6 +46,18 @@ function App() {
   })
   const [userIpInfo, setUserIpInfo] = useState<IpInfoResponse | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [captchaToken, setCaptchaToken] = useState<string | undefined>(() => {
+    const stored = localStorage.getItem('captchaState');
+    if (stored) {
+      const state: CaptchaState = JSON.parse(stored);
+      // Only use stored token if it's less than 2 minutes old
+      const age = Date.now() - new Date(state.timestamp).getTime();
+      if (age < 2 * 60 * 1000) {
+        return state.token;
+      }
+    }
+    return undefined;
+  });
 
   useEffect(() => {
     const handleResize = () => {
@@ -70,15 +88,27 @@ function App() {
     },
   })
 
-  const handlePrivacyAcceptChange = (accepted: boolean) => {
-    console.log('onPrivacyAcceptChange', accepted)
-    setPrivacyAccepted(accepted)
+  const handlePrivacyAcceptChange = (accepted: boolean, token?: string) => {
+    setPrivacyAccepted(accepted);
+    if (token) {
+      setCaptchaToken(token);
+    }
     const privacyState: PrivacyState = {
       accepted,
       timestamp: accepted ? new Date().toISOString() : undefined
     }
     localStorage.setItem('privacyState', JSON.stringify(privacyState))
   }
+
+  const handleCaptchaToken = (token: string, ip: string, timestamp: string) => {
+    setCaptchaToken(token);
+    const captchaState: CaptchaState = {
+      token,
+      ip,
+      timestamp
+    };
+    localStorage.setItem('captchaState', JSON.stringify(captchaState));
+  };
 
   const handleMainContentClick = () => {
     // Only close sidebar on mobile
@@ -124,6 +154,8 @@ function App() {
                     privacyAccepted={privacyAccepted}
                     userIp={userIpInfo?.ip || null}
                     onPrivacyAcceptChange={handlePrivacyAcceptChange}
+                    captchaToken={captchaToken}
+                    setCaptchaToken={handleCaptchaToken}
                   />
                 } />
                 

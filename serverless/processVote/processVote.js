@@ -1,6 +1,7 @@
 // Import the S3Client and GetObjectCommand from the AWS SDK
 const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getIPInfo } = require('./from_ipInfos/ipCountryLookup');
+const https = require('https');
 
 /* schema of csv file:
 time,ip,poll_,vote,country,nonce,country_geoip,asn_name_geoip
@@ -63,11 +64,65 @@ const getPartitionKey = (ip) => {
     }
 };
 
+const verifyHCaptcha = async (token) => {
+    const secret = process.env.HCAPTCHA_SECRET_KEY;
+    
+    return new Promise((resolve, reject) => {
+        const data = `secret=${secret}&response=${token}`;
+        
+        const options = {
+            hostname: 'hcaptcha.com',
+            port: 443,
+            path: '/siteverify',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Length': data.length
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let response = '';
+            
+            res.on('data', (chunk) => {
+                response += chunk;
+            });
+            
+            res.on('end', () => {
+                try {
+                    const parsedResponse = JSON.parse(response);
+                    console.log('hCaptcha verification response:', parsedResponse);
+                    resolve(parsedResponse.success);
+                } catch (e) {
+                    reject(e);
+                    console.error('hCaptcha verification error:', e);
+                }
+            });
+        });
+
+        req.on('error', (error) => {
+            console.error('hCaptcha verification error:', error);
+            reject(error);
+        });
+
+        req.write(data);
+        req.end();
+    });
+};
+
 module.exports.handler = async (event) => {
+    console.log('Processing vote request:', {
+        ip: event.requestContext.http.sourceIp,
+        poll: event.queryStringParameters.poll,
+        vote: event.queryStringParameters.vote,
+        timestamp: new Date().toISOString()
+    });
+
     const vote = event.queryStringParameters.vote;
     const poll = event.queryStringParameters.poll;
     const country = event.queryStringParameters.country;
     const nonce = event.queryStringParameters.nonce;
+    const hcaptchaToken = event.queryStringParameters.captchaToken;
     const forbiddenStringsRegex = /,|\\n|\\r|\\t|>|<|"/;
     if (!vote || !poll) {
         return {
@@ -96,10 +151,54 @@ module.exports.handler = async (event) => {
             }),
         };
     }
+    if (!hcaptchaToken) {
+        console.log('missing hcaptcha token:', {
+            hcaptchaToken,
+            time: new Date()
+        });
+        return {
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Missing hCaptcha verification',
+                time: new Date()
+            }),
+        };
+    }
+
+    try {
+        const isHuman = await verifyHCaptcha(hcaptchaToken);
+        console.log('hCaptcha verification result:', isHuman);
+        if (!isHuman) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'hCaptcha verification failed',
+                    time: new Date()
+                }),
+            };
+        }
+    } catch (error) {
+        console.error('hCaptcha verification error:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'Failed to verify hCaptcha',
+                time: new Date()
+            }),
+        };
+    }
+
     const requestIp = event.requestContext.http.sourceIp;
     const timestamp = new Date().getTime();
     const partition = getPartitionKey(requestIp);
     const fileName = `votes/poll=${poll}/ip_prefix=${partition}/votes.csv`;
+
+    console.log('Vote file details:', {
+        fileName,
+        partition,
+        requestIp,
+        isIPv6: requestIp.includes(':')
+    });
 
     const bucketName = 'ipvotes';
 
@@ -162,11 +261,20 @@ module.exports.handler = async (event) => {
 
     // Get GeoIP information
     const ipInfo = getIPInfo(requestIp);
+    console.log('IP info retrieved:', {
+        country: ipInfo?.country,
+        asn: ipInfo?.as_name,
+        requestIp
+    });
     const countryGeoip = ipInfo?.country || 'XX';
     const asnNameGeoip = ipInfo?.as_name || '';
 
     // Create new vote line with GeoIP data
     const newVote = `${timestamp},${requestIp},${poll},${vote},${country},${nonce},${countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')},,,\n`;
+    console.log('Attempting to save vote:', {
+        fileName,
+        voteData: newVote.trim()
+    });
     const newVotes = data + newVote;
     const putParams = {
         Bucket: 'ipvotes',
@@ -187,7 +295,11 @@ module.exports.handler = async (event) => {
     data = await fetchFileFromS3(bucketName, fileName)
 
     if (!data.includes(newVote)) {
-        console.log('Vote was not registered');
+        console.log('Vote verification failed:', {
+            fileName,
+            expectedVote: newVote.trim(),
+            dataLength: data.length
+        });
         return {
             statusCode: 500,
             body: JSON.stringify({
@@ -197,6 +309,11 @@ module.exports.handler = async (event) => {
         };
     }
     
+    console.log('Vote successfully registered:', {
+        fileName,
+        timestamp: new Date().toISOString()
+    });
+
     return {
         statusCode: 200,
         body: JSON.stringify({
