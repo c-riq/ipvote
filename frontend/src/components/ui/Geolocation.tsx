@@ -785,7 +785,7 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
         accepted={privacyAccepted}
         onAcceptChange={onPrivacyAcceptChange}
         textAlign="center"
-        captchaToken={captchaToken}
+        captchaToken={'_'}
         setCaptchaToken={setCaptchaToken}
       />
 
