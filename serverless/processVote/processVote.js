@@ -78,8 +78,8 @@ const validateCachedCaptcha = async (ip, token, bucketName) => {
             if (cachedIp === ip && cachedToken === token) {
                 const verificationTime = parseInt(timestamp);
                 const now = Date.now();
-                // Verify that the token is not older than 5 minutes
-                if (now - verificationTime < 5 * 60 * 1000) {
+                // Verify that the token is not older than 24 hours
+                if (now - verificationTime < 24 * 60 * 60 * 1000) {
                     return true;
                 }
             }
