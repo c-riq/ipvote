@@ -2,36 +2,40 @@
 
 export AWS_PROFILE="rix-admin-chris"
 
-# Change to the directory containing processVote.js
+# Change to the directory containing validateCaptcha.js
 cd "$(dirname "$0")"
 
 REGION="us-east-1"      # N. Virginia
-FUNCTION_NAME="process_ip_vote"
+FUNCTION_NAME="validateCaptcha"
 ZIP_FILE="function.zip"
-PARTITION_DIR="from_ipInfos"
-ROLE_ARN="arn:aws:iam::152769399840:role/service-role/process_ip_vote-role-e2qax5j9"
+ROLE_ARN="arn:aws:iam::152769399840:role/service-role/validateCaptcha-role-o0pop0mv"
+
+# Load environment variables from .env file if it exists
+if [ -f ".env" ]; then
+    while IFS='=' read -r key value; do
+        if [ -n "$key" ] && [ -n "$value" ] && [[ ! "$key" =~ ^# ]]; then
+            # Remove any surrounding quotes from the value
+            value=$(echo "$value" | tr -d '"'"'")
+            export "$key=$value"
+        fi
+    done < ".env"
+fi
+
+# Check if HCAPTCHA_SECRET is set
+if [ -z "$HCAPTCHA_SECRET_KEY" ]; then
+    echo "Error: HCAPTCHA_SECRET_KEY environment variable not set"
+    exit 1
+fi
 
 # Check if required files exist
-if [ ! -f "processVote.js" ]; then
-    echo "Error: processVote.js not found in current directory ($(pwd))"
-    exit 1
-fi
-
-if [ ! -f "$PARTITION_DIR/ipCountryLookup.js" ]; then
-    echo "Error: ipCountryLookup.js not found in $PARTITION_DIR directory"
-    exit 1
-fi
-
-# Check if IP data directory exists
-IP_DATA_DIR="$PARTITION_DIR/ip_info_io_country_asn_partitioned"
-if [ ! -d "$IP_DATA_DIR" ]; then
-    echo "Error: IP data directory not found at $IP_DATA_DIR"
+if [ ! -f "validateCaptcha.js" ]; then
+    echo "Error: validateCaptcha.js not found in current directory ($(pwd))"
     exit 1
 fi
 
 # Create deployment package
 rm -f $ZIP_FILE  # Remove any existing zip file
-zip -r $ZIP_FILE processVote.js "$PARTITION_DIR"
+zip -r $ZIP_FILE validateCaptcha.js
 
 # Check if zip file was created successfully
 if [ ! -f "$ZIP_FILE" ]; then
@@ -47,17 +51,19 @@ if ! aws lambda get-function --function-name $FUNCTION_NAME --region $REGION --n
         --function-name $FUNCTION_NAME \
         --runtime nodejs22.x \
         --role $ROLE_ARN \
-        --handler processVote.handler \
+        --handler validateCaptcha.handler \
         --zip-file fileb://$ZIP_FILE \
         --region $REGION \
         --timeout 30 \
-        --memory-size 1024 \
+        --memory-size 128 \
+        --environment "Variables={HCAPTCHA_SECRET_KEY=$HCAPTCHA_SECRET_KEY}" \
         --no-cli-pager
 else
     aws lambda update-function-configuration \
         --function-name $FUNCTION_NAME \
         --timeout 30 \
-        --memory-size 1024 \
+        --memory-size 128 \
+        --environment "Variables={HCAPTCHA_SECRET_KEY=$HCAPTCHA_SECRET_KEY}" \
         --region $REGION \
         --no-cli-pager
     sleep 5

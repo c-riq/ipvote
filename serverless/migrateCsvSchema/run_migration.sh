@@ -6,4 +6,4 @@ if [ -z "$AWS_PROFILE" ]; then
 fi
 
 # Run the migration script
-node addProxyColumns.js 
+node fixPollMismatches.js 

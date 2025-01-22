@@ -2,36 +2,21 @@
 
 export AWS_PROFILE="rix-admin-chris"
 
-# Change to the directory containing processVote.js
-cd "$(dirname "$0")"
 
 REGION="us-east-1"      # N. Virginia
-FUNCTION_NAME="process_ip_vote"
+FUNCTION_NAME="logTriangulationTest"
 ZIP_FILE="function.zip"
-PARTITION_DIR="from_ipInfos"
-ROLE_ARN="arn:aws:iam::152769399840:role/service-role/process_ip_vote-role-e2qax5j9"
+ROLE_ARN="arn:aws:iam::152769399840:role/service-role/logTriangulationTest-role-lbo6whoo"
 
 # Check if required files exist
-if [ ! -f "processVote.js" ]; then
-    echo "Error: processVote.js not found in current directory ($(pwd))"
-    exit 1
-fi
-
-if [ ! -f "$PARTITION_DIR/ipCountryLookup.js" ]; then
-    echo "Error: ipCountryLookup.js not found in $PARTITION_DIR directory"
-    exit 1
-fi
-
-# Check if IP data directory exists
-IP_DATA_DIR="$PARTITION_DIR/ip_info_io_country_asn_partitioned"
-if [ ! -d "$IP_DATA_DIR" ]; then
-    echo "Error: IP data directory not found at $IP_DATA_DIR"
+if [ ! -f "logTriangulationTest.js" ]; then
+    echo "Error: logTriangulationTest.js not found in current directory ($(pwd))"
     exit 1
 fi
 
 # Create deployment package
 rm -f $ZIP_FILE  # Remove any existing zip file
-zip -r $ZIP_FILE processVote.js "$PARTITION_DIR"
+zip -r $ZIP_FILE logTriangulationTest.js
 
 # Check if zip file was created successfully
 if [ ! -f "$ZIP_FILE" ]; then
@@ -47,17 +32,17 @@ if ! aws lambda get-function --function-name $FUNCTION_NAME --region $REGION --n
         --function-name $FUNCTION_NAME \
         --runtime nodejs22.x \
         --role $ROLE_ARN \
-        --handler processVote.handler \
+        --handler logTriangulationTest.handler \
         --zip-file fileb://$ZIP_FILE \
         --region $REGION \
         --timeout 30 \
-        --memory-size 1024 \
+        --memory-size 128 \
         --no-cli-pager
 else
     aws lambda update-function-configuration \
         --function-name $FUNCTION_NAME \
         --timeout 30 \
-        --memory-size 1024 \
+        --memory-size 128 \
         --region $REGION \
         --no-cli-pager
     sleep 5
@@ -73,4 +58,4 @@ echo "Deployment to $REGION complete!"
 # Clean up
 rm -f $ZIP_FILE
 
-echo "Deployment complete!"
+echo "Deployment complete!" 

@@ -14,18 +14,22 @@ interface MainContentProps {
   userIpInfo: IpInfoResponse | null
   onPrivacyAcceptChange: (accepted: boolean) => void
   query: string
+  captchaToken: string | undefined
+  setCaptchaToken: (token: string) => void
 }
 
-function MainContent({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query }: MainContentProps) {
+function MainContent({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, captchaToken, setCaptchaToken }: MainContentProps) {
   return (
     <main className="content">
       <Routes>
         <Route path="newsletter" element={<Newsletter />} />
         <Route path="popular" element={<Popular 
           privacyAccepted={privacyAccepted} 
-          userIp={userIpInfo?.ip || null} 
+          userIpInfo={userIpInfo} 
           onPrivacyAcceptChange={onPrivacyAcceptChange}
           query={query}
+          captchaToken={captchaToken}
+          setCaptchaToken={setCaptchaToken}
         />} />
         <Route path="create" element={<CreatePoll />} />
         <Route path="geolocation" element={
@@ -39,6 +43,8 @@ function MainContent({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query
               privacyAccepted={privacyAccepted} 
               userIpInfo={userIpInfo} 
               onPrivacyAcceptChange={onPrivacyAcceptChange}
+              captchaToken={captchaToken}
+              setCaptchaToken={setCaptchaToken}
             />
           </Suspense>
         } />

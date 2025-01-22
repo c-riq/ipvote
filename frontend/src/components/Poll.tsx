@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { 
   Button, 
   Checkbox, 
@@ -23,16 +23,25 @@ import PrivacyAccept from './ui/PrivacyAccept'
 import VoteMap from './VoteMap'
 import IPBlockMap from './IPBlockMap'
 import IPv6BlockMap from './IPv6BlockMap'
+import { IpInfoResponse } from '../App'
 
 interface VoteHistory {
   date: string;
   votes: { [key: string]: number };
 }
 
+interface ASNData {
+  name: string
+  value: number
+  option: string
+}
+
 interface PollProps {
   privacyAccepted: boolean
-  userIp: string | null
-  onPrivacyAcceptChange: (accepted: boolean) => void
+  userIpInfo: IpInfoResponse | null
+  captchaToken: string | undefined
+  setCaptchaToken: (token: string) => void
+  onPrivacyAcceptChange: (accepted: boolean, captchaToken?: string) => void
 }
 /* voting data schema:
 time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider
@@ -41,7 +50,8 @@ time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vp
 1731672863490,62.126.89.XXX,harris_or_trump,trump,,,BG,Vivacom Bulgaria EAD,0,0,
 */
 
-function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
+function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPrivacyAcceptChange }: PollProps) {
+  const navigate = useNavigate()
   const location = useLocation()
   const [poll, setPoll] = useState<string>('')
   const [message, setMessage] = useState<string>('')
@@ -55,16 +65,20 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
   const [votesByCountry, setVotesByCountry] = useState<{ [key: string]: { [option: string]: number } }>({})
   const [votes, setVotes] = useState<string[]>([])
   const [allVotes, setAllVotes] = useState<string[]>([])
+  const [asnData, setAsnData] = useState<ASNData[]>([])
+  const [chartZoomEnabled, setChartZoomEnabled] = useState(false);
 
   useEffect(() => {
-    // Get poll ID from URL path or hash
+    // Get poll ID from URL path only
     const pollFromPath = decodeURIComponent(location.pathname.split('/')[1])
-    const pollFromHash = location.hash ? decodeURIComponent(location.hash.substring(1)) : ''
-    const currentPoll = pollFromHash || pollFromPath
+    if (pollFromPath.includes('.')) {
+      // navigate to home
+      navigate('/')
+    }
 
-    if (currentPoll) {
-      setPoll(currentPoll)
-      fetchResults(currentPoll)
+    if (pollFromPath) {
+      setPoll(pollFromPath)
+      fetchResults(pollFromPath)
     }
   }, [location])
 
@@ -158,17 +172,42 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
 
     setVoteHistory(history)
     setVotes(filteredVotes)
+
+    // Process ASN data
+    const asnVotes: { [key: string]: { [option: string]: number } } = {}
+    filteredVotes.forEach(vote => {
+      const [, , , option, , , , asn_name] = vote.split(',')
+      if (asn_name && asn_name !== '') {
+        const decodedName = decodeURIComponent(asn_name)
+        if (!asnVotes[decodedName]) {
+          asnVotes[decodedName] = {}
+        }
+        asnVotes[decodedName][option] = (asnVotes[decodedName][option] || 0) + 1
+      }
+    })
+
+    // Convert to array format for treemap
+    const asnArray: ASNData[] = []
+    Object.entries(asnVotes).forEach(([name, votes]) => {
+      Object.entries(votes).forEach(([option, count]) => {
+        asnArray.push({ name, value: count, option })
+      })
+    })
+    setAsnData(asnArray)
   }
 
-  const vote = async (option: string) => {
+  const handleVote = async (vote: string) => {
     setLoading(true)
-    try {
-      const response = await fetch(`https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${poll}&vote=${option}`)
+    try { 
+      const response = await fetch(`https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${poll}&vote=${vote}&captchaToken=${captchaToken}`)
       const data = await response.text()
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')
       } else {
         setMessage(JSON.parse(data)?.message || data)
+        if (data.includes('captcha')) {
+          setCaptchaToken('')
+        }
       }
       fetchResults(poll)
     } catch (error) {
@@ -214,11 +253,12 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
             />
           </Box>
           <Tooltip 
-            title="Please accept the privacy policy first"
+            title={!privacyAccepted ? "Please accept the privacy policy first" : 
+                  !captchaToken ? "Please complete the captcha verification" : ""}
             arrow
-            disableHoverListener={privacyAccepted}
-            disableFocusListener={privacyAccepted}
-            disableTouchListener={privacyAccepted}
+            disableHoverListener={privacyAccepted && !!captchaToken}
+            disableFocusListener={privacyAccepted && !!captchaToken}
+            disableTouchListener={privacyAccepted && !!captchaToken}
             placement="top"
             enterTouchDelay={0}
             leaveTouchDelay={5000}
@@ -226,8 +266,8 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
             <div style={{ display: 'inline-block' }}>
               <Button
                 variant="contained"
-                disabled={!privacyAccepted}
-                onClick={() => vote(option)}
+                disabled={!privacyAccepted || !captchaToken}
+                onClick={() => handleVote(option)}
                 sx={{ 
                   minWidth: '100px',
                   order: { xs: 2, sm: 1 },
@@ -250,42 +290,81 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
     if (voteHistory.length === 0) return null
 
     const options = poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']
-    const traces = options.map(option => ({
+    const traces = options.map((option, i) => ({
       x: voteHistory.map(day => day.date),
       y: voteHistory.map(day => day.votes[option] || 0),
       name: option,
       type: 'scatter' as const,
       mode: 'lines' as const,
+      line: {
+        color: i === 0 ? '#4169E1' : '#ff6969'
+      }
     }))
 
     return (
-      <Box sx={{ mt: 4, height: '300px' }}>
-        <Plot
-          data={traces}
-          layout={{
-            title: 'Votes over time',
-            autosize: true,
-            margin: { t: 30, r: 10, b: 30, l: 40 },
-            xaxis: {
-              title: 'Date',
-              showgrid: false,
-            },
-            yaxis: {
-              title: 'Votes',
-              showgrid: true,
-            },
-            showlegend: true,
-            legend: {
-              x: 0,
-              y: 1,
-              orientation: 'h'
-            },
-            paper_bgcolor: 'transparent',
-            plot_bgcolor: 'transparent',
-          }}
-          useResizeHandler={true}
-          style={{ width: '100%', height: '100%' }}
-        />
+      <Box sx={{ mt: 4 }}>
+        <Box sx={{ mb: 1, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            size="small"
+            variant={chartZoomEnabled ? "contained" : "outlined"}
+            onClick={() => setChartZoomEnabled(!chartZoomEnabled)}
+          >
+            {chartZoomEnabled ? "Disable Zoom" : "Enable Zoom"}
+          </Button>
+        </Box>
+        <Box sx={{ height: '300px' }}>
+          <Plot
+            data={traces}
+            layout={{
+              title: 'Votes over time',
+              autosize: true,
+              margin: { t: 30, r: 10, b: 30, l: 40 },
+              xaxis: {
+                title: 'Date',
+                showgrid: false,
+                fixedrange: !chartZoomEnabled
+              },
+              yaxis: {
+                title: 'Votes',
+                showgrid: true,
+                fixedrange: !chartZoomEnabled
+              },
+              showlegend: true,
+              legend: {
+                x: 0,
+                y: 1,
+                orientation: 'h'
+              },
+              paper_bgcolor: 'transparent',
+              plot_bgcolor: 'transparent',
+              dragmode: chartZoomEnabled ? 'zoom' : false,
+              hovermode: false
+            }}
+            config={{
+              displayModeBar: true,
+              scrollZoom: false,
+              doubleClick: false,
+              displaylogo: false,
+              modeBarButtonsToRemove: [
+                'pan2d',
+                'select2d',
+                'lasso2d',
+                'autoScale2d',
+                'resetScale2d',
+                'zoom2d',
+                'zoomIn2d',
+                'zoomOut2d'
+              ],
+              responsive: true,
+              toImageButtonOptions: {
+                format: 'png',
+                filename: 'vote_history'
+              }
+            }}
+            useResizeHandler={true}
+            style={{ width: '100%', height: '100%' }}
+          />
+        </Box>
       </Box>
     )
   }
@@ -330,11 +409,12 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
           />
         </Box>
         <Tooltip 
-          title="Please accept the privacy policy first"
+          title={!privacyAccepted ? "Please accept the privacy policy first" : 
+                !captchaToken ? "Please complete the captcha verification" : ""}
           arrow
-          disableHoverListener={privacyAccepted}
-          disableFocusListener={privacyAccepted}
-          disableTouchListener={privacyAccepted}
+          disableHoverListener={privacyAccepted && !!captchaToken}
+          disableFocusListener={privacyAccepted && !!captchaToken}
+          disableTouchListener={privacyAccepted && !!captchaToken}
           placement="top"
           enterTouchDelay={0}
           leaveTouchDelay={5000}
@@ -342,8 +422,8 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
           <div style={{ display: 'inline-block' }}>
             <Button
               variant="contained"
-              disabled={!privacyAccepted}
-              onClick={() => vote(option)}
+              disabled={!privacyAccepted || !captchaToken}
+              onClick={() => handleVote(option)}
               sx={{ 
                 minWidth: '100px',
                 order: { xs: 2, sm: 1 },
@@ -368,6 +448,172 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
     window.open(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=true`, '_blank');
   };
 
+  const renderASNTreemap = () => {
+    if (asnData.length === 0) return null
+
+    const options = poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']
+
+    // Calculate ASN-level votes
+    const asnVotes: { [key: string]: { [key: string]: number } } = {}
+    asnData.forEach(d => {
+      if (!asnVotes[d.name]) {
+        asnVotes[d.name] = {}
+      }
+      asnVotes[d.name][d.option] = (asnVotes[d.name][d.option] || 0) + d.value
+    })
+
+    // Calculate colors based on vote ratios
+    const getColor = (name: string) => {
+      const votes = asnVotes[name]
+      const total = Object.values(votes).reduce((a, b) => a + b, 0)
+      
+      if (total === 0) {
+        return 'rgba(128, 128, 128, 0.7)' // No votes
+      }
+
+      const option1Votes = votes[options[0]] || 0
+      const ratio = option1Votes / total
+      
+      if (ratio === 0.5) {
+        return 'rgba(128, 0, 128, 0.7)' // Tie: light purple
+      }
+
+      // Interpolate between red (255,0,0) and blue (0,0,255)
+      // ratio = 0 -> pure red
+      // ratio = 1 -> pure blue
+      const red = Math.round(255 * (1 - ratio))
+      const blue = Math.round(255 * ratio)
+      return `rgba(${red}, 0, ${blue}, 0.7)`
+    }
+
+    // Create hover text with vote breakdown
+    const getHoverText = (name: string) => {
+      const votes = asnVotes[name]
+      const total = Object.values(votes).reduce((a, b) => a + b, 0)
+      const breakdown = options.map(option => 
+        `${option}: ${votes[option] || 0} (${((votes[option] || 0) / total * 100).toFixed(1)}%)`
+      ).join('<br>')
+      return `<b>${name}</b><br>${breakdown}<br>Total: ${total}`
+    }
+
+    // Group data by ASN name to get unique entries
+    const uniqueAsns = Array.from(new Set(asnData.map(d => d.name)))
+
+    // Calculate majority vote for each ASN
+    const asnMajorityVotes = Object.entries(asnVotes).reduce((acc, [_, votes]) => {
+      const total = Object.values(votes).reduce((a, b) => a + b, 0)
+      if (total === 0) return acc
+      
+      const option1Votes = votes[options[0]] || 0
+      const ratio = option1Votes / total
+      
+      // Only count non-ties
+      if (ratio !== 0.5) {
+        const winner = ratio > 0.5 ? options[0] : options[1]
+        acc[winner] = (acc[winner] || 0) + 1
+      }
+      return acc
+    }, {} as { [key: string]: number })
+
+    const totalAsnVotes = Object.values(asnMajorityVotes).reduce((a, b) => a + b, 0)
+
+    return (
+      <>
+        <Box sx={{ mt: 4, height: '500px' }}>
+          <Plot
+            data={[{
+              type: 'treemap',
+              labels: uniqueAsns.map(name => name),
+              parents: uniqueAsns.map(() => ''),
+              values: uniqueAsns.map(name => Object.values(asnVotes[name]).reduce((a, b) => a + b, 0)),
+              marker: {
+                colors: uniqueAsns.map(name => getColor(name))
+              },
+              textinfo: 'label',
+              hovertemplate: '%{customdata}<extra></extra>',
+              customdata: uniqueAsns.map(name => getHoverText(name)),
+              hoverlabel: {
+                bgcolor: 'white',
+                bordercolor: '#ddd',
+                font: { color: 'black' }
+              }
+            }]}
+            layout={{
+              title: 'Votes by Network Provider (ASN)',
+              autosize: true,
+              margin: { t: 30, r: 10, b: 10, l: 10 },
+              paper_bgcolor: 'transparent',
+            }}
+            useResizeHandler={true}
+            style={{ width: '100%', height: '100%' }}
+          />
+        </Box>
+        
+        <Box sx={{ 
+          mt: 2, 
+          p: 2, 
+          bgcolor: 'background.paper',
+          borderRadius: 1,
+          boxShadow: 1
+        }}>
+          <Typography variant="h6" gutterBottom>
+            ASN-level Vote Results
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Each network provider (ASN) gets one vote based on the majority preference of its users.
+          </Typography>
+          
+          <Box sx={{ 
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { sm: 'center' },
+            justifyContent: { sm: 'space-between' },
+            gap: { xs: 1, sm: 2 }
+          }}>
+            <Box sx={{ 
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, auto)' },
+              gap: 2
+            }}>
+              {options.map((option, i) => (
+                <Box key={option} sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  minWidth: 0
+                }}>
+                  <Box sx={{ 
+                    width: 12, 
+                    height: 12, 
+                    flexShrink: 0,
+                    bgcolor: i === 0 ? 'rgb(0, 0, 255)' : 'rgb(255, 0, 0)',
+                    borderRadius: '50%'
+                  }} />
+                  <Typography noWrap>
+                    {option}: {asnMajorityVotes[option] || 0}
+                    {' '}
+                    ({totalAsnVotes ? ((asnMajorityVotes[option] || 0) / totalAsnVotes * 100).toFixed(1) : 0}%)
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+            
+            <Typography 
+              color="text.secondary"
+              sx={{ 
+                borderLeft: { sm: 1 },
+                borderColor: { sm: 'divider' },
+                pl: { sm: 2 }
+              }}
+            >
+              Total ASNs: {totalAsnVotes}
+            </Typography>
+          </Box>
+        </Box>
+      </>
+    )
+  }
+
   return (
     <div className="content">
       <h1 style={{ wordBreak: 'break-word' }}>
@@ -383,14 +629,18 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
         </Alert>
       )}
       
-      {!userIp ? (
+      {!userIpInfo ? (
         <CircularProgress />
       ) : (
         <>
           <PrivacyAccept
-            userIp={userIp}
+            userIpInfo={userIpInfo}
             accepted={privacyAccepted}
-            onAcceptChange={onPrivacyAcceptChange}
+            onAcceptChange={(accepted) => {
+              onPrivacyAcceptChange(accepted)
+            }}
+            setCaptchaToken={setCaptchaToken}
+            captchaToken={captchaToken}
           />
 
           {loading ? (
@@ -482,6 +732,8 @@ function Poll({ privacyAccepted, userIp, onPrivacyAcceptChange }: PollProps) {
                 votesByCountry={votesByCountry} 
                 options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']} 
               />
+              
+              {renderASNTreemap()}
               
               <IPBlockMap
                 votes={votes}
