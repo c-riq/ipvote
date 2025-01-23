@@ -114,8 +114,8 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   }
 
   const processVotes = (voteData: string[]) => {
-    // Filter votes based on user preferences
-    const filteredVotes = voteData.filter(vote => {
+    // Skip header row by starting from index 1
+    const filteredVotes = voteData.slice(1).filter(vote => {
       const [,,,,,,,,is_tor,is_vpn,is_cloud_provider] = vote.split(',')
       return (includeTor || is_tor !== '1') && 
              (includeVpn || is_vpn !== '1') && 
