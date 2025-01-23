@@ -204,6 +204,10 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
       const data = await response.text()
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')
+        // Trigger updating popular polls
+        fetch(
+          `https://iqpemyqp6lwvg7x6ds3osrs6nm0fcjwy.lambda-url.us-east-1.on.aws/?limit=15&offset=0&seed=1&q=&pollToUpdate=${poll}`
+        )
       } else {
         setMessage(JSON.parse(data)?.message || data)
         if (data.includes('captcha')) {
