@@ -59,7 +59,7 @@ function App() {
     if (captchaState) {
       const age = Date.now() - new Date(captchaState.timestamp).getTime();
       console.log('Captcha age', age);
-      if (age < 24 * 60 * 60 * 1000) {
+      if (age < 7 * 24 * 60 * 60 * 1000) {
         if (captchaState.ip === userIpInfo?.ip) {
           setCaptchaVerified(true);
           return;

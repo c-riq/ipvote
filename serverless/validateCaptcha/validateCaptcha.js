@@ -16,13 +16,13 @@ const fetchFileFromS3 = async (bucketName, key) => {
     const fileContents = await streamToString(response.Body);
     
     // Filter out old entries
-    const twentyFiveHoursAgo = new Date().getTime() - (25 * 60 * 60 * 1000);
+    const oneWeekAgo = new Date().getTime() - (7 * 24 * 60 * 60 * 1000);
     const lines = fileContents.split('\n');
     const header = lines[0];
     const validLines = lines.slice(1).filter(line => {
         if (!line) return false;
         const [, , timestamp] = line.split(',');
-        return parseInt(timestamp) > twentyFiveHoursAgo;
+        return parseInt(timestamp) > oneWeekAgo;
     });
     
     return [header, ...validLines].join('\n');

@@ -66,6 +66,8 @@ const getPartitionKey = (ip) => {
 
 const validateCachedCaptcha = async (ip, token, bucketName) => {
     const fileName = 'captcha_cache/verifications.csv';
+    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000; // One week in milliseconds
+    
     try {
         const data = await fetchFileFromS3(bucketName, fileName);
         const lines = data.split('\n');
@@ -78,8 +80,8 @@ const validateCachedCaptcha = async (ip, token, bucketName) => {
             if (cachedIp === ip && cachedToken === token) {
                 const verificationTime = parseInt(timestamp);
                 const now = Date.now();
-                // Verify that the token is not older than 24 hours
-                if (now - verificationTime < 24 * 60 * 60 * 1000) {
+                // Verify that the token is not older than one week
+                if (now - verificationTime < oneWeekInMs) {
                     return true;
                 }
             }
@@ -206,6 +208,8 @@ module.exports.handler = async (event) => {
     }
     const lines = data.split('\n');
     const isIPv6 = requestIp.includes(':');
+    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000; // One week in milliseconds
+    
     if (!isIPv6) {
         for (let i = 0; i < lines.length; i++) {
             const [t, ip] = lines[i].split(',');
@@ -213,14 +217,23 @@ module.exports.handler = async (event) => {
                 continue;
             }
             if (requestIp === ip) {
-                console.log('IP address already voted for at ' + (new Date(parseInt(t))).toISOString());
-                return {
-                    statusCode: 400,
-                    body: JSON.stringify({
-                        message: 'IP address already voted at ' + (new Date(parseInt(t))).toISOString(),
-                        time: new Date()
-                    }),
-                };
+                const previousVoteTime = parseInt(t);
+                const timeSinceLastVote = timestamp - previousVoteTime;
+                
+                if (timeSinceLastVote < oneWeekInMs) {
+                    const nextVoteTime = new Date(previousVoteTime + oneWeekInMs);
+                    console.log('IP address voted too recently:', {
+                        lastVote: new Date(previousVoteTime).toISOString(),
+                        nextVoteAllowed: nextVoteTime.toISOString()
+                    });
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({
+                            message: `Cannot vote again until ${nextVoteTime.toISOString()}`,
+                            time: new Date()
+                        }),
+                    };
+                }
             }
         }
     } else {
@@ -232,13 +245,19 @@ module.exports.handler = async (event) => {
             }
             const fullIp = expandIPv6(ip);
             if (_64bitMask(fullRequestIp) === _64bitMask(fullIp)) {
-                return {
-                    statusCode: 400,
-                    body: JSON.stringify({
-                        message: 'IP within same /64 block ' + ip + ' already voted at ' + (new Date(parseInt(t))).toISOString(),
-                        time: new Date()
-                    }),
-                };
+                const previousVoteTime = parseInt(t);
+                const timeSinceLastVote = timestamp - previousVoteTime;
+                
+                if (timeSinceLastVote < oneWeekInMs) {
+                    const nextVoteTime = new Date(previousVoteTime + oneWeekInMs);
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({
+                            message: `Cannot vote again from this IPv6 block until ${nextVoteTime.toISOString()}`,
+                            time: new Date()
+                        }),
+                    };
+                }
             }
         }
     }
