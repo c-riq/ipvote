@@ -51,6 +51,10 @@ time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vp
 1731672863490,62.126.89.XXX,harris_or_trump,trump,,,BG,Vivacom Bulgaria EAD,0,0,
 */
 
+// Add this outside the component to create a global cache
+const resultsCache: { [key: string]: { data: string[], timestamp: number } } = {};
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+
 function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPrivacyAcceptChange }: PollProps) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -75,11 +79,15 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
     if (pollFromPath.includes('.')) {
       // navigate to home
       navigate('/')
+      return;
     }
 
     if (pollFromPath) {
       setPoll(pollFromPath)
-      fetchResults(pollFromPath)
+      // Only fetch if poll has changed
+      if (poll !== pollFromPath) {
+        fetchResults(pollFromPath, false) // Set refresh to false for initial load
+      }
     }
   }, [location])
 
@@ -101,16 +109,47 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
 
   const fetchResults = async (pollId: string, refresh: boolean = true) => {
     try {
-      const response = await fetch(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${pollId}&refresh=${refresh}`)
+      const now = Date.now();
+
+      // Skip cache checks if refresh is true
+      if (!refresh) {
+        // Check memory cache first
+        const cachedData = resultsCache[pollId];
+        if (cachedData && (now - cachedData.timestamp) < CACHE_DURATION) {
+          setAllVotes(cachedData.data);
+          processVotes(cachedData.data);
+          return;
+        }
+
+        // Check localStorage cache
+        const localStorageKey = `poll_results_${pollId}`;
+        const storedData = localStorage.getItem(localStorageKey);
+        if (storedData) {
+          const { data, timestamp } = JSON.parse(storedData);
+          if ((now - timestamp) < CACHE_DURATION) {
+            setAllVotes(data);
+            processVotes(data);
+            resultsCache[pollId] = { data, timestamp }; // Update memory cache
+            return;
+          }
+        }
+      }
+
+      // Fetch fresh data
+      const response = await fetch(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${pollId}&refresh=${refresh}`);
       if (response.status === 200) {
-        const text = await response.text()
-        const allVoteData = text.split('\n').filter(line => line.trim())
-        setAllVotes(allVoteData)
+        const text = await response.text();
+        const allVoteData = text.split('\n').filter(line => line.trim());
         
-        processVotes(allVoteData)
+        // Update both caches
+        resultsCache[pollId] = { data: allVoteData, timestamp: now };
+        localStorage.setItem(`poll_results_${pollId}`, JSON.stringify({ data: allVoteData, timestamp: now }));
+        
+        setAllVotes(allVoteData);
+        processVotes(allVoteData);
       }
     } catch (error) {
-      console.error('Error fetching results:', error)
+      console.error('Error fetching results:', error);
     }
   }
 
@@ -214,7 +253,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
           setCaptchaToken('')
         }
       }
-      fetchResults(poll)
+      fetchResults(poll, true)
     } catch (error) {
       setMessage('Error submitting vote')
     }

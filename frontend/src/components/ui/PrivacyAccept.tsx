@@ -76,7 +76,6 @@ function PrivacyAccept({ userIpInfo, accepted, onAcceptChange, setCaptchaToken, 
   }
 
   const maskedIp = maskIP(userIpInfo.ip);
-  console.log('captchaToken', captchaToken);
   return (
     <div style={{ textAlign }}>
       <FormControlLabel
