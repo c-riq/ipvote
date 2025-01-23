@@ -325,6 +325,20 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
       boxZoom: false
     })
 
+    // Add warning overlay
+    const warningOverlay = document.createElement('div');
+    warningOverlay.style.position = 'absolute';
+    warningOverlay.style.top = '10px';
+    warningOverlay.style.right = '10px';
+    warningOverlay.style.backgroundColor = 'rgba(255, 243, 224, 0.9)';
+    warningOverlay.style.padding = '8px 12px';
+    warningOverlay.style.borderRadius = '4px';
+    warningOverlay.style.fontSize = '12px';
+    warningOverlay.style.maxWidth = '200px';
+    warningOverlay.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+    warningOverlay.innerHTML = '⚠️ Visualisation does not work well for latencies > 30 ms';
+    mapContainer.current.appendChild(warningOverlay);
+
     // Add markers for data centers with custom colors
     dataCenters.forEach(dc => {
       // Create a custom colored marker element
@@ -345,6 +359,9 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
 
     return () => {
       map.current?.remove()
+      if (warningOverlay.parentNode) {
+        warningOverlay.parentNode.removeChild(warningOverlay);
+      }
     }
   }, [])
 
