@@ -11,7 +11,7 @@ import {
 } from '@mui/material'
 
 function CreatePoll() {
-  const [pollType, setPollType] = useState('or')
+  const [pollType, setPollType] = useState('yesNo')
   const [optionA, setOptionA] = useState('')
   const [optionB, setOptionB] = useState('')
   const [yesNoQuestion, setYesNoQuestion] = useState('')
@@ -82,14 +82,14 @@ function CreatePoll() {
         sx={{ mb: 3 }}
       >
         <FormControlLabel 
-          value="or" 
-          control={<Radio />} 
-          label="A or B poll" 
-        />
-        <FormControlLabel 
           value="yesNo" 
           control={<Radio />} 
           label="Yes/No poll" 
+        />
+        <FormControlLabel 
+          value="or" 
+          control={<Radio />} 
+          label="A or B poll" 
         />
       </RadioGroup>
 
