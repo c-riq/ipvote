@@ -44,7 +44,13 @@ function App() {
     }
     return false
   })
-  const [userIpInfo, setUserIpInfo] = useState<IpInfoResponse | null>(null)
+  const [userIpInfo, setUserIpInfo] = useState<IpInfoResponse | null>(() => {
+    const stored = localStorage.getItem('userIpInfo');
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    return null;
+  })
   const [searchQuery, setSearchQuery] = useState('')
   const [captchaState, setCaptchaState] = useState<CaptchaState | null>(() => {
     const stored = localStorage.getItem('captchaState');
@@ -81,11 +87,21 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (userIpInfo) {
+      if (!captchaState || captchaState.ip === userIpInfo.ip) {
+        if (userIpInfo.timestamp && new Date(userIpInfo.timestamp).getTime() + 10 * 60 * 1000 > Date.now()) {
+          return;
+        }
+      }
+    }
     // Fetch user's IP
     fetch('https://awcntp2t5izba44go77lc4evvy0ewfzy.lambda-url.us-east-1.on.aws/')
       .then(response => response.json() as Promise<IpInfoResponse>)
-      .then(data => setUserIpInfo(data))
-  }, [])
+      .then(data => {
+        setUserIpInfo(data)
+        localStorage.setItem('userIpInfo', JSON.stringify({...data, timestamp: new Date().toISOString()}))
+      })
+  }, [captchaState])
 
   const lightTheme = createTheme({
     palette: {
