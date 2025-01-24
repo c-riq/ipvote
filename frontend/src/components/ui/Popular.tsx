@@ -134,6 +134,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
           privacyAccepted={privacyAccepted}
           isUpdating={poll.isUpdating}
           captchaToken={captchaToken}
+          userIpInfo={userIpInfo}
         />
       ))}
       

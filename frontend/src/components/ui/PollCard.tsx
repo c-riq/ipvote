@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Card, CardContent, Typography, Box, Button, Tooltip, Alert, CircularProgress } from '@mui/material'
+import { triggerLatencyMeasurementIfNeeded } from '../../utils/latencyTriangulation'
+import { IpInfoResponse } from '../../App'
 
 interface PollCardProps {
   name: string
@@ -9,9 +11,10 @@ interface PollCardProps {
   privacyAccepted: boolean
   isUpdating?: boolean
   captchaToken: string | undefined
+  userIpInfo: IpInfoResponse | null
 }
 
-function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdating, captchaToken }: PollCardProps) {
+function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdating, captchaToken, userIpInfo }: PollCardProps) {
   const [message, setMessage] = useState<string>('')
   const [loading, setLoading] = useState(false)
 
@@ -23,6 +26,9 @@ function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdatin
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')
         handleVote(name)
+        if (userIpInfo?.ip) {
+          triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
+        }
       } else {
         setMessage(JSON.parse(data)?.message || data)
       }

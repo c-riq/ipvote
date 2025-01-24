@@ -89,7 +89,7 @@ function App() {
   useEffect(() => {
     if (userIpInfo) {
       if (!captchaState || captchaState.ip === userIpInfo.ip) {
-        if (userIpInfo.timestamp && new Date(userIpInfo.timestamp).getTime() + 10 * 60 * 1000 > Date.now()) {
+        if (userIpInfo.timestamp && Date.now() < new Date(userIpInfo.timestamp).getTime() + 10 * 60 * 1000) {
           return;
         }
       }

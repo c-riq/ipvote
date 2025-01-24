@@ -271,4 +271,23 @@ export async function performLatencyMeasurements(
   }
 
   return { allMeasurementRounds, firstNonce }
-} 
+}
+
+export async function triggerLatencyMeasurementIfNeeded(currentIp: string): Promise<void> {
+  const STORAGE_KEY = 'lastMeasuredIp';
+  const lastMeasuredIp = localStorage.getItem(STORAGE_KEY);
+
+  if (lastMeasuredIp === currentIp) {
+    return;
+  }
+
+  await performLatencyMeasurements(
+    () => {},
+    () => {},
+    () => {},
+    () => {}
+  );
+
+  localStorage.setItem(STORAGE_KEY, currentIp);
+
+}

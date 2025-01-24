@@ -25,6 +25,7 @@ import IPBlockMap from './IPBlockMap'
 import IPv6BlockMap from './IPv6BlockMap'
 import ASNTreemap from './ASNTreemap'
 import { IpInfoResponse } from '../App'
+import { triggerLatencyMeasurementIfNeeded } from '../utils/latencyTriangulation'
 
 interface VoteHistory {
   date: string;
@@ -238,7 +239,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
 
   const handleVote = async (vote: string) => {
     setLoading(true)
-    try { 
+    try {
       const response = await fetch(`https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${poll}&vote=${vote}&captchaToken=${captchaToken}`)
       const data = await response.text()
       if (response.status === 200) {
@@ -247,6 +248,9 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
         fetch(
           `https://iqpemyqp6lwvg7x6ds3osrs6nm0fcjwy.lambda-url.us-east-1.on.aws/?limit=15&offset=0&seed=1&q=&pollToUpdate=${poll}`
         )
+        if (userIpInfo?.ip) {
+          triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
+        }
       } else {
         setMessage(JSON.parse(data)?.message || data)
         if (data.includes('captcha')) {
