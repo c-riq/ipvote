@@ -3,7 +3,12 @@ import { Box, Typography } from '@mui/material';
 import InfoBox from './InfoBox';
 
 interface IPv6BlockMapProps {
-  votes: string[];  // Array of CSV lines: time,ip,poll,vote,country,nonce,country_geoip,asn_name_geoip
+  votes: Array<{
+    ip: string;
+    vote: string;
+    country?: string;
+    asn_name_geoip?: string;
+  }>;
   options: string[];
 }
 
@@ -25,7 +30,7 @@ const IPv6BlockMap: React.FC<IPv6BlockMapProps> = ({ votes, options }) => {
     const blocks: { [key: string]: BlockData } = {};
     
     votes.forEach(vote => {
-      const [, ip, , voteOption, , , country, asn] = vote.split(',');
+      const { ip, vote: voteOption, country, asn_name_geoip: asn } = vote;
       
       // Only process IPv6 addresses
       if (!ip.includes(':')) return;

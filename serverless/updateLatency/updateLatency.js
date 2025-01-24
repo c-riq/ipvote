@@ -184,7 +184,7 @@ exports.handler = async (event) => {
                     continue;
                 }
 
-                // Skip records older than 3 days (in seconds)
+                // Skip records older than 3 days
                 const _3days = 3 * 24 * 60 * 60 * 1000;
                 const currentTime = Date.now();
                 const cutoffTime = currentTime - _3days;

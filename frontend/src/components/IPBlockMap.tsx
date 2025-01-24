@@ -3,7 +3,17 @@ import { Box, Typography } from '@mui/material';
 import InfoBox from './InfoBox';
 
 interface IPBlockMapProps {
-  votes: string[];  // Array of CSV lines: time,ip,poll,vote,country,nonce,country_geoip,asn_name_geoip
+  /** Object mapping CSV headers to cell values for each vote 
+   * Required fields: ip, vote
+   * Optional fields: country, asn_name_geoip
+   */
+  votes: Array<{
+    ip: string;
+    vote: string;
+    country?: string;
+    asn_name_geoip?: string;
+  }>;
+  /** Array of voting options (e.g. ['Yes', 'No']) */
   options: string[];
 }
 
@@ -25,7 +35,7 @@ const IPBlockMap: React.FC<IPBlockMapProps> = ({ votes, options }) => {
     const blocks: { [key: string]: BlockData } = {};
     
     votes.forEach(vote => {
-      const [, ip, , voteOption, , , country, asn] = vote.split(',');
+      const { ip, vote: voteOption, country, asn_name_geoip: asn } = vote;
       
       // Skip if IP is undefined or malformed
       if (!ip || !ip.includes('.')) return;
@@ -92,7 +102,7 @@ const IPBlockMap: React.FC<IPBlockMapProps> = ({ votes, options }) => {
     const blocks: { [key: string]: BlockData } = {};
     
     votes.forEach(vote => {
-      const [, ip, , voteOption, , , country, asn] = vote.split(',');
+      const { ip, vote: voteOption, country, asn_name_geoip: asn } = vote;
       
       // Skip if IP is undefined or malformed
       if (!ip || !ip.includes('.')) return;
