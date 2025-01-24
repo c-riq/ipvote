@@ -4,8 +4,8 @@ const { getIPInfo } = require('./from_ipInfos/ipCountryLookup');
 const https = require('https');
 
 /* schema of csv file:
-time,ip,poll_,vote,country,nonce,country_geoip,asn_name_geoip
-1716891868980,146.103.108.202,1_or_2,2,,sdfsdf,AU,TPG Telecom Limited
+time,ip,poll_,vote,country,country_geoip,asn_name_geoip
+1716891868980,146.103.108.202,1_or_2,2,,AU,TPG Telecom Limited
 */
 
 const { Readable } = require('stream');
@@ -103,7 +103,6 @@ module.exports.handler = async (event) => {
     const vote = event.queryStringParameters.vote;
     const poll = event.queryStringParameters.poll;
     const country = event.queryStringParameters.country;
-    const nonce = event.queryStringParameters.nonce;
     const hcaptchaToken = event.queryStringParameters.captchaToken;
     const forbiddenStringsRegex = /,|\\n|\\r|\\t|>|<|"/;
     if (!vote || !poll) {
@@ -194,7 +193,7 @@ module.exports.handler = async (event) => {
     } catch (error) {
         if (error.name === 'NoSuchKey') {
             // File does not exist, create a new one with updated schema
-            data = 'time,ip,poll_,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider\n';
+            data = 'time,ip,poll_,vote,country,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider\n';
         } else {
             console.log(error);
             return {
@@ -273,7 +272,7 @@ module.exports.handler = async (event) => {
     const asnNameGeoip = ipInfo?.as_name || '';
 
     // Create new vote line with GeoIP data
-    const newVote = `${timestamp},${requestIp},${poll},${vote},${country},${nonce},${countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')},,,\n`;
+    const newVote = `${timestamp},${requestIp},${poll},${vote},${country},${countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')},,,\n`;
     console.log('Attempting to save vote:', {
         fileName,
         voteData: newVote.trim()
