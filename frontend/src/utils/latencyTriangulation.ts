@@ -124,7 +124,7 @@ export const dataCenters: DataCenter[] = [
 // Helper function for delay
 export const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-export const MEASUREMENT_DELAY_MS = 800
+export const MEASUREMENT_ROUND_DELAY_MS = 800
 
 export async function performLatencyMeasurements(
   onProgress: (progress: number) => void,
@@ -169,7 +169,7 @@ export async function performLatencyMeasurements(
       // Wait between rounds (except for the first one)
       if (measurementIndex > 0) {
         onActivity(`Waiting between measurement rounds (${measurementIndex + 1}/3)...`)
-        await delay(MEASUREMENT_DELAY_MS)
+        await delay(MEASUREMENT_ROUND_DELAY_MS)
       }
 
       onActivity(`Running measurement round ${measurementIndex + 1}/3: `)
