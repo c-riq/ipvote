@@ -1,4 +1,5 @@
 const { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const path = require('path');
 const s3Client = new S3Client();
 
 const dataCenterIDs = [
@@ -113,6 +114,7 @@ async function processTriangulationFiles(triangulationFiles) {
                 latency_master,
                 latency_slave_2,
                 latency_master_2,
+                clockOffset_diff: Math.abs(clockOffset - clockOffset_master),
                 roundTripTime_master_client_slave,
                 roundTripTime_client_master_client
             });
@@ -136,7 +138,20 @@ exports.handler = async (event) => {
         let updatedVotes = 0;
         let results = [];
 
-        for (const file of voteFiles.Contents) {
+        // Process all files instead of just the first 20
+        const filesToProcess = voteFiles.Contents || [];
+        if (filesToProcess.length === 0) {
+            return {
+                statusCode: 200,
+                body: JSON.stringify({
+                    message: 'No files found to process',
+                    time: new Date()
+                })
+            };
+        }
+
+        let allResults = [];
+        for (const file of filesToProcess) {
             // Get and parse vote file
             const voteData = await s3Client.send(new GetObjectCommand({
                 Bucket: 'ipvotes',
@@ -160,8 +175,9 @@ exports.handler = async (event) => {
                 const line = lines[i];
                 if (!line.trim()) continue;
 
+                let voteData;
                 try {
-                    const voteData = parseCSVLine(line, headers);
+                    voteData = parseCSVLine(line, headers);
                     processedVotes++;
                 } catch (error) {
                     console.error(`Skipping malformed line ${i + 1} in ${file.Key}:`, error.message);
@@ -189,12 +205,16 @@ exports.handler = async (event) => {
                     
                     let bestLatencyRegion = null;
                     let bestLatency = Infinity;
+                    let bestLatency2 = Infinity;
                     let bestRoundTripTimeMasterClientSlave = null;
 
                     for (const round of rounds.values()) {
                         for (const [region, metrics] of round.regions.entries()) {
-                            if (metrics.latency_slave < bestLatency || metrics.latency_slave_2 < bestLatency) {
+                            if (metrics.latency_slave < 0 || metrics.latency_slave_2 < 0 || 
+                                metrics.roundTripTime_master_client_slave < 0 || metrics.clockOffset_diff > 50) continue;
+                            if (metrics.latency_slave < bestLatency && metrics.latency_slave_2 < bestLatency2) {
                                 bestLatency = metrics.latency_slave;
+                                bestLatency2 = metrics.latency_slave_2;
                                 bestLatencyRegion = region;
                                 bestRoundTripTimeMasterClientSlave = metrics.roundTripTime_master_client_slave;
                             }
@@ -234,25 +254,33 @@ exports.handler = async (event) => {
                     Body: updatedLines.join('\n')
                 }));
             }
+
+            allResults.push({
+                file: file.Key,
+                processedVotes,
+                updatedVotes,
+                results
+            });
         }
 
         return {
             statusCode: 200,
             body: JSON.stringify({
-                message: 'Batch triangulation processing complete',
-                processedVotes,
-                updatedVotes,
-                results,
+                message: 'Latency adding complete',
+                filesProcessed: filesToProcess.length,
+                totalProcessedVotes: processedVotes,
+                totalUpdatedVotes: updatedVotes,
+                results: allResults,
                 time: new Date()
             })
         };
 
     } catch (error) {
-        console.error('Error in batch triangulation processing:', error);
+        console.error('Error in triangulation processing:', error);
         return {
             statusCode: 500,
             body: JSON.stringify({
-                message: 'Error in batch triangulation processing',
+                message: 'Error in triangulation processing',
                 error: error.message,
                 time: new Date()
             })
