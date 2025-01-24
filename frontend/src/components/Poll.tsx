@@ -84,7 +84,6 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   const [includeCloud, setIncludeCloud] = useState(false)
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLButtonElement | null>(null)
   const [votesByCountry, setVotesByCountry] = useState<{ [key: string]: { [option: string]: number } }>({})
-  const [votes, setVotes] = useState<string[]>([])
   const [allVotes, setAllVotes] = useState<string[]>([])
   const [asnData, setAsnData] = useState<ASNData[]>([])
   const [chartZoomEnabled, setChartZoomEnabled] = useState(false);
@@ -173,7 +172,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   const processVotes = (voteData: string[]) => {
     const parsed = parseCSV(voteData).filter(row => 
       hasRequiredFields(row, ['time', 'masked_ip', 'poll', 'vote'])
-    ) as VoteData[];
+    ) as unknown as VoteData[];
 
     // Filter based on user preferences
     const filteredVotes = parsed.filter(vote => {
@@ -233,7 +232,6 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
       .sort((a, b) => a.date.localeCompare(b.date));
 
     setVoteHistory(history);
-    setVotes(filteredVotes);
 
     // Process ASN data
     const asnVotes: { [key: string]: { [option: string]: number } } = {};
