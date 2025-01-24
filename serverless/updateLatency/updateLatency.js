@@ -184,6 +184,16 @@ exports.handler = async (event) => {
                     continue;
                 }
 
+                // Skip records older than 3 days (in seconds)
+                const _3days = 3 * 24 * 60 * 60 * 1000;
+                const currentTime = Date.now();
+                const cutoffTime = currentTime - _3days;
+                
+                if (parseInt(voteData.time) < cutoffTime) {
+                    updatedLines.push(line);
+                    continue;
+                }
+
                 if (voteData.closest_region && voteData.latency_ms && voteData.roundtrip_ms) {
                     updatedLines.push(line);
                     continue;
@@ -208,7 +218,16 @@ exports.handler = async (event) => {
                     let bestLatency2 = Infinity;
                     let bestRoundTripTimeMasterClientSlave = null;
 
+                    const voteTimestamp = parseInt(voteData.time);
+                    const maxTimeDiff = 27 * 60 * 60 * 1000; // 27 hours
+
                     for (const round of rounds.values()) {
+                        // Skip measurements that are too far from vote time
+                        const measurementTime = parseInt(round.master.clientStartTimestamp);
+                        if (Math.abs(measurementTime - voteTimestamp) > maxTimeDiff) {
+                            continue;
+                        }
+
                         for (const [region, metrics] of round.regions.entries()) {
                             if (metrics.latency_slave < 0 || metrics.latency_slave_2 < 0 || 
                                 metrics.roundTripTime_master_client_slave < 0 || metrics.clockOffset_diff > 50) continue;
