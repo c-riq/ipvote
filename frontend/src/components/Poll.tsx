@@ -54,7 +54,7 @@ time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vp
 
 // Add this outside the component to create a global cache
 const resultsCache: { [key: string]: { data: string[], timestamp: number } } = {};
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+const CACHE_DURATION = 3 * 60 * 1000; // 3 minutes in milliseconds
 
 function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPrivacyAcceptChange }: PollProps) {
   const navigate = useNavigate()
@@ -64,9 +64,9 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<{ [key: string]: number }>({})
   const [voteHistory, setVoteHistory] = useState<VoteHistory[]>([])
-  const [includeTor, setIncludeTor] = useState(true)
-  const [includeVpn, setIncludeVpn] = useState(true)
-  const [includeCloud, setIncludeCloud] = useState(true)
+  const [includeTor, setIncludeTor] = useState(false)
+  const [includeVpn, setIncludeVpn] = useState(false)
+  const [includeCloud, setIncludeCloud] = useState(false)
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLButtonElement | null>(null)
   const [votesByCountry, setVotesByCountry] = useState<{ [key: string]: { [option: string]: number } }>({})
   const [votes, setVotes] = useState<string[]>([])
@@ -87,7 +87,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
       setPoll(pollFromPath)
       // Only fetch if poll has changed
       if (poll !== pollFromPath) {
-        fetchResults(pollFromPath, false) // Set refresh to false for initial load
+        fetchResults(pollFromPath, true)
       }
     }
   }, [location])
