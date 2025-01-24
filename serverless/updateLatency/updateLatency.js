@@ -24,6 +24,10 @@ const streamToString = (stream) =>
 // Helper function to parse CSV line into object
 function parseCSVLine(line, headers) {
     const parts = line.split(',');
+    // Validate number of columns matches headers
+    if (parts.length !== headers.length) {
+        throw new Error(`Invalid number of columns. Expected ${headers.length}, got ${parts.length}`);
+    }
     const obj = {};
     headers.forEach((header, index) => {
         obj[header] = parts[index] || '';
@@ -156,8 +160,13 @@ exports.handler = async (event) => {
                 const line = lines[i];
                 if (!line.trim()) continue;
 
-                const voteData = parseCSVLine(line, headers);
-                processedVotes++;
+                try {
+                    const voteData = parseCSVLine(line, headers);
+                    processedVotes++;
+                } catch (error) {
+                    console.error(`Skipping malformed line ${i + 1} in ${file.Key}:`, error.message);
+                    continue;
+                }
 
                 if (voteData.closest_region && voteData.latency_ms && voteData.roundtrip_ms) {
                     updatedLines.push(line);
