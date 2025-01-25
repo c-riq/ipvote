@@ -29,6 +29,12 @@ if [ ! -d "dist" ]; then
     exit 0;
 fi
 
+# Check if index.html exists
+if [ ! -f "dist/index.html" ]; then
+    echo "dist/index.html not found"
+    exit 1
+fi
+
 # Rename index.html with random string
 mv dist/index.html "dist/index_${random_string}.html"
 
