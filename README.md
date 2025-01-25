@@ -1,8 +1,6 @@
 # ip-vote.com
 
-<div style="box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); border-radius: 8px; overflow: hidden; display: inline-block;">
-  <a href="https://ip-vote.com/harris_or_trump"><img src="frontend/public/img/ip-vote.com.png" alt="IP Vote Website Screenshot"></a>
-</div>
+![IP Vote Website Screenshot](frontend/public/img/ip-vote.com.png)
 
 For running polls where each IP address gets one vote per week.
 For IPv6 votes, one vote per /64 block is allowed as the address space is much bigger and this block size would have a comparable purchase price of a IPv4 address.
