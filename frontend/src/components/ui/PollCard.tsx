@@ -17,6 +17,7 @@ interface PollCardProps {
 function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdating, captchaToken, userIpInfo }: PollCardProps) {
   const [message, setMessage] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const [measuringLatency, setMeasuringLatency] = useState(false)
 
   const vote = async (option: string) => {
     setLoading(true)
@@ -27,7 +28,9 @@ function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdatin
         setMessage('Vote submitted successfully!')
         handleVote(name)
         if (userIpInfo?.ip) {
-          triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
+          setMeasuringLatency(true)
+          await triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
+          setMeasuringLatency(false)
         }
       } else {
         setMessage(JSON.parse(data)?.message || data)
@@ -103,12 +106,18 @@ function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdatin
         <Typography color="textSecondary">
           {votes} votes {isUpdating && <CircularProgress size={10} sx={{ ml: 1 }} />}
         </Typography>
-        {message && (
+        {(message || measuringLatency) && (
           <Alert 
             severity={message === 'Vote submitted successfully!' ? 'success' : 'warning'}
             sx={{ mb: 2 }}
           >
             {message}
+            {measuringLatency && (
+              <div style={{ marginTop: message ? '8px' : 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CircularProgress size={16} />
+                <span>Measuring network latency for geolocation. This may take a few seconds...</span>
+              </div>
+            )}
           </Alert>
         )}
         {renderVoteButtons()}

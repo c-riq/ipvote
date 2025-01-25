@@ -88,6 +88,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   const [asnData, setAsnData] = useState<ASNData[]>([])
   const [chartZoomEnabled, setChartZoomEnabled] = useState(false);
   const [parsedVotes, setParsedVotes] = useState<VoteData[]>([]);
+  const [measuringLatency, setMeasuringLatency] = useState(false);
 
   useEffect(() => {
     // Get poll ID from URL path only
@@ -268,7 +269,9 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
           `https://iqpemyqp6lwvg7x6ds3osrs6nm0fcjwy.lambda-url.us-east-1.on.aws/?limit=15&offset=0&seed=1&q=&pollToUpdate=${poll}`
         )
         if (userIpInfo?.ip) {
-          triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
+          setMeasuringLatency(true)
+          await triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
+          setMeasuringLatency(false)
         }
       } else {
         setMessage(JSON.parse(data)?.message || data)
@@ -527,6 +530,12 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
           sx={{ mb: 2 }}
         >
           {message}
+          {measuringLatency && (
+            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CircularProgress size={16} />
+              <span>Measuring network latency for geolocation. This may take a few seconds...</span>
+            </div>
+          )}
         </Alert>
       )}
       
