@@ -272,12 +272,13 @@ module.exports.handler = async (event) => {
     const asnNameGeoip = ipInfo?.as_name || '';
 
     // Create new vote line with GeoIP data (added new columns with empty values)
-    const newVote = `${timestamp},${requestIp},${poll},${vote},${countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')},,,,,,\n`;
+    const newVote = `${timestamp},${requestIp},${poll},${vote},${countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')},,,,,,`;
     console.log('Attempting to save vote:', {
         fileName,
         voteData: newVote.trim()
     });
-    const newVotes = data + newVote;
+    // Ensure proper newlines both before and after the new vote
+    const newVotes = (data.endsWith('\n') ? data : data + '\n') + newVote + '\n';
     const putParams = {
         Bucket: 'ipvotes',
         Key: fileName,

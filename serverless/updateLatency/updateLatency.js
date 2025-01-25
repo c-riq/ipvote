@@ -267,10 +267,12 @@ exports.handler = async (event) => {
 
             // Save updated file if changes were made
             if (fileUpdated) {
+                const fileContent = updatedLines.join('\n');
+                const contentWithNewline = fileContent.endsWith('\n') ? fileContent : fileContent + '\n';
                 await s3Client.send(new PutObjectCommand({
                     Bucket: 'ipvotes',
                     Key: file.Key,
-                    Body: updatedLines.join('\n')
+                    Body: contentWithNewline
                 }));
             }
 

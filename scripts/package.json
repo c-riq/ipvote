@@ -1,0 +1,16 @@
+{
+  "name": "scripts",
+  "version": "1.0.0",
+  "main": "check_concatenated_lines.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.735.0",
+    "@aws-sdk/credential-providers": "^3.734.0",
+    "csv-parse": "^5.6.0"
+  }
+}
