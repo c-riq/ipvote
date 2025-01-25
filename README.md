@@ -1,13 +1,16 @@
 # ip-vote.com
 
-For running polls where each IP address gets one vote.
+<div style="box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); border-radius: 8px; overflow: hidden; display: inline-block;">
+  <a href="https://ip-vote.com/harris_or_trump"><img src="frontend/public/img/ip-vote.com.png" alt="IP Vote Website Screenshot"></a>
+</div>
+
+For running polls where each IP address gets one vote per week.
 For IPv6 votes, one vote per /64 block is allowed as the address space is much bigger and this block size would have a comparable purchase price of a IPv4 address.
 
 The voting data is publicly shared with the last bit of the IP address masked.
-This allows for independen analyses of the data.
+This allows for independent analyses of the data.
 
-Currently there is the option to exclude Tor exit node IP addresses to mitigate poll manipulation.
-It is planned to also extend this to known VPN and Cloud IPs.
+Currently there is the option to exclude VPN, Tor exit node and cloud provider IP addresses to mitigate poll manipulation. In addition users have to fill out a CAPTCHA challenge to mitigate any fully automated manipulation.
 
 Live at:
 
@@ -21,38 +24,6 @@ Instead of a database, we keep the state in cloud storage files. These are parti
 
 ## Geolocation
 
-Users can chose to select their country.
-The IP recorded addresses can be used as supportive evidence for validating the proclaimed geolocation.
-In adddition there will be support for determining the rough geographic location based on network latency triangulation.
-If users attempt to manipulate the latency measurements, they can only introduce delays. These delays would then surface large scale geolocation manipulation attemtps in the aggregated results data.
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant M as Master Server
-    participant S1 as Server 1 (US)
-    participant S2 as Server 2 (EU)
-    participant S3 as Server 3 (ASIA)
-    
-    Note over C,M: 1. Clock Synchronization
-    M->>C: Request client's clock time
-    C->>M: Share current time
-    M->>M: Record clock skew, considering network latency
-    
-    Note over C,M: 2. Random Challenge
-    M->>C: Send random number X
-    
-    Note over C,S3: 3. Latency Measurement
-    par Measure Latency
-        C->>S1: Send X
-        S1->>S1: Record arrival time
-        and
-        C->>S2: Send X
-        S2->>S2: Record arrival time
-        and
-        C->>S3: Send X
-        S3->>S3: Record arrival time
-    end
-    
-    Note over S1,S3: Servers calculate approximate<br/>client location based on<br/>latency triangulation
-```
+In adddition to correlating IP's to location based on exsiting data sets, the rough geographic location is also determined from the network latency to different servers.
+If users attempt to manipulate the latency measurements, they can only introduce delays. These delays would then surface large scale geolocation manipulation attemtps in the aggregated results data. Sending a random number (nonce) ensures that latencies can be measured without trusting the user's messages.
+See <a href="https://ip-vote.com/geolocation_via_latency.html">Geolocation via latency</a> for further details.
