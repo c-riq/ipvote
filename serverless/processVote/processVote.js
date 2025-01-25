@@ -105,6 +105,33 @@ module.exports.handler = async (event) => {
     const country = event.queryStringParameters.country;
     const hcaptchaToken = event.queryStringParameters.captchaToken;
     const forbiddenStringsRegex = /,|\\n|\\r|\\t|>|<|"/;
+
+    // Validate vote format based on poll type
+    if (poll.includes('_or_')) {
+        // For _or_ polls, vote must match one of the options
+        const [option1, option2] = poll.split('_or_');
+        if (vote !== option1 && vote !== option2) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Vote must match one of the poll options',
+                    time: new Date()
+                }),
+            };
+        }
+    } else {
+        // For yes/no polls, vote must be 'yes' or 'no'
+        if (vote !== 'yes' && vote !== 'no') {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Vote must be either "yes" or "no"',
+                    time: new Date()
+                }),
+            };
+        }
+    }
+
     if (!vote || !poll) {
         return {
             statusCode: 400,
@@ -123,11 +150,11 @@ module.exports.handler = async (event) => {
             }),
         };
     }
-    if (poll.match(forbiddenStringsRegex) || vote.match(forbiddenStringsRegex)) {
+    if (poll.match(forbiddenStringsRegex)) {
         return {
             statusCode: 400,
             body: JSON.stringify({
-                message: 'Poll or vote contains forbidden characters',
+                message: 'Poll contains forbidden characters',
                 time: new Date()
             }),
         };
