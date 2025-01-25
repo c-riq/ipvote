@@ -49,10 +49,13 @@ const migrateFile = async (fileKey) => {
         const headerLine = lines[0];
         const currentColumns = headerLine.split(',');
         
-        // Get indexes of new columns
+        // Get indexes of all columns we need to check
         const isTorIndex = currentColumns.indexOf('is_tor');
         const isVpnIndex = currentColumns.indexOf('is_vpn');
         const isCloudIndex = currentColumns.indexOf('is_cloud_provider');
+        const closestRegionIndex = currentColumns.indexOf('closest_region');
+        const latencyMsIndex = currentColumns.indexOf('latency_ms');
+        const roundtripMsIndex = currentColumns.indexOf('roundtrip_ms');
         
         let needsMigration = false;
         
@@ -67,6 +70,18 @@ const migrateFile = async (fileKey) => {
         }
         if (isCloudIndex === -1) {
             currentColumns.push('is_cloud_provider');
+            needsMigration = true;
+        }
+        if (closestRegionIndex === -1) {
+            currentColumns.push('closest_region');
+            needsMigration = true;
+        }
+        if (latencyMsIndex === -1) {
+            currentColumns.push('latency_ms');
+            needsMigration = true;
+        }
+        if (roundtripMsIndex === -1) {
+            currentColumns.push('roundtrip_ms');
             needsMigration = true;
         }
 

@@ -23,7 +23,10 @@ import PrivacyAccept from './ui/PrivacyAccept'
 import VoteMap from './VoteMap'
 import IPBlockMap from './IPBlockMap'
 import IPv6BlockMap from './IPv6BlockMap'
+import ASNTreemap from './ASNTreemap'
 import { IpInfoResponse } from '../App'
+import { triggerLatencyMeasurementIfNeeded } from '../utils/latencyTriangulation'
+import { parseCSV, hasRequiredFields } from '../utils/csvParser'
 
 interface VoteHistory {
   date: string;
@@ -34,6 +37,20 @@ interface ASNData {
   name: string
   value: number
   option: string
+}
+
+interface VoteData {
+  time: string;
+  masked_ip: string;
+  poll: string;
+  vote: string;
+  country?: string;
+  nonce?: string;
+  country_geoip?: string;
+  asn_name_geoip?: string;
+  is_tor?: string;
+  is_vpn?: string;
+  is_cloud_provider?: string;
 }
 
 interface PollProps {
@@ -50,6 +67,10 @@ time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vp
 1731672863490,62.126.89.XXX,harris_or_trump,trump,,,BG,Vivacom Bulgaria EAD,0,0,
 */
 
+// Add this outside the component to create a global cache
+const resultsCache: { [key: string]: { data: string[], timestamp: number } } = {};
+const CACHE_DURATION = 3 * 60 * 1000; // 3 minutes in milliseconds
+
 function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPrivacyAcceptChange }: PollProps) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -58,15 +79,16 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<{ [key: string]: number }>({})
   const [voteHistory, setVoteHistory] = useState<VoteHistory[]>([])
-  const [includeTor, setIncludeTor] = useState(true)
-  const [includeVpn, setIncludeVpn] = useState(true)
-  const [includeCloud, setIncludeCloud] = useState(true)
+  const [includeTor, setIncludeTor] = useState(false)
+  const [includeVpn, setIncludeVpn] = useState(false)
+  const [includeCloud, setIncludeCloud] = useState(false)
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLButtonElement | null>(null)
   const [votesByCountry, setVotesByCountry] = useState<{ [key: string]: { [option: string]: number } }>({})
-  const [votes, setVotes] = useState<string[]>([])
   const [allVotes, setAllVotes] = useState<string[]>([])
   const [asnData, setAsnData] = useState<ASNData[]>([])
   const [chartZoomEnabled, setChartZoomEnabled] = useState(false);
+  const [parsedVotes, setParsedVotes] = useState<VoteData[]>([]);
+  const [measuringLatency, setMeasuringLatency] = useState(false);
 
   useEffect(() => {
     // Get poll ID from URL path only
@@ -74,11 +96,15 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
     if (pollFromPath.includes('.')) {
       // navigate to home
       navigate('/')
+      return;
     }
 
     if (pollFromPath) {
       setPoll(pollFromPath)
-      fetchResults(pollFromPath)
+      // Only fetch if poll has changed
+      if (poll !== pollFromPath) {
+        fetchResults(pollFromPath, true)
+      }
     }
   }, [location])
 
@@ -100,116 +126,160 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
 
   const fetchResults = async (pollId: string, refresh: boolean = true) => {
     try {
-      const response = await fetch(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${pollId}&refresh=${refresh}`)
+      const now = Date.now();
+
+      // Skip cache checks if refresh is true
+      if (!refresh) {
+        // Check memory cache first
+        const cachedData = resultsCache[pollId];
+        if (cachedData && (now - cachedData.timestamp) < CACHE_DURATION) {
+          setAllVotes(cachedData.data);
+          processVotes(cachedData.data);
+          return;
+        }
+
+        // Check localStorage cache
+        const localStorageKey = `poll_results_${pollId}`;
+        const storedData = localStorage.getItem(localStorageKey);
+        if (storedData) {
+          const { data, timestamp } = JSON.parse(storedData);
+          if ((now - timestamp) < CACHE_DURATION) {
+            setAllVotes(data);
+            processVotes(data);
+            resultsCache[pollId] = { data, timestamp }; // Update memory cache
+            return;
+          }
+        }
+      }
+
+      // Fetch fresh data
+      const response = await fetch(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${pollId}&refresh=${refresh}`);
       if (response.status === 200) {
-        const text = await response.text()
-        const allVoteData = text.split('\n').filter(line => line.trim())
-        setAllVotes(allVoteData)
+        const text = await response.text();
+        const allVoteData = text.split('\n').filter(line => line.trim());
         
-        processVotes(allVoteData)
+        // Update both caches
+        resultsCache[pollId] = { data: allVoteData, timestamp: now };
+        localStorage.setItem(`poll_results_${pollId}`, JSON.stringify({ data: allVoteData, timestamp: now }));
+        
+        setAllVotes(allVoteData);
+        processVotes(allVoteData);
       }
     } catch (error) {
-      console.error('Error fetching results:', error)
+      console.error('Error fetching results:', error);
     }
   }
 
   const processVotes = (voteData: string[]) => {
-    // Filter votes based on user preferences
-    const filteredVotes = voteData.filter(vote => {
-      const [,,,,,,,,is_tor,is_vpn,is_cloud_provider] = vote.split(',')
-      return (includeTor || is_tor !== '1') && 
-             (includeVpn || is_vpn !== '1') && 
-             (includeCloud || is_cloud_provider.trim() === '')
-    })
+    const parsed = parseCSV(voteData).filter(row => 
+      hasRequiredFields(row, ['time', 'masked_ip', 'poll', 'vote'])
+    ) as unknown as VoteData[];
+
+    // Filter based on user preferences
+    const filteredVotes = parsed.filter(vote => {
+      return (includeTor || vote.is_tor !== '1') && 
+             (includeVpn || vote.is_vpn !== '1') && 
+             (includeCloud || !vote.is_cloud_provider?.trim());
+    });
+
+    setParsedVotes(filteredVotes);
 
     // Process current totals
     if (poll.includes('_or_')) {
-      const options = poll.split('_or_')
-      const option1Votes = filteredVotes.filter(vote => vote.split(',')[3] === options[0]).length
-      const option2Votes = filteredVotes.filter(vote => vote.split(',')[3] === options[1]).length
-      setResults({ [options[0]]: option1Votes, [options[1]]: option2Votes })
+      const options = poll.split('_or_');
+      const option1Votes = filteredVotes.filter(vote => vote.vote === options[0]).length;
+      const option2Votes = filteredVotes.filter(vote => vote.vote === options[1]).length;
+      setResults({ [options[0]]: option1Votes, [options[1]]: option2Votes });
     } else {
-      const yesVotes = filteredVotes.filter(vote => vote.split(',')[3] === 'yes').length
-      const noVotes = filteredVotes.filter(vote => vote.split(',')[3] === 'no').length
-      setResults({ yes: yesVotes, no: noVotes })
+      const yesVotes = filteredVotes.filter(vote => vote.vote === 'yes').length;
+      const noVotes = filteredVotes.filter(vote => vote.vote === 'no').length;
+      setResults({ yes: yesVotes, no: noVotes });
     }
 
     // Process votes by country
     const countryVotes: { [key: string]: { [option: string]: number } } = {};
     filteredVotes.forEach(vote => {
-      const [, , , option, , , country] = vote.split(',');
+      const country = vote.country_geoip;
       if (country && country !== 'XX') {
         if (!countryVotes[country]) {
           countryVotes[country] = {};
         }
-        countryVotes[country][option] = (countryVotes[country][option] || 0) + 1;
+        countryVotes[country][vote.vote] = (countryVotes[country][vote.vote] || 0) + 1;
       }
     });
     setVotesByCountry(countryVotes);
 
     // Process historical data
-    const dailyVotes: { [key: string]: { [key: string]: number } } = {}
-    
+    const dailyVotes: { [key: string]: { [key: string]: number } } = {};
     filteredVotes.forEach(vote => {
       try {
-        const [timestamp, , , option] = vote.split(',')
-        const ts = timestamp.length === 13 ? parseInt(timestamp) : parseInt(timestamp) * 1000
-        const date = new Date(ts).toISOString().split('T')[0]
+        const ts = vote.time.length === 13 ? parseInt(vote.time) : parseInt(vote.time) * 1000;
+        const date = new Date(ts).toISOString().split('T')[0];
         
         if (!dailyVotes[date]) {
-          dailyVotes[date] = {}
+          dailyVotes[date] = {};
         }
-        dailyVotes[date][option] = (dailyVotes[date][option] || 0) + 1
+        dailyVotes[date][vote.vote] = (dailyVotes[date][vote.vote] || 0) + 1;
       } catch (error) {
-        console.warn('Invalid timestamp in vote:', vote)
+        console.warn('Invalid timestamp in vote:', vote);
       }
-    })
+    });
 
-    const history = Object.entries(dailyVotes).map(([date, votes]) => ({
-      date,
-      votes
-    })).sort((a, b) => a.date.localeCompare(b.date))
+    const history = Object.entries(dailyVotes)
+      .map(([date, votes]) => ({
+        date,
+        votes
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
-    setVoteHistory(history)
-    setVotes(filteredVotes)
+    setVoteHistory(history);
 
     // Process ASN data
-    const asnVotes: { [key: string]: { [option: string]: number } } = {}
+    const asnVotes: { [key: string]: { [option: string]: number } } = {};
     filteredVotes.forEach(vote => {
-      const [, , , option, , , , asn_name] = vote.split(',')
+      const asn_name = vote.asn_name_geoip;
       if (asn_name && asn_name !== '') {
-        const decodedName = decodeURIComponent(asn_name)
+        const decodedName = decodeURIComponent(asn_name);
         if (!asnVotes[decodedName]) {
-          asnVotes[decodedName] = {}
+          asnVotes[decodedName] = {};
         }
-        asnVotes[decodedName][option] = (asnVotes[decodedName][option] || 0) + 1
+        asnVotes[decodedName][vote.vote] = (asnVotes[decodedName][vote.vote] || 0) + 1;
       }
-    })
+    });
 
     // Convert to array format for treemap
-    const asnArray: ASNData[] = []
+    const asnArray: ASNData[] = [];
     Object.entries(asnVotes).forEach(([name, votes]) => {
       Object.entries(votes).forEach(([option, count]) => {
-        asnArray.push({ name, value: count, option })
-      })
-    })
-    setAsnData(asnArray)
+        asnArray.push({ name, value: count, option });
+      });
+    });
+    setAsnData(asnArray);
   }
 
   const handleVote = async (vote: string) => {
     setLoading(true)
-    try { 
+    try {
       const response = await fetch(`https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${poll}&vote=${vote}&captchaToken=${captchaToken}`)
       const data = await response.text()
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')
+        // Trigger updating popular polls
+        fetch(
+          `https://iqpemyqp6lwvg7x6ds3osrs6nm0fcjwy.lambda-url.us-east-1.on.aws/?limit=15&offset=0&seed=1&q=&pollToUpdate=${poll}`
+        )
+        if (userIpInfo?.ip) {
+          setMeasuringLatency(true)
+          await triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
+          setMeasuringLatency(false)
+        }
       } else {
         setMessage(JSON.parse(data)?.message || data)
         if (data.includes('captcha')) {
           setCaptchaToken('')
         }
       }
-      fetchResults(poll)
+      fetchResults(poll, true)
     } catch (error) {
       setMessage('Error submitting vote')
     }
@@ -448,172 +518,6 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
     window.open(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=true`, '_blank');
   };
 
-  const renderASNTreemap = () => {
-    if (asnData.length === 0) return null
-
-    const options = poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']
-
-    // Calculate ASN-level votes
-    const asnVotes: { [key: string]: { [key: string]: number } } = {}
-    asnData.forEach(d => {
-      if (!asnVotes[d.name]) {
-        asnVotes[d.name] = {}
-      }
-      asnVotes[d.name][d.option] = (asnVotes[d.name][d.option] || 0) + d.value
-    })
-
-    // Calculate colors based on vote ratios
-    const getColor = (name: string) => {
-      const votes = asnVotes[name]
-      const total = Object.values(votes).reduce((a, b) => a + b, 0)
-      
-      if (total === 0) {
-        return 'rgba(128, 128, 128, 0.7)' // No votes
-      }
-
-      const option1Votes = votes[options[0]] || 0
-      const ratio = option1Votes / total
-      
-      if (ratio === 0.5) {
-        return 'rgba(128, 0, 128, 0.7)' // Tie: light purple
-      }
-
-      // Interpolate between red (255,0,0) and blue (0,0,255)
-      // ratio = 0 -> pure red
-      // ratio = 1 -> pure blue
-      const red = Math.round(255 * (1 - ratio))
-      const blue = Math.round(255 * ratio)
-      return `rgba(${red}, 0, ${blue}, 0.7)`
-    }
-
-    // Create hover text with vote breakdown
-    const getHoverText = (name: string) => {
-      const votes = asnVotes[name]
-      const total = Object.values(votes).reduce((a, b) => a + b, 0)
-      const breakdown = options.map(option => 
-        `${option}: ${votes[option] || 0} (${((votes[option] || 0) / total * 100).toFixed(1)}%)`
-      ).join('<br>')
-      return `<b>${name}</b><br>${breakdown}<br>Total: ${total}`
-    }
-
-    // Group data by ASN name to get unique entries
-    const uniqueAsns = Array.from(new Set(asnData.map(d => d.name)))
-
-    // Calculate majority vote for each ASN
-    const asnMajorityVotes = Object.entries(asnVotes).reduce((acc, [_, votes]) => {
-      const total = Object.values(votes).reduce((a, b) => a + b, 0)
-      if (total === 0) return acc
-      
-      const option1Votes = votes[options[0]] || 0
-      const ratio = option1Votes / total
-      
-      // Only count non-ties
-      if (ratio !== 0.5) {
-        const winner = ratio > 0.5 ? options[0] : options[1]
-        acc[winner] = (acc[winner] || 0) + 1
-      }
-      return acc
-    }, {} as { [key: string]: number })
-
-    const totalAsnVotes = Object.values(asnMajorityVotes).reduce((a, b) => a + b, 0)
-
-    return (
-      <>
-        <Box sx={{ mt: 4, height: '500px' }}>
-          <Plot
-            data={[{
-              type: 'treemap',
-              labels: uniqueAsns.map(name => name),
-              parents: uniqueAsns.map(() => ''),
-              values: uniqueAsns.map(name => Object.values(asnVotes[name]).reduce((a, b) => a + b, 0)),
-              marker: {
-                colors: uniqueAsns.map(name => getColor(name))
-              },
-              textinfo: 'label',
-              hovertemplate: '%{customdata}<extra></extra>',
-              customdata: uniqueAsns.map(name => getHoverText(name)),
-              hoverlabel: {
-                bgcolor: 'white',
-                bordercolor: '#ddd',
-                font: { color: 'black' }
-              }
-            }]}
-            layout={{
-              title: 'Votes by Network Provider (ASN)',
-              autosize: true,
-              margin: { t: 30, r: 10, b: 10, l: 10 },
-              paper_bgcolor: 'transparent',
-            }}
-            useResizeHandler={true}
-            style={{ width: '100%', height: '100%' }}
-          />
-        </Box>
-        
-        <Box sx={{ 
-          mt: 2, 
-          p: 2, 
-          bgcolor: 'background.paper',
-          borderRadius: 1,
-          boxShadow: 1
-        }}>
-          <Typography variant="h6" gutterBottom>
-            ASN-level Vote Results
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Each network provider (ASN) gets one vote based on the majority preference of its users.
-          </Typography>
-          
-          <Box sx={{ 
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            alignItems: { sm: 'center' },
-            justifyContent: { sm: 'space-between' },
-            gap: { xs: 1, sm: 2 }
-          }}>
-            <Box sx={{ 
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, auto)' },
-              gap: 2
-            }}>
-              {options.map((option, i) => (
-                <Box key={option} sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 1,
-                  minWidth: 0
-                }}>
-                  <Box sx={{ 
-                    width: 12, 
-                    height: 12, 
-                    flexShrink: 0,
-                    bgcolor: i === 0 ? 'rgb(0, 0, 255)' : 'rgb(255, 0, 0)',
-                    borderRadius: '50%'
-                  }} />
-                  <Typography noWrap>
-                    {option}: {asnMajorityVotes[option] || 0}
-                    {' '}
-                    ({totalAsnVotes ? ((asnMajorityVotes[option] || 0) / totalAsnVotes * 100).toFixed(1) : 0}%)
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-            
-            <Typography 
-              color="text.secondary"
-              sx={{ 
-                borderLeft: { sm: 1 },
-                borderColor: { sm: 'divider' },
-                pl: { sm: 2 }
-              }}
-            >
-              Total ASNs: {totalAsnVotes}
-            </Typography>
-          </Box>
-        </Box>
-      </>
-    )
-  }
-
   return (
     <div className="content">
       <h1 style={{ wordBreak: 'break-word' }}>
@@ -626,6 +530,12 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
           sx={{ mb: 2 }}
         >
           {message}
+          {measuringLatency && (
+            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CircularProgress size={16} />
+              <span>Measuring network latency for geolocation. This may take a few seconds...</span>
+            </div>
+          )}
         </Alert>
       )}
       
@@ -733,15 +643,28 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
                 options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']} 
               />
               
-              {renderASNTreemap()}
+              <ASNTreemap
+                asnData={asnData}
+                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']}
+              />
               
               <IPBlockMap
-                votes={votes}
+                votes={parsedVotes.map(v => ({
+                  ip: v.masked_ip,
+                  vote: v.vote,
+                  country: v.country_geoip,
+                  asn_name_geoip: v.asn_name_geoip
+                }))}
                 options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']}
               />
               
               <IPv6BlockMap
-                votes={votes}
+                votes={parsedVotes.map(v => ({
+                  ip: v.masked_ip,
+                  vote: v.vote,
+                  country: v.country_geoip,
+                  asn_name_geoip: v.asn_name_geoip
+                }))}
                 options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']}
               />
               

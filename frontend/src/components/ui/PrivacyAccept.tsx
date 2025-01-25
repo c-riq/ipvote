@@ -13,18 +13,25 @@ interface PrivacyAcceptProps {
 }
 
 function maskIP(ip: string) {
-  if (!ip) return '';
-  if (ip.includes('.')) {
-    // IPv4
-    const parts = ip.split('.');
-    return `${parts[0]}.${parts[1]}.${parts[2]}.XXX`;
-  } else {
-    // IPv6
-    const parts = ip.split(':');
-    const thirdOctet = parts[2] || '';
-    const paddedThird = thirdOctet.padStart(4, '0');
-    const maskedThird = paddedThird.substring(0, 2) + 'XX';
-    return `${parts[0]}:${parts[1]}:${maskedThird}:XXXX:XXXX:XXXX`;
+  try {
+    if (ip.includes('.')) {
+      // IPv4
+      const parts = ip.split('.');
+      const thirdOctet = parts[2] || '';
+      const paddedThird = thirdOctet.padStart(3, '0');
+      const maskedThird = paddedThird.substring(0, 2) + 'X';
+      return `${parts[0]}.${parts[1]}.${maskedThird}.XXX`;
+    } else {
+      // IPv6
+      const parts = ip.split(':');
+      const thirdOctet = parts[2] || '';
+      const paddedThird = thirdOctet.padStart(4, '0');
+      const maskedThird = paddedThird.substring(0, 1) + 'XXX';
+      return `${parts[0]}:${parts[1]}:${maskedThird}:XXXX:XXXX:XXXX`;
+    }
+  } catch (error) {
+    console.error('Error in maskIP:', error, 'IP:', ip);
+    throw error;
   }
 }
 
@@ -76,7 +83,6 @@ function PrivacyAccept({ userIpInfo, accepted, onAcceptChange, setCaptchaToken, 
   }
 
   const maskedIp = maskIP(userIpInfo.ip);
-  console.log('captchaToken', captchaToken);
   return (
     <div style={{ textAlign }}>
       <FormControlLabel

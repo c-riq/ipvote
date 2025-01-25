@@ -29,11 +29,21 @@ if [ ! -d "dist" ]; then
     exit 0;
 fi
 
+# Check if index.html exists
+if [ ! -f "dist/index.html" ]; then
+    echo "dist/index.html not found"
+    exit 1
+fi
+
 # Rename index.html with random string
 mv dist/index.html "dist/index_${random_string}.html"
 
+# Sync all files except HTML with long cache duration
 echo Synching Build Folder: $s3_bucket...
-aws s3 sync dist/ s3://$s3_bucket --delete --cache-control max-age=31530000,public
+aws s3 sync dist/ s3://$s3_bucket --delete --exclude "*.html" --cache-control max-age=31530000,public
+
+# Upload HTML file with no-cache headers
+aws s3 cp "dist/index_${random_string}.html" "s3://$s3_bucket/index_${random_string}.html" --cache-control "no-cache, no-store, must-revalidate"
 
 # Update CloudFront function or origin response policy to use the new index file
 if [ ! -z "$cf_id" ]; then

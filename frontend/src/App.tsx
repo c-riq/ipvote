@@ -44,7 +44,13 @@ function App() {
     }
     return false
   })
-  const [userIpInfo, setUserIpInfo] = useState<IpInfoResponse | null>(null)
+  const [userIpInfo, setUserIpInfo] = useState<IpInfoResponse | null>(() => {
+    const stored = localStorage.getItem('userIpInfo');
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    return null;
+  })
   const [searchQuery, setSearchQuery] = useState('')
   const [captchaState, setCaptchaState] = useState<CaptchaState | null>(() => {
     const stored = localStorage.getItem('captchaState');
@@ -59,7 +65,7 @@ function App() {
     if (captchaState) {
       const age = Date.now() - new Date(captchaState.timestamp).getTime();
       console.log('Captcha age', age);
-      if (age < 24 * 60 * 60 * 1000) {
+      if (age < 7 * 24 * 60 * 60 * 1000) {
         if (captchaState.ip === userIpInfo?.ip) {
           setCaptchaVerified(true);
           return;
@@ -81,11 +87,21 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (userIpInfo) {
+      if (!captchaState || captchaState.ip === userIpInfo.ip) {
+        if (userIpInfo.timestamp && Date.now() < new Date(userIpInfo.timestamp).getTime() + 1 * 60 * 1000) {
+          return;
+        }
+      }
+    }
     // Fetch user's IP
     fetch('https://awcntp2t5izba44go77lc4evvy0ewfzy.lambda-url.us-east-1.on.aws/')
       .then(response => response.json() as Promise<IpInfoResponse>)
-      .then(data => setUserIpInfo(data))
-  }, [])
+      .then(data => {
+        setUserIpInfo(data)
+        localStorage.setItem('userIpInfo', JSON.stringify({...data, timestamp: new Date().toISOString()}))
+      })
+  }, [captchaState])
 
   const lightTheme = createTheme({
     palette: {

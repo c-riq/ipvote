@@ -4,8 +4,8 @@ const { getIPInfo } = require('./from_ipInfos/ipCountryLookup');
 const https = require('https');
 
 /* schema of csv file:
-time,ip,poll_,vote,country,nonce,country_geoip,asn_name_geoip
-1716891868980,146.103.108.202,1_or_2,2,,sdfsdf,AU,TPG Telecom Limited
+time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms
+1716891868980,146.103.108.202,1_or_2,2,AU,TPG Telecom Limited,false,false,false,us-east-1,120,240
 */
 
 const { Readable } = require('stream');
@@ -66,6 +66,8 @@ const getPartitionKey = (ip) => {
 
 const validateCachedCaptcha = async (ip, token, bucketName) => {
     const fileName = 'captcha_cache/verifications.csv';
+    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000; // One week in milliseconds
+    
     try {
         const data = await fetchFileFromS3(bucketName, fileName);
         const lines = data.split('\n');
@@ -78,8 +80,8 @@ const validateCachedCaptcha = async (ip, token, bucketName) => {
             if (cachedIp === ip && cachedToken === token) {
                 const verificationTime = parseInt(timestamp);
                 const now = Date.now();
-                // Verify that the token is not older than 24 hours
-                if (now - verificationTime < 24 * 60 * 60 * 1000) {
+                // Verify that the token is not older than one week
+                if (now - verificationTime < oneWeekInMs) {
                     return true;
                 }
             }
@@ -101,9 +103,35 @@ module.exports.handler = async (event) => {
     const vote = event.queryStringParameters.vote;
     const poll = event.queryStringParameters.poll;
     const country = event.queryStringParameters.country;
-    const nonce = event.queryStringParameters.nonce;
     const hcaptchaToken = event.queryStringParameters.captchaToken;
     const forbiddenStringsRegex = /,|\\n|\\r|\\t|>|<|"/;
+
+    // Validate vote format based on poll type
+    if (poll.includes('_or_')) {
+        // For _or_ polls, vote must match one of the options
+        const [option1, option2] = poll.split('_or_');
+        if (vote !== option1 && vote !== option2) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Vote must match one of the poll options',
+                    time: new Date()
+                }),
+            };
+        }
+    } else {
+        // For yes/no polls, vote must be 'yes' or 'no'
+        if (vote !== 'yes' && vote !== 'no') {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Vote must be either "yes" or "no"',
+                    time: new Date()
+                }),
+            };
+        }
+    }
+
     if (!vote || !poll) {
         return {
             statusCode: 400,
@@ -122,11 +150,11 @@ module.exports.handler = async (event) => {
             }),
         };
     }
-    if (poll.match(forbiddenStringsRegex) || vote.match(forbiddenStringsRegex)) {
+    if (poll.match(forbiddenStringsRegex)) {
         return {
             statusCode: 400,
             body: JSON.stringify({
-                message: 'Poll or vote contains forbidden characters',
+                message: 'Poll contains forbidden characters',
                 time: new Date()
             }),
         };
@@ -192,7 +220,7 @@ module.exports.handler = async (event) => {
     } catch (error) {
         if (error.name === 'NoSuchKey') {
             // File does not exist, create a new one with updated schema
-            data = 'time,ip,poll_,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider\n';
+            data = 'time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms\n';
         } else {
             console.log(error);
             return {
@@ -206,6 +234,8 @@ module.exports.handler = async (event) => {
     }
     const lines = data.split('\n');
     const isIPv6 = requestIp.includes(':');
+    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000; // One week in milliseconds
+    
     if (!isIPv6) {
         for (let i = 0; i < lines.length; i++) {
             const [t, ip] = lines[i].split(',');
@@ -213,14 +243,23 @@ module.exports.handler = async (event) => {
                 continue;
             }
             if (requestIp === ip) {
-                console.log('IP address already voted for at ' + (new Date(parseInt(t))).toISOString());
-                return {
-                    statusCode: 400,
-                    body: JSON.stringify({
-                        message: 'IP address already voted at ' + (new Date(parseInt(t))).toISOString(),
-                        time: new Date()
-                    }),
-                };
+                const previousVoteTime = parseInt(t);
+                const timeSinceLastVote = timestamp - previousVoteTime;
+                
+                if (timeSinceLastVote < oneWeekInMs) {
+                    const nextVoteTime = new Date(previousVoteTime + oneWeekInMs);
+                    console.log('IP address voted too recently:', {
+                        lastVote: new Date(previousVoteTime).toISOString(),
+                        nextVoteAllowed: nextVoteTime.toISOString()
+                    });
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({
+                            message: `Cannot vote again until ${nextVoteTime.toISOString()}`,
+                            time: new Date()
+                        }),
+                    };
+                }
             }
         }
     } else {
@@ -232,13 +271,19 @@ module.exports.handler = async (event) => {
             }
             const fullIp = expandIPv6(ip);
             if (_64bitMask(fullRequestIp) === _64bitMask(fullIp)) {
-                return {
-                    statusCode: 400,
-                    body: JSON.stringify({
-                        message: 'IP within same /64 block ' + ip + ' already voted at ' + (new Date(parseInt(t))).toISOString(),
-                        time: new Date()
-                    }),
-                };
+                const previousVoteTime = parseInt(t);
+                const timeSinceLastVote = timestamp - previousVoteTime;
+                
+                if (timeSinceLastVote < oneWeekInMs) {
+                    const nextVoteTime = new Date(previousVoteTime + oneWeekInMs);
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({
+                            message: `Cannot vote again from this IPv6 block until ${nextVoteTime.toISOString()}`,
+                            time: new Date()
+                        }),
+                    };
+                }
             }
         }
     }
@@ -253,13 +298,14 @@ module.exports.handler = async (event) => {
     const countryGeoip = ipInfo?.country || 'XX';
     const asnNameGeoip = ipInfo?.as_name || '';
 
-    // Create new vote line with GeoIP data
-    const newVote = `${timestamp},${requestIp},${poll},${vote},${country},${nonce},${countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')},,,\n`;
+    // Create new vote line with GeoIP data (added new columns with empty values)
+    const newVote = `${timestamp},${requestIp},${poll},${vote},${countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')},,,,,,`;
     console.log('Attempting to save vote:', {
         fileName,
         voteData: newVote.trim()
     });
-    const newVotes = data + newVote;
+    // Ensure proper newlines both before and after the new vote
+    const newVotes = (data.endsWith('\n') ? data : data + '\n') + newVote + '\n';
     const putParams = {
         Bucket: 'ipvotes',
         Key: fileName,

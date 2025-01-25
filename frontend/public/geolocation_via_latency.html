@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>Proof of location for online polls - Network Latency Geolocation</title>
     <style>
         body {
@@ -67,7 +68,7 @@
 <body>
     <h1>Proof of location for online polls</h1>
     <p class="metadata" style="color: #888; font-style: italic;">
-        Chris Rieckmann | January 14, 2025
+        Chris Rieckmann | last update: January 25, 2025
     </p>
     <h2>Network Latency Triangulation based Geolocation</h2>
     <p>Information about a device's physical location can be inferred by measuring the time it takes for signals to travel between the device and a known server location.
@@ -99,10 +100,10 @@
     <p>The process relies on the physical limitations of data transmission through the internet infrastructure:</p>
     <ul>
         <li>Light travels through fiber optic cables at approximately 2/3 the speed of light in vacuum</li>
-        <li>Routing inefficiencies and electronics increase the signal latency typically by 20% or more. This range can be represented as a probabilistic distribution.</li>
+        <li>Routing inefficiencies and electronics increase the signal latency typically by 20% or more. This range can be represented as a probability distribution.</li>
         <li>The maximum theoretical distance between two points can be calculated based on these limitations and the measured latency</li>
         <li>Multiple measurements to different servers establish circular areas of possible locations on the earth's surface which can then be intersected</li>
-        <li>When trying to alter the apparentlocation, a user can only introduce delays, which will result in a higher location uncertainty but users cannot reduce the network latency beyond the mentioned limits</li>
+        <li>When trying to alter the apparent location, a user can only introduce delays, which will result in a higher location uncertainty but users cannot reduce the network latency beyond the mentioned limits</li>
         <li>Users with a high latency to all servers can be excluded from polls, as this is a strong indicator of a VPN/proxy usage</li>
     </ul>
 
@@ -116,15 +117,14 @@
         </ul>
         <p>Successfully manipulating a poll which employs this method would require following efforts and resources:</p>
         <ul>
-            <li>Gaining control over a large number of devices in the target geographic region for submitting votes through those devices</li>
-            <li>Alternatively, intercepting and modifying requests at multiple points in the internet routing infrastructure where the servers are connected</li>
-            <li>Making sure that the manipulation remains unnoticed</li>
+            <li>Gaining control over devices in the target geographic region for submitting votes through those devices</li>
+            <li>Making sure that the manipulation attempt remains unnoticed</li>
         </ul>
-        <p>Latency-based geolocation significantly raises the cost of manipulation attempts and can provide very high poll integrity, 
-            if employed in conjunction with other mitigations, such as excluding known data center IP-addresses, 
+        <p>Latency-based geolocation significantly raises the cost of manipulation attempts and can provide a high degree of poll integrity, 
+            if employed in conjunction with other measures, such as excluding known data center IP-addresses, CAPTCHA verification,
             and analysis of response patterns.
-            Additionally, investigating complaints by potential victims whose IP-address appears to have been 
-            already used for voting on a poll unbeknownst to them, can help to uncover manipulation attempts. 
+            Additionally, investigating complaints by potential victims whose residential IP-address appears to have been 
+            used for voting on a poll unbeknownst to them, can help to uncover manipulation attempts. 
         </p>
         
         <h3>More about this project:</h3>
@@ -158,6 +158,18 @@
             Message sequence chart showing the latency measurement process between client and multiple measurement servers.
         </figcaption>
     </figure>
+
+    <h2>Latency validation</h2>
+    <p>
+        119 volunteers from different regions in the world, shared their actual GPS location with us and we measured the latency to the different servers.
+        The results are available in the following plot for the latency to the different servers:
+    </p>
+    <img src="img/frankfurt_latency.png" alt="Frankfurt datacenter Latency Map" style="max-width: 100%; height: auto; margin: 20px 0;">
+    <img src="img/n_virginia_latency.png" alt="N. Virginia datacenter Latency Map" style="max-width: 100%; height: auto; margin: 20px 0;">
+    <img src="img/oregon_latency.png" alt="Oregon datacenter Latency Map" style="max-width: 100%; height: auto; margin: 20px 0;">
+    <p>
+        The results show that latencies below 40 ms only occur in the rough location of the datacenter.
+    </p>
 
     <h2>Signal transmission outside the internet infrastructure</h2>
     <p>
