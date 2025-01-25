@@ -100,13 +100,16 @@ function maskIP(ip) {
         if (ip.includes('.')) {
             // IPv4
             const parts = ip.split('.');
-            return `${parts[0]}.${parts[1]}.${parts[2]}.XXX`;
+            const thirdOctet = parts[2] || '';
+            const paddedThird = thirdOctet.padStart(3, '0');
+            const maskedThird = paddedThird.substring(0, 2) + 'X';
+            return `${parts[0]}.${parts[1]}.${maskedThird}.XXX`;
         } else {
             // IPv6
             const parts = ip.split(':');
             const thirdOctet = parts[2] || '';
             const paddedThird = thirdOctet.padStart(4, '0');
-            const maskedThird = paddedThird.substring(0, 2) + 'XX';
+            const maskedThird = paddedThird.substring(0, 1) + 'XXX';
             return `${parts[0]}:${parts[1]}:${maskedThird}:XXXX:XXXX:XXXX`;
         }
     } catch (error) {
