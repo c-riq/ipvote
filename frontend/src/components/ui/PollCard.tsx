@@ -12,12 +12,16 @@ interface PollCardProps {
   isUpdating?: boolean
   captchaToken: string | undefined
   userIpInfo: IpInfoResponse | null
+  requireCaptcha?: boolean
+  setShowCaptcha: (show: boolean) => void
 }
 
-function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdating, captchaToken, userIpInfo }: PollCardProps) {
+function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdating, captchaToken, userIpInfo, requireCaptcha = false, setShowCaptcha }: PollCardProps) {
   const [message, setMessage] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [measuringLatency, setMeasuringLatency] = useState(false)
+
+  const allowVote = requireCaptcha ? privacyAccepted && !!captchaToken : privacyAccepted
 
   const vote = async (option: string) => {
     setLoading(true)
@@ -27,7 +31,7 @@ function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdatin
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')
         handleVote(name)
-        if (userIpInfo?.ip) {
+        if (userIpInfo?.ip && requireCaptcha) {
           setMeasuringLatency(true)
           await triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
           setMeasuringLatency(false)
@@ -42,28 +46,28 @@ function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdatin
   }
 
   const renderVoteButtons = () => {
-    const options = name.includes('_or_') 
+    const options = name.includes('_or_')
       ? name.split('_or_')
       : ['yes', 'no']
 
     return (
-      <Box sx={{ 
+      <Box sx={{
         display: 'flex',
         gap: 2,
         justifyContent: 'center',
         mt: 2
       }}>
         {options.map(option => (
-          <Tooltip 
+          <Tooltip
             key={option}
             title={
               !privacyAccepted ? "Please accept the privacy policy first" :
-              !captchaToken ? "Please complete the captcha verification" : ""
+                (!allowVote && !captchaToken) ? "Please complete the captcha verification" : ""
             }
             arrow
-            disableHoverListener={privacyAccepted && !!captchaToken}
-            disableFocusListener={privacyAccepted && !!captchaToken}
-            disableTouchListener={privacyAccepted && !!captchaToken}
+            disableHoverListener={allowVote}
+            disableFocusListener={allowVote}
+            disableTouchListener={allowVote}
             placement="top"
             enterTouchDelay={0}
             leaveTouchDelay={5000}
@@ -71,12 +75,12 @@ function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdatin
             <div style={{ display: 'inline-block' }}>
               <Button
                 variant="contained"
-                disabled={!privacyAccepted || loading || !captchaToken}
+                disabled={!allowVote || loading}
                 onClick={(e) => {
                   e.stopPropagation()
                   vote(option)
                 }}
-                sx={{ 
+                sx={{
                   minWidth: '100px',
                   '&.Mui-disabled': {
                     pointerEvents: 'auto'
@@ -88,18 +92,27 @@ function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdatin
             </div>
           </Tooltip>
         ))}
+
+        {requireCaptcha && !captchaToken && (
+          <Button onClick={(e) => {
+            setShowCaptcha(true)
+            e.stopPropagation()
+          }}>
+            I am human
+          </Button>
+        )}
       </Box>
     )
   }
 
   return (
-    <Card 
+    <Card
       sx={{ mb: 2, cursor: 'pointer' }}
       onClick={onClick}
     >
       <CardContent>
         <Typography variant="h6">
-          {name.includes('_or_') 
+          {name.includes('_or_')
             ? name.replace(/_/g, ' ') + '?'
             : name.replace(/_/g, ' ')}
         </Typography>
@@ -107,7 +120,7 @@ function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdatin
           {votes} votes {isUpdating && <CircularProgress size={10} sx={{ ml: 1 }} />}
         </Typography>
         {(message || measuringLatency) && (
-          <Alert 
+          <Alert
             severity={message === 'Vote submitted successfully!' ? 'success' : 'warning'}
             sx={{ mb: 2 }}
           >

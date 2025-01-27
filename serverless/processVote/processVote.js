@@ -10,6 +10,8 @@ time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,
 
 const { Readable } = require('stream');
 
+const pollsToRequireCaptcha = ['harris_or_trump']
+
 const s3Client = new S3Client(); 
 
 const fetchFileFromS3 = async (bucketName, key) => {
@@ -159,45 +161,51 @@ module.exports.handler = async (event) => {
             }),
         };
     }
-    if (!hcaptchaToken) {
-        console.log('missing hcaptcha token:', {
-            hcaptchaToken,
-            time: new Date()
-        });
-        return {
-            statusCode: 400,
-            body: JSON.stringify({
-                message: 'Missing hCaptcha verification',
-                time: new Date()
-            }),
-        };
-    }
 
-    try {
-        const isHuman = await validateCachedCaptcha(
-            event.requestContext.http.sourceIp,
-            hcaptchaToken,
-            'ipvotes'
-        );
-        console.log('Cached captcha verification result:', isHuman);
-        if (!isHuman) {
+    let captchaVerified = 0
+
+    if (pollsToRequireCaptcha.includes(poll)) {
+        if (!hcaptchaToken) {
+            console.log('missing hcaptcha token:', {
+                hcaptchaToken,
+                time: new Date()
+            });
             return {
                 statusCode: 400,
                 body: JSON.stringify({
-                    message: 'Invalid or expired captcha verification',
+                    message: 'Missing hCaptcha verification',
                     time: new Date()
                 }),
             };
         }
-    } catch (error) {
-        console.error('Captcha verification error:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({
-                message: 'Failed to verify captcha',
-                time: new Date()
-            }),
-        };
+
+        try {
+            const isHuman = await validateCachedCaptcha(
+                event.requestContext.http.sourceIp,
+                hcaptchaToken,
+                'ipvotes'
+            );
+            captchaVerified = isHuman ? 1 : 0
+            console.log('Cached captcha verification result:', isHuman);
+            if (!isHuman) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: 'Invalid or expired captcha verification',
+                        time: new Date()
+                    }),
+                };
+            }
+        } catch (error) {
+            console.error('Captcha verification error:', error);
+            return {
+                statusCode: 500,
+                body: JSON.stringify({
+                    message: 'Failed to verify captcha',
+                    time: new Date()
+                }),
+            };
+        }
     }
 
     const requestIp = event.requestContext.http.sourceIp;
@@ -220,7 +228,7 @@ module.exports.handler = async (event) => {
     } catch (error) {
         if (error.name === 'NoSuchKey') {
             // File does not exist, create a new one with updated schema
-            data = 'time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms\n';
+            data = 'time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms,captcha_verified\n';
         } else {
             console.log(error);
             return {
@@ -299,7 +307,9 @@ module.exports.handler = async (event) => {
     const asnNameGeoip = ipInfo?.as_name || '';
 
     // Create new vote line with GeoIP data (added new columns with empty values)
-    const newVote = `${timestamp},${requestIp},${poll},${vote},${countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')},,,,,,`;
+    const newVote = `${timestamp},${requestIp},${poll},${vote},${
+        countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')},,,,,,,${
+            captchaVerified}`;
     console.log('Attempting to save vote:', {
         fileName,
         voteData: newVote.trim()

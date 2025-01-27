@@ -87,8 +87,16 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   const [allVotes, setAllVotes] = useState<string[]>([])
   const [asnData, setAsnData] = useState<ASNData[]>([])
   const [chartZoomEnabled, setChartZoomEnabled] = useState(false);
-  const [parsedVotes, setParsedVotes] = useState<VoteData[]>([]);
+  const [filteredVotes, setFilteredVotes] = useState<VoteData[]>([]);
   const [measuringLatency, setMeasuringLatency] = useState(false);
+
+  const [requireCaptcha, setRequireCaptcha] = useState(false)
+
+  useEffect(() => {
+    setRequireCaptcha(allVotes.length > 1000)
+  }, [allVotes])
+
+  const allowVote = privacyAccepted ? requireCaptcha ? !!captchaToken : true : false
 
   useEffect(() => {
     // Get poll ID from URL path only
@@ -182,7 +190,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
              (includeCloud || !vote.is_cloud_provider?.trim());
     });
 
-    setParsedVotes(filteredVotes);
+    setFilteredVotes(filteredVotes);
 
     // Process current totals
     if (poll.includes('_or_')) {
@@ -213,8 +221,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
     const dailyVotes: { [key: string]: { [key: string]: number } } = {};
     filteredVotes.forEach(vote => {
       try {
-        const ts = vote.time.length === 13 ? parseInt(vote.time) : parseInt(vote.time) * 1000;
-        const date = new Date(ts).toISOString().split('T')[0];
+        const date = new Date(vote.time).toISOString().split('T')[0];
         
         if (!dailyVotes[date]) {
           dailyVotes[date] = {};
@@ -268,7 +275,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
         fetch(
           `https://iqpemyqp6lwvg7x6ds3osrs6nm0fcjwy.lambda-url.us-east-1.on.aws/?limit=15&offset=0&seed=1&q=&pollToUpdate=${poll}`
         )
-        if (userIpInfo?.ip) {
+        if (userIpInfo?.ip && requireCaptcha) {
           setMeasuringLatency(true)
           await triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
           setMeasuringLatency(false)
@@ -324,11 +331,11 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
           </Box>
           <Tooltip 
             title={!privacyAccepted ? "Please accept the privacy policy first" : 
-                  !captchaToken ? "Please complete the captcha verification" : ""}
+                  (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}
             arrow
-            disableHoverListener={privacyAccepted && !!captchaToken}
-            disableFocusListener={privacyAccepted && !!captchaToken}
-            disableTouchListener={privacyAccepted && !!captchaToken}
+            disableHoverListener={allowVote}
+            disableFocusListener={allowVote}
+            disableTouchListener={allowVote}
             placement="top"
             enterTouchDelay={0}
             leaveTouchDelay={5000}
@@ -336,7 +343,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
             <div style={{ display: 'inline-block' }}>
               <Button
                 variant="contained"
-                disabled={!privacyAccepted || !captchaToken}
+                disabled={!allowVote}
                 onClick={() => handleVote(option)}
                 sx={{ 
                   minWidth: '100px',
@@ -480,11 +487,11 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
         </Box>
         <Tooltip 
           title={!privacyAccepted ? "Please accept the privacy policy first" : 
-                !captchaToken ? "Please complete the captcha verification" : ""}
+                (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}
           arrow
-          disableHoverListener={privacyAccepted && !!captchaToken}
-          disableFocusListener={privacyAccepted && !!captchaToken}
-          disableTouchListener={privacyAccepted && !!captchaToken}
+          disableHoverListener={allowVote}
+          disableFocusListener={allowVote}
+          disableTouchListener={allowVote}
           placement="top"
           enterTouchDelay={0}
           leaveTouchDelay={5000}
@@ -492,7 +499,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
           <div style={{ display: 'inline-block' }}>
             <Button
               variant="contained"
-              disabled={!privacyAccepted || !captchaToken}
+              disabled={!allowVote}
               onClick={() => handleVote(option)}
               sx={{ 
                 minWidth: '100px',
@@ -515,7 +522,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
     if (!poll) return;
     
     // Direct download from the API endpoint
-    window.open(`https://krzzi6af5wivgfdvtdhllb4ycm0zgjde.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=true`, '_blank');
+    window.open(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=true`, '_blank');
   };
 
   return (
@@ -551,6 +558,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
             }}
             setCaptchaToken={setCaptchaToken}
             captchaToken={captchaToken}
+            showCaptcha={requireCaptcha}
           />
 
           {loading ? (
@@ -649,7 +657,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
               />
               
               <IPBlockMap
-                votes={parsedVotes.map(v => ({
+                votes={filteredVotes.map(v => ({
                   ip: v.masked_ip,
                   vote: v.vote,
                   country: v.country_geoip,
@@ -659,7 +667,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
               />
               
               <IPv6BlockMap
-                votes={parsedVotes.map(v => ({
+                votes={filteredVotes.map(v => ({
                   ip: v.masked_ip,
                   vote: v.vote,
                   country: v.country_geoip,

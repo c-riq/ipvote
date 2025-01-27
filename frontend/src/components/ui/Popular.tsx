@@ -29,6 +29,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
   const [hasMore, setHasMore] = useState(true)
   const [offset, setOffset] = useState(0)
   const [seed] = useState(1)
+  const [showCaptcha, setShowCaptcha] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -122,6 +123,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
         onAcceptChange={onPrivacyAcceptChange}
         setCaptchaToken={setCaptchaToken}
         captchaToken={captchaToken}
+        showCaptcha={showCaptcha}
       />
       <div style={{ marginTop: '20px' }} />
       {polls.map((poll) => (
@@ -135,6 +137,8 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
           isUpdating={poll.isUpdating}
           captchaToken={captchaToken}
           userIpInfo={userIpInfo}
+          requireCaptcha={poll.votes > 1000}
+          setShowCaptcha={setShowCaptcha}
         />
       ))}
       
