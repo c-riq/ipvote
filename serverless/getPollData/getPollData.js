@@ -167,8 +167,23 @@ async function aggregateCSVFiles(bucket, files) {
         }
         
         // Keep the header as is, just replace poll_ with poll and ip with masked_ip
-        const aggregatedData = results[0].header.replace('poll_', 'poll').replace('ip', 'masked_ip') + '\n' + 
-            results.flatMap(result => result.rows).join('\n');
+        const header = results[0].header.replace('poll_', 'poll').replace('ip', 'masked_ip') + '\n';
+        
+        // Combine all rows, convert timestamp, and sort by time
+        const allRows = results.flatMap(result => result.rows)
+            .sort((a, b) => {
+                const timeA = parseInt(a.split(',')[0]);
+                const timeB = parseInt(b.split(',')[0]);
+                return timeA - timeB;
+            })
+            .map(row => {
+                const columns = row.split(',');
+                // Convert timestamp to ISO string
+                columns[0] = new Date(parseInt(columns[0])).toISOString();
+                return columns.join(',');
+            });
+
+        const aggregatedData = header + allRows.join('\n');
         return aggregatedData;
     } catch (error) {
         console.error('Error in aggregateCSVFiles:', error);
