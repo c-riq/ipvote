@@ -96,8 +96,15 @@
         <li>Network latency-based geolocation verification (see <a href="geolocation_via_latency.html">Network Latency Geolocation</a>)</li>
         <li>IP address reputation checking</li>
         <li>Exclusion of known datacenter, VPN and Tor IP address ranges</li>
+        <li>CAPTCHA verification, to mitigate automated voting</li>
         <li>Special handling of IPv6 addresses to account for the larger number of IPv6 addresses, compared to IPv4</li>
     </ul>
+
+    <p>
+        Currently, polls that exceed 1,000 votes automatically require both CAPTCHA verification and network latency geolocation 
+        checks for new participants. These thresholds may be adjusted and additional verification measures introduced as 
+        needed to maintain poll integrity.
+    </p>
 
     <div class="highlight">
         <h3>Manipulation Mitigation Strategies</h3>
