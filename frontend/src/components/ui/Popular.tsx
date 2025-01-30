@@ -102,8 +102,14 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
     setOffset(prev => prev + LIMIT)
   }
 
-  const handlePollClick = (pollName: string) => {
-    navigate(`/${encodeURIComponent(pollName)}`)
+  const handlePollClick = (pollName: string, event: React.MouseEvent) => {
+    if (event.metaKey || event.ctrlKey) {
+      // Open in new tab
+      window.open(`/${encodeURIComponent(pollName)}`, '_blank')
+    } else {
+      // Regular navigation
+      navigate(`/${encodeURIComponent(pollName)}`)
+    }
   }
 
   const handleVote = (pollName: string) => {
@@ -131,7 +137,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
           key={poll.name}
           name={poll.name}
           votes={poll.votes}
-          onClick={() => handlePollClick(poll.name)}
+          onClick={(e) => handlePollClick(poll.name, e)}
           handleVote={handleVote}
           privacyAccepted={privacyAccepted}
           isUpdating={poll.isUpdating}
