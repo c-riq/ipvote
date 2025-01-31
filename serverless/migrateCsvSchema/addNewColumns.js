@@ -49,58 +49,33 @@ const migrateFile = async (fileKey) => {
         const headerLine = lines[0];
         const currentColumns = headerLine.split(',');
         
-        // Get indexes of all columns we need to check
-        const isTorIndex = currentColumns.indexOf('is_tor');
-        const isVpnIndex = currentColumns.indexOf('is_vpn');
-        const isCloudIndex = currentColumns.indexOf('is_cloud_provider');
-        const closestRegionIndex = currentColumns.indexOf('closest_region');
-        const latencyMsIndex = currentColumns.indexOf('latency_ms');
-        const roundtripMsIndex = currentColumns.indexOf('roundtrip_ms');
+        // Get index of column we need to check
+        const captchaVerifiedIndex = currentColumns.indexOf('captcha_verified');
         
         let needsMigration = false;
         
-        // Check if any column needs to be added
-        if (isTorIndex === -1) {
-            currentColumns.push('is_tor');
-            needsMigration = true;
-        }
-        if (isVpnIndex === -1) {
-            currentColumns.push('is_vpn');
-            needsMigration = true;
-        }
-        if (isCloudIndex === -1) {
-            currentColumns.push('is_cloud_provider');
-            needsMigration = true;
-        }
-        if (closestRegionIndex === -1) {
-            currentColumns.push('closest_region');
-            needsMigration = true;
-        }
-        if (latencyMsIndex === -1) {
-            currentColumns.push('latency_ms');
-            needsMigration = true;
-        }
-        if (roundtripMsIndex === -1) {
-            currentColumns.push('roundtrip_ms');
+        // Check if column needs to be added
+        if (captchaVerifiedIndex === -1) {
+            currentColumns.push('captcha_verified');
             needsMigration = true;
         }
 
         if (!needsMigration) {
-            console.log(`File ${fileKey} already has all required columns`);
+            console.log(`File ${fileKey} already has captcha_verified column`);
             return false;
         }
 
         // Update header
         lines[0] = currentColumns.join(',');
 
-        // Add empty values for new columns to all data rows
+        // Add empty values for new column to all data rows
         let processedRows = 0;
         
         for (let i = 1; i < lines.length; i++) {
             if (!lines[i].trim()) continue;
             
             const columns = lines[i].split(',');
-            // Add empty values for any missing columns
+            // Add empty value for missing column
             while (columns.length < currentColumns.length) {
                 columns.push('');
             }

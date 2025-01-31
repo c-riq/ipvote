@@ -148,6 +148,9 @@ module.exports.handler = async (event) => {
                             data.results.fullData[pollIndex] = updatedPollData[0];
                             // Re-sort the data
                             data.results.fullData.sort((a, b) => b[1] - a[1]);
+                        } else {
+                            // append the new poll
+                            data.results.fullData.push(updatedPollData[0]);
                         }
 
                         // await the cache update

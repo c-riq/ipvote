@@ -29,6 +29,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
   const [hasMore, setHasMore] = useState(true)
   const [offset, setOffset] = useState(0)
   const [seed] = useState(1)
+  const [showCaptcha, setShowCaptcha] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -101,8 +102,14 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
     setOffset(prev => prev + LIMIT)
   }
 
-  const handlePollClick = (pollName: string) => {
-    navigate(`/${encodeURIComponent(pollName)}`)
+  const handlePollClick = (pollName: string, event: React.MouseEvent) => {
+    if (event.metaKey || event.ctrlKey) {
+      // Open in new tab
+      window.open(`/${encodeURIComponent(pollName)}`, '_blank')
+    } else {
+      // Regular navigation
+      navigate(`/${encodeURIComponent(pollName)}`)
+    }
   }
 
   const handleVote = (pollName: string) => {
@@ -122,6 +129,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
         onAcceptChange={onPrivacyAcceptChange}
         setCaptchaToken={setCaptchaToken}
         captchaToken={captchaToken}
+        showCaptcha={showCaptcha}
       />
       <div style={{ marginTop: '20px' }} />
       {polls.map((poll) => (
@@ -129,12 +137,14 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
           key={poll.name}
           name={poll.name}
           votes={poll.votes}
-          onClick={() => handlePollClick(poll.name)}
+          onClick={(e) => handlePollClick(poll.name, e)}
           handleVote={handleVote}
           privacyAccepted={privacyAccepted}
           isUpdating={poll.isUpdating}
           captchaToken={captchaToken}
           userIpInfo={userIpInfo}
+          requireCaptcha={poll.votes > 1000}
+          setShowCaptcha={setShowCaptcha}
         />
       ))}
       

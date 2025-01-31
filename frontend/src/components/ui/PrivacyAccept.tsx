@@ -10,6 +10,7 @@ interface PrivacyAcceptProps {
   setCaptchaToken: (token: string, ip: string, timestamp: string) => void
   captchaToken: string | undefined
   textAlign?: 'left' | 'center' | 'right'
+  showCaptcha?: boolean
 }
 
 function maskIP(ip: string) {
@@ -35,10 +36,12 @@ function maskIP(ip: string) {
   }
 }
 
-function PrivacyAccept({ userIpInfo, accepted, onAcceptChange, setCaptchaToken, captchaToken, textAlign = 'center' }: PrivacyAcceptProps) {
+function PrivacyAccept({ userIpInfo, accepted, onAcceptChange, setCaptchaToken, captchaToken, textAlign = 'center', showCaptcha = false }: PrivacyAcceptProps) {
   const [privacyChecked, setPrivacyChecked] = useState(accepted);
   const [verificationError, setVerificationError] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+
+  const hide = privacyChecked && (!showCaptcha || captchaToken)
 
   const handlePrivacyChange = useCallback((checked: boolean) => {
     setPrivacyChecked(checked);
@@ -74,7 +77,7 @@ function PrivacyAccept({ userIpInfo, accepted, onAcceptChange, setCaptchaToken, 
   };
 
   // Early returns after all hooks are defined
-  if (accepted && captchaToken) {
+  if (hide) {
     return null;
   }
 
@@ -106,7 +109,7 @@ function PrivacyAccept({ userIpInfo, accepted, onAcceptChange, setCaptchaToken, 
           }
         }}
       />
-      {privacyChecked && (
+      {showCaptcha && (
         <div style={{ marginTop: '10px' }}>
           {isVerifying ? (
             <div style={{ marginTop: '5px', display: 'flex', alignItems: 'center', gap: '10px' }}>
