@@ -163,12 +163,11 @@ const IPBlockMap: React.FC<IPBlockMapProps> = ({ votes, options }) => {
 
   const renderBlockStats = (
     title: string,
-    majorityVotes: { [key: string]: number },
+    majorityVotes: { [key: string]: number } | undefined,
     description: string
   ) => {
-    const totalBlocks = Object.values(majorityVotes).reduce((a, b) => a + b, 0)
-    const colors = ['#4169E1', '#ff6969']  // Royal Blue and Crimson
-
+    const totalBlocks = majorityVotes ? Object.values(majorityVotes).reduce((a, b) => a + b, 0) : 0
+    
     return (
       <Box sx={{ 
         mt: 2, 
@@ -185,26 +184,57 @@ const IPBlockMap: React.FC<IPBlockMapProps> = ({ votes, options }) => {
         </Typography>
         <Box sx={{ 
           display: 'flex', 
-          gap: 4,
-          alignItems: 'center',
-          mt: 1
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { sm: 'center' },
+          justifyContent: { sm: 'space-between' },
+          gap: { xs: 1, sm: 2 }
         }}>
-          {options.map((option, i) => (
-            <Box key={option} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box sx={{ 
-                width: 16, 
-                height: 16, 
-                bgcolor: colors[i],
-                borderRadius: '50%'
-              }} />
-              <Typography>
-                {option}: {majorityVotes[option] || 0} blocks
-                {' '}
-                ({totalBlocks ? ((majorityVotes[option] || 0) / totalBlocks * 100).toFixed(1) : 0}%)
-              </Typography>
-            </Box>
-          ))}
-          <Typography color="text.secondary">
+          <Box sx={{ 
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: options.length === 2 ? 'repeat(2, auto)' : 'repeat(auto-fill, minmax(150px, 1fr))' },
+            gap: 2
+          }}>
+            {options.map((option, i) => {
+              // Generate consistent color for each option
+              const hash = options.length === 2 ? 0 : [...option].reduce((acc, char) => {
+                return char.charCodeAt(0) + ((acc << 5) - acc)
+              }, 0)
+              const h = Math.abs(hash % 360)
+              
+              return (
+                <Box key={option} sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  minWidth: 0
+                }}>
+                  <Box sx={{ 
+                    width: 12, 
+                    height: 12, 
+                    flexShrink: 0,
+                    bgcolor: options.length === 2 
+                      ? (i === 0 ? '#4169E1' : '#ff6969')  // Keep consistent with existing colors
+                      : `hsl(${h}, 70%, 50%)`,
+                    borderRadius: '50%'
+                  }} />
+                  <Typography noWrap>
+                    {option}: {(majorityVotes?.[option] || 0)} blocks
+                    {' '}
+                    ({totalBlocks ? ((majorityVotes?.[option] || 0) / totalBlocks * 100).toFixed(1) : 0}%)
+                  </Typography>
+                </Box>
+              )
+            })}
+          </Box>
+          
+          <Typography 
+            color="text.secondary"
+            sx={{ 
+              borderLeft: { sm: 1 },
+              borderColor: { sm: 'divider' },
+              pl: { sm: 2 }
+            }}
+          >
             Total blocks: {totalBlocks}
           </Typography>
         </Box>

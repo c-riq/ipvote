@@ -84,6 +84,7 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
                 }}
                 sx={{
                   minWidth: '100px',
+                  textTransform: 'none',
                   '&.Mui-disabled': {
                     pointerEvents: 'auto'
                   }

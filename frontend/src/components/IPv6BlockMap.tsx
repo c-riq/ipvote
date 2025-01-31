@@ -98,6 +98,101 @@ const IPv6BlockMap: React.FC<IPv6BlockMapProps> = ({ votes, options }) => {
     return `hsla(${h}, 70%, 50%, ${opacity})`;
   };
 
+  const renderBlockStats = (
+    title: string,
+    majorityVotes: { [key: string]: number } | undefined,
+    description: string
+  ) => {
+    const totalBlocks = majorityVotes ? Object.values(majorityVotes).reduce((a, b) => a + b, 0) : 0
+    
+    return (
+      <Box sx={{ 
+        mt: 2, 
+        p: 2, 
+        bgcolor: 'background.paper',
+        borderRadius: 1,
+        boxShadow: 1
+      }}>
+        <Typography variant="h6" gutterBottom>
+          {title}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          {description}
+        </Typography>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { sm: 'center' },
+          justifyContent: { sm: 'space-between' },
+          gap: { xs: 1, sm: 2 }
+        }}>
+          <Box sx={{ 
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: options.length === 2 ? 'repeat(2, auto)' : 'repeat(auto-fill, minmax(150px, 1fr))' },
+            gap: 2
+          }}>
+            {options.map((option, i) => {
+              // Generate consistent color for each option
+              const hash = options.length === 2 ? 0 : [...option].reduce((acc, char) => {
+                return char.charCodeAt(0) + ((acc << 5) - acc)
+              }, 0)
+              const h = Math.abs(hash % 360)
+              
+              return (
+                <Box key={option} sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  minWidth: 0
+                }}>
+                  <Box sx={{ 
+                    width: 12, 
+                    height: 12, 
+                    flexShrink: 0,
+                    bgcolor: options.length === 2 
+                      ? (i === 0 ? '#4169E1' : '#ff6969')  // Keep consistent with existing colors
+                      : `hsl(${h}, 70%, 50%)`,
+                    borderRadius: '50%'
+                  }} />
+                  <Typography noWrap>
+                    {option}: {(majorityVotes?.[option] || 0)} blocks
+                    {' '}
+                    ({totalBlocks ? ((majorityVotes?.[option] || 0) / totalBlocks * 100).toFixed(1) : 0}%)
+                  </Typography>
+                </Box>
+              )
+            })}
+          </Box>
+          
+          <Typography 
+            color="text.secondary"
+            sx={{ 
+              borderLeft: { sm: 1 },
+              borderColor: { sm: 'divider' },
+              pl: { sm: 2 }
+            }}
+          >
+            Total blocks: {totalBlocks}
+          </Typography>
+        </Box>
+      </Box>
+    )
+  }
+
+  // Calculate block-level majority votes
+  const blockMajorityVotes = useMemo(() => {
+    return Object.entries(blockData).reduce((acc, [_, data]) => {
+      const winner = Object.entries(data.votes).reduce((max, [option, count]) => 
+        count > (data.votes[max] || 0) ? option : max
+      , Object.keys(data.votes)[0])
+      
+      if (winner) {
+        acc[winner] = (acc[winner] || 0) + 1
+      }
+      return acc
+    }, {} as { [key: string]: number })
+  }, [blockData])
+
   return (
     <Box sx={{ mt: 4 }}>
       <Typography variant="h6" gutterBottom>
@@ -188,6 +283,12 @@ const IPv6BlockMap: React.FC<IPv6BlockMapProps> = ({ votes, options }) => {
           No data
         </Typography>
       </Box>
+
+      {renderBlockStats(
+        "IPv6 Block-level Vote Results",
+        blockMajorityVotes,
+        "Each /28 IPv6 block gets one vote based on the majority preference of its users."
+      )}
     </Box>
   );
 };

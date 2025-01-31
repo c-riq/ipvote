@@ -517,7 +517,8 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
                     sx={{ 
                       minWidth: '100px',
                       order: { xs: 2, sm: 1 },
-                      width: { xs: '100%', sm: 'auto' }
+                      width: { xs: '100%', sm: 'auto' },
+                      textTransform: 'none'
                     }}
                   >
                     {option}
