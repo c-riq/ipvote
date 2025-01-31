@@ -243,7 +243,6 @@ const VoteMap: React.FC<VoteMapProps> = ({ votesByCountry, options }) => {
       count > (votes[max] || 0) ? option : max
     , options[0]);
     
-    const winningVotes = votes[winningOption];
     const opacity = opacityScale(totalVotes);
     
     // Generate a consistent color based on the winning option string
