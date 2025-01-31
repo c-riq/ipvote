@@ -531,7 +531,11 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
 
       return (
         <>
-          {existingOptions}
+          {Object.keys(results).length > 0 ? existingOptions : (
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              No votes yet. Be the first to vote!
+            </Typography>
+          )}
           {!showCustomInput ? (
             <Button
               variant="outlined"
