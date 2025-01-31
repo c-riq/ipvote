@@ -2,13 +2,12 @@ import { useState } from 'react'
 import { Card, CardContent, Typography, Box, Button, Tooltip, Alert, CircularProgress } from '@mui/material'
 import { triggerLatencyMeasurementIfNeeded } from '../../utils/latencyTriangulation'
 import { IpInfoResponse } from '../../App'
-import { PollData } from './Popular'
 
 interface PollCardProps {
-  name: string
+  poll: string
   votes: number
-  onClick: () => void
-  handleVote: (poll: PollData) => void
+  onClick: (e: React.MouseEvent<HTMLDivElement>) => void
+  handleVote: (poll: string) => void
   privacyAccepted: boolean
   isUpdating?: boolean
   captchaToken: string | undefined
@@ -17,7 +16,7 @@ interface PollCardProps {
   setShowCaptcha: (show: boolean) => void
 }
 
-function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdating, captchaToken, userIpInfo, requireCaptcha = false, setShowCaptcha }: PollCardProps) {
+function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdating, captchaToken, userIpInfo, requireCaptcha = false, setShowCaptcha }: PollCardProps) {
   const [message, setMessage] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [measuringLatency, setMeasuringLatency] = useState(false)
@@ -27,11 +26,11 @@ function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdatin
   const vote = async (option: string) => {
     setLoading(true)
     try {
-      const response = await fetch(`https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${name}&vote=${option}&captchaToken=${captchaToken}`)
+      const response = await fetch(`https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${poll}&vote=${option}&captchaToken=${captchaToken}`)
       const data = await response.text()
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')
-        handleVote(name)
+        handleVote(poll)
         if (userIpInfo?.ip && requireCaptcha) {
           setMeasuringLatency(true)
           await triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
@@ -47,8 +46,9 @@ function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdatin
   }
 
   const renderVoteButtons = () => {
-    const options = name.includes('_or_')
-      ? name.split('_or_')
+    const options = poll.includes('_or_')
+      ? poll.split('_or_')
+      : poll.startsWith('open_') ? []
       : ['yes', 'no']
 
     return (
@@ -113,9 +113,10 @@ function PollCard({ name, votes, onClick, handleVote, privacyAccepted, isUpdatin
     >
       <CardContent>
         <Typography variant="h6">
-          {name.includes('_or_')
-            ? name.replace(/_/g, ' ') + '?'
-            : name.replace(/_/g, ' ')}
+          {poll.includes('_or_')
+            ? poll.replace('_or_', ' or ') + '?' :
+            poll.startsWith('open_') ? poll.replace(/^open_/g, '') :
+            poll}
         </Typography>
         <Typography color="textSecondary">
           {votes} votes {isUpdating && <CircularProgress size={10} sx={{ ml: 1 }} />}

@@ -218,27 +218,41 @@ const VoteMap: React.FC<VoteMapProps> = ({ votesByCountry, options }) => {
       return 'rgba(128, 128, 128, 0.1)'; // Transparent gray for no data
     }
 
-    const option1Votes = votes[options[0]] || 0;
-    const option2Votes = votes[options[1]] || 0;
-    const totalVotes = option1Votes + option2Votes;
-    
+    const totalVotes = Object.values(votes).reduce((sum, count) => sum + count, 0);
     if (totalVotes === 0) {
       return 'rgba(128, 128, 128, 0.1)';
     }
 
-    const ratio = option1Votes / totalVotes;
-    const opacity = opacityScale(totalVotes);
+    // For binary choices (2 options)
+    if (options.length === 2) {
+      const option1Votes = votes[options[0]] || 0;
+      const ratio = option1Votes / totalVotes;
+      const opacity = opacityScale(totalVotes);
 
-    if (ratio > 0.5) {
-      // More votes for option 1 - blue
-      return `rgba(0, 0, 255, ${opacity})`;
-    } else if (ratio < 0.5) {
-      // More votes for option 2 - red
-      return `rgba(255, 0, 0, ${opacity})`;
-    } else {
-      // Equal votes - purple
-      return `rgba(128, 0, 128, ${opacity})`;
+      if (ratio > 0.5) {
+        return `rgba(0, 0, 255, ${opacity})`; // Blue for option 1
+      } else if (ratio < 0.5) {
+        return `rgba(255, 0, 0, ${opacity})`; // Red for option 2
+      } else {
+        return `rgba(128, 0, 128, ${opacity})`; // Purple for tie
+      }
     }
+
+    // For multiple options (open polls)
+    const winningOption = Object.entries(votes).reduce((max, [option, count]) => 
+      count > (votes[max] || 0) ? option : max
+    , options[0]);
+    
+    const winningVotes = votes[winningOption];
+    const opacity = opacityScale(totalVotes);
+    
+    // Generate a consistent color based on the winning option string
+    const hash = [...winningOption].reduce((acc, char) => {
+      return char.charCodeAt(0) + ((acc << 5) - acc);
+    }, 0);
+    
+    const h = Math.abs(hash % 360); // Hue between 0 and 360
+    return `hsla(${h}, 70%, 50%, ${opacity})`;
   };
 
   // Calculate winning option for each country
@@ -392,14 +406,34 @@ const VoteMap: React.FC<VoteMapProps> = ({ votesByCountry, options }) => {
         </Typography>
       )}
 
-      {/* Updated legend to show flipped colors */}
-      <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 2 }}>
-        <Typography variant="caption" sx={{ color: 'rgb(0, 0, 255)' }}>
-          {options[0]} majority
-        </Typography>
-        <Typography variant="caption" sx={{ color: 'rgb(255, 0, 0)' }}>
-          {options[1]} majority
-        </Typography>
+      {/* Updated legend to show all options */}
+      <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
+        {options.length === 2 ? (
+          <>
+            <Typography variant="caption" sx={{ color: 'rgb(0, 0, 255)' }}>
+              {options[0]} majority
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'rgb(255, 0, 0)' }}>
+              {options[1]} majority
+            </Typography>
+          </>
+        ) : (
+          options.map((option) => {
+            const hash = [...option].reduce((acc, char) => {
+              return char.charCodeAt(0) + ((acc << 5) - acc);
+            }, 0);
+            const h = Math.abs(hash % 360);
+            return (
+              <Typography 
+                key={option} 
+                variant="caption" 
+                sx={{ color: `hsl(${h}, 70%, 50%)` }}
+              >
+                {option}
+              </Typography>
+            );
+          })
+        )}
         <Typography variant="caption" sx={{ color: 'rgb(128, 128, 128)' }}>
           No data
         </Typography>

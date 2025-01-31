@@ -68,17 +68,34 @@ const IPv6BlockMap: React.FC<IPv6BlockMapProps> = ({ votes, options }) => {
       return 'rgba(128, 128, 128, 0.1)';
     }
 
-    const option1Votes = data.votes[options[0]] || 0;
-    const ratio = option1Votes / data.total;
     const opacity = (data.total / maxVotes) * 0.8 + 0.2;
 
-    if (ratio > 0.5) {
-      return `rgba(0, 0, 255, ${opacity})`;
-    } else if (ratio < 0.5) {
-      return `rgba(255, 0, 0, ${opacity})`;
-    } else {
-      return `rgba(128, 0, 128, ${opacity})`;
+    // For binary choices (2 options)
+    if (options.length === 2) {
+      const option1Votes = data.votes[options[0]] || 0;
+      const ratio = option1Votes / data.total;
+
+      if (ratio > 0.5) {
+        return `rgba(0, 0, 255, ${opacity})`;
+      } else if (ratio < 0.5) {
+        return `rgba(255, 0, 0, ${opacity})`;
+      } else {
+        return `rgba(128, 0, 128, ${opacity})`;
+      }
     }
+
+    // For multiple options (open polls)
+    const winningOption = Object.entries(data.votes).reduce((max, [option, count]) => 
+      count > (data.votes[max] || 0) ? option : max
+    , Object.keys(data.votes)[0]);
+
+    // Generate a consistent color based on the winning option string
+    const hash = [...winningOption].reduce((acc, char) => {
+      return char.charCodeAt(0) + ((acc << 5) - acc);
+    }, 0);
+    
+    const h = Math.abs(hash % 360); // Hue between 0 and 360
+    return `hsla(${h}, 70%, 50%, ${opacity})`;
   };
 
   return (
@@ -140,13 +157,33 @@ const IPv6BlockMap: React.FC<IPv6BlockMapProps> = ({ votes, options }) => {
       </Box>
 
       {/* Legend */}
-      <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 2 }}>
-        <Typography variant="caption" sx={{ color: 'rgb(0, 0, 255)' }}>
-          {options[0]} majority
-        </Typography>
-        <Typography variant="caption" sx={{ color: 'rgb(255, 0, 0)' }}>
-          {options[1]} majority
-        </Typography>
+      <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
+        {options.length === 2 ? (
+          <>
+            <Typography variant="caption" sx={{ color: 'rgb(0, 0, 255)' }}>
+              {options[0]} majority
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'rgb(255, 0, 0)' }}>
+              {options[1]} majority
+            </Typography>
+          </>
+        ) : (
+          options.map((option) => {
+            const hash = [...option].reduce((acc, char) => {
+              return char.charCodeAt(0) + ((acc << 5) - acc);
+            }, 0);
+            const h = Math.abs(hash % 360);
+            return (
+              <Typography 
+                key={option} 
+                variant="caption" 
+                sx={{ color: `hsl(${h}, 70%, 50%)` }}
+              >
+                {option}
+              </Typography>
+            );
+          })
+        )}
         <Typography variant="caption" sx={{ color: 'rgb(128, 128, 128)' }}>
           No data
         </Typography>

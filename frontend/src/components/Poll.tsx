@@ -28,6 +28,7 @@ import ASNTreemap from './ASNTreemap'
 import { IpInfoResponse } from '../App'
 import { triggerLatencyMeasurementIfNeeded } from '../utils/latencyTriangulation'
 import { parseCSV, hasRequiredFields } from '../utils/csvParser'
+import { POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
 
 interface VoteHistory {
   date: string;
@@ -117,7 +118,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
     if (pollFromPath) {
       setPoll(pollFromPath)
       if (poll !== pollFromPath) {
-        fetchResults(pollFromPath, true)
+        fetchResults(pollFromPath, true, isOpen)
       }
     }
   }, [location])
@@ -138,7 +139,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
 
   const filterOpen = Boolean(filterAnchorEl)
 
-  const fetchResults = async (pollId: string, refresh: boolean = true) => {
+  const fetchResults = async (pollId: string, refresh: boolean = true, isOpen: boolean = false) => {
     try {
       const now = Date.now();
 
@@ -167,7 +168,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
       }
 
       // Fetch fresh data
-      const response = await fetch(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${pollId}&refresh=${refresh}`);
+      const response = await fetch(`${POLL_DATA_HOST}/?poll=${pollId}&refresh=${refresh}&isOpen=${isOpen}`);
       if (response.status === 200) {
         const text = await response.text();
         const allVoteData = text.split('\n').filter(line => line.trim());
@@ -282,14 +283,14 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
     try {
       const votePayload = isOpenPoll && showCustomInput ? customOption : vote
       const response = await fetch(
-        `https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${poll}&vote=${votePayload}&captchaToken=${captchaToken}${isOpenPoll ? '&isOpen=true' : ''}`
+        `${SUBMIT_VOTE_HOST}/?poll=${poll}&vote=${votePayload}&captchaToken=${captchaToken}${isOpenPoll ? '&isOpen=true' : ''}`
       )
       const data = await response.text()
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')
         // Trigger updating popular polls
         fetch(
-          `https://iqpemyqp6lwvg7x6ds3osrs6nm0fcjwy.lambda-url.us-east-1.on.aws/?limit=15&offset=0&seed=1&q=&pollToUpdate=${poll}`
+          `${POPULAR_POLLS_HOST}/?limit=15&offset=0&seed=1&q=&pollToUpdate=${encodeURIComponent(poll)}`
         )
         if (userIpInfo?.ip && requireCaptcha) {
           setMeasuringLatency(true)
@@ -302,7 +303,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
           setCaptchaToken('')
         }
       }
-      fetchResults(poll, true)
+      fetchResults(poll, true, isOpenPoll)
     } catch (error) {
       setMessage('Error submitting vote')
     }
@@ -382,17 +383,28 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   const renderVoteHistory = () => {
     if (voteHistory.length === 0) return null
 
-    const options = poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']
-    const traces = options.map((option, i) => ({
-      x: voteHistory.map(day => day.date),
-      y: voteHistory.map(day => day.votes[option] || 0),
-      name: option,
-      type: 'scatter' as const,
-      mode: 'lines' as const,
-      line: {
-        color: i === 0 ? '#4169E1' : '#ff6969'
+    const options = isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])
+    const traces = options.map((option) => {
+      // Generate consistent color for each option
+      const hash = [...option].reduce((acc, char) => {
+        return char.charCodeAt(0) + ((acc << 5) - acc);
+      }, 0);
+      const h = Math.abs(hash % 360);
+      
+      return {
+        x: voteHistory.map(day => day.date),
+        y: voteHistory.map(day => day.votes[option] || 0),
+        name: option,
+        type: 'scatter' as const,
+        mode: 'lines' as const,
+        line: {
+          // Use consistent colors with other visualizations
+          color: options.length === 2 ? 
+            (option === options[0] ? '#4169E1' : '#ff6969') : // Binary choice
+            `hsl(${h}, 70%, 50%)` // Multiple options
+        }
       }
-    }))
+    })
 
     return (
       <Box sx={{ mt: 4 }}>
@@ -431,7 +443,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
               paper_bgcolor: 'transparent',
               plot_bgcolor: 'transparent',
               dragmode: chartZoomEnabled ? 'zoom' : false,
-              hovermode: false
+              hovermode: 'x unified'
             }}
             config={{
               displayModeBar: true,
@@ -635,7 +647,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
     if (!poll) return;
     
     // Direct download from the API endpoint
-    window.open(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=true`, '_blank');
+    window.open(`${POLL_DATA_HOST}/?poll=${poll}&refresh=true&isOpen=${isOpenPoll}`, '_blank');
   };
 
   return (
@@ -761,32 +773,32 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
             <>
               <VoteMap 
                 votesByCountry={votesByCountry} 
-                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']} 
+                options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])} 
               />
               
               <ASNTreemap
                 asnData={asnData}
-                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']}
+                options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
               />
               
               <IPBlockMap
                 votes={filteredVotes.map(v => ({
                   ip: v.masked_ip,
-                  vote: v.vote,
+                  vote: isOpenPoll ? (v.custom_option || v.vote) : v.vote,
                   country: v.country_geoip,
                   asn_name_geoip: v.asn_name_geoip
                 }))}
-                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']}
+                options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
               />
               
               <IPv6BlockMap
                 votes={filteredVotes.map(v => ({
                   ip: v.masked_ip,
-                  vote: v.vote,
+                  vote: isOpenPoll ? (v.custom_option || v.vote) : v.vote,
                   country: v.country_geoip,
                   asn_name_geoip: v.asn_name_geoip
                 }))}
-                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']}
+                options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
               />
               
               <Box sx={{ mt: 2, mb: 4 }}>
