@@ -50,7 +50,8 @@ function Header({ isSidebarOpen, setIsSidebarOpen, onSearchChange }: HeaderProps
         <img 
           src="/img/logo.png" 
           alt="IP Vote Logo" 
-          style={{ height: '24px', marginRight: '8px' }}
+          style={{ height: '24px', marginRight: '8px', cursor: 'pointer' }}
+          onClick={() => navigate('/ui/popular')}
         />
         <Typography 
           variant="h6" 
@@ -75,6 +76,12 @@ function Header({ isSidebarOpen, setIsSidebarOpen, onSearchChange }: HeaderProps
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleSearchSubmit}
+          style={{
+            fontSize: '16px',
+            height: '40px',
+            width: '100%',
+            padding: '0 12px'
+          }}
         />
       </div>
       <button className="create-button desktop-only" onClick={() => navigate('/ui/create')}>
