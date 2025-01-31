@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { Card, CardContent, Typography, Box, Button, Tooltip, Alert, CircularProgress } from '@mui/material'
 import { triggerLatencyMeasurementIfNeeded } from '../../utils/latencyTriangulation'
 import { IpInfoResponse } from '../../App'
+import { PollData } from './Popular'
 
 interface PollCardProps {
   name: string
   votes: number
   onClick: () => void
-  handleVote: (pollName: string) => void
+  handleVote: (poll: PollData) => void
   privacyAccepted: boolean
   isUpdating?: boolean
   captchaToken: string | undefined

@@ -7,10 +7,11 @@ import { IpInfoResponse } from '../../App'
 
 const LIMIT = 15
 
-interface PollData {
+export interface PollData {
   name: string
   votes: number
   isUpdating?: boolean
+  isOpen?: boolean
 }
 
 interface PopularProps {
@@ -66,8 +67,9 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
       )
       const res = await response.json()
       const formattedPolls = res.data.map(([name, votes]: [string, number]) => ({
-        name,
-        votes
+        name: name.startsWith('open_') ? name.substring(5) : name,
+        votes,
+        isOpen: name.startsWith('open_')
       }))
       
       if (loadMore) {
@@ -102,13 +104,14 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
     setOffset(prev => prev + LIMIT)
   }
 
-  const handlePollClick = (pollName: string, event: React.MouseEvent) => {
+  const handlePollClick = (poll: PollData, event: React.MouseEvent) => {
+    const path = poll.isOpen ? `/open/${encodeURIComponent(poll.name)}` : `/${encodeURIComponent(poll.name)}`
     if (event.metaKey || event.ctrlKey) {
       // Open in new tab
-      window.open(`/${encodeURIComponent(pollName)}`, '_blank')
+      window.open(path, '_blank')
     } else {
       // Regular navigation
-      navigate(`/${encodeURIComponent(pollName)}`)
+      navigate(path)
     }
   }
 
@@ -137,7 +140,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
           key={poll.name}
           name={poll.name}
           votes={poll.votes}
-          onClick={(e) => handlePollClick(poll.name, e)}
+          onClick={(e) => handlePollClick(poll, e)}
           handleVote={handleVote}
           privacyAccepted={privacyAccepted}
           isUpdating={poll.isUpdating}
@@ -145,6 +148,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
           userIpInfo={userIpInfo}
           requireCaptcha={poll.votes > 1000}
           setShowCaptcha={setShowCaptcha}
+          isOpen={poll.isOpen}
         />
       ))}
       

@@ -14,7 +14,8 @@ import {
   FormLabel,
   Paper,
   Popover,
-  Tooltip
+  Tooltip,
+  TextField
 } from '@mui/material'
 import Plot from 'react-plotly.js'
 import DownloadIcon from '@mui/icons-material/Download'
@@ -51,6 +52,7 @@ interface VoteData {
   is_tor?: string;
   is_vpn?: string;
   is_cloud_provider?: string;
+  custom_option?: string;
 }
 
 interface PollProps {
@@ -87,10 +89,12 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   const [allVotes, setAllVotes] = useState<string[]>([])
   const [asnData, setAsnData] = useState<ASNData[]>([])
   const [chartZoomEnabled, setChartZoomEnabled] = useState(false);
-  const [filteredVotes, setFilteredVotes] = useState<VoteData[]>([]);
+  const [filteredVotes, setFilteredVotes] = useState<VoteData[]>([])
   const [measuringLatency, setMeasuringLatency] = useState(false);
-
   const [requireCaptcha, setRequireCaptcha] = useState(false)
+  const [isOpenPoll, setIsOpenPoll] = useState(false)
+  const [customOption, setCustomOption] = useState('')
+  const [showCustomInput, setShowCustomInput] = useState(false)
 
   useEffect(() => {
     setRequireCaptcha(allVotes.length > 1000)
@@ -100,16 +104,18 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
 
   useEffect(() => {
     // Get poll ID from URL path only
-    const pollFromPath = decodeURIComponent(location.pathname.split('/')[1])
+    const pathParts = location.pathname.split('/')
+    const isOpen = pathParts[1] === 'open'
+    setIsOpenPoll(isOpen)
+    const pollFromPath = decodeURIComponent(isOpen ? pathParts[2] : pathParts[1])
+    
     if (pollFromPath.includes('.')) {
-      // navigate to home
       navigate('/')
-      return;
+      return
     }
 
     if (pollFromPath) {
       setPoll(pollFromPath)
-      // Only fetch if poll has changed
       if (poll !== pollFromPath) {
         fetchResults(pollFromPath, true)
       }
@@ -193,7 +199,14 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
     setFilteredVotes(filteredVotes);
 
     // Process current totals
-    if (poll.includes('_or_')) {
+    if (isOpenPoll) {
+      const voteCounts: { [key: string]: number } = {};
+      filteredVotes.forEach(vote => {
+        const option = vote.custom_option || vote.vote;
+        voteCounts[option] = (voteCounts[option] || 0) + 1;
+      });
+      setResults(voteCounts);
+    } else if (poll.includes('_or_')) {
       const options = poll.split('_or_');
       const option1Votes = filteredVotes.filter(vote => vote.vote === options[0]).length;
       const option2Votes = filteredVotes.filter(vote => vote.vote === options[1]).length;
@@ -267,7 +280,10 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   const handleVote = async (vote: string) => {
     setLoading(true)
     try {
-      const response = await fetch(`https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${poll}&vote=${vote}&captchaToken=${captchaToken}`)
+      const votePayload = isOpenPoll && showCustomInput ? customOption : vote
+      const response = await fetch(
+        `https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${poll}&vote=${votePayload}&captchaToken=${captchaToken}${isOpenPoll ? '&isOpen=true' : ''}`
+      )
       const data = await response.text()
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')
@@ -447,6 +463,103 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   }
 
   const renderVoteButtons = () => {
+    if (isOpenPoll) {
+      const existingOptions = Object.entries(results)
+        .sort(([,a], [,b]) => b - a) // Sort by vote count descending
+        .map(([option, count]) => {
+          const percentage = count / Object.values(results).reduce((a, b) => a + b, 0) * 100;
+          return (
+            <Box key={option} sx={{ mb: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, gap: 2 }}>
+              <Box sx={{ flex: 1, order: { xs: 1, sm: 2 } }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography>{count} votes</Typography>
+                  <Typography>{percentage.toFixed(2)}%</Typography>
+                </Box>
+                <LinearProgress 
+                  variant="determinate" 
+                  value={percentage}
+                  sx={{
+                    height: 20,
+                    borderRadius: 1,
+                    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                    '& .MuiLinearProgress-bar': {
+                      backgroundColor: 'primary.main',
+                    }
+                  }}
+                />
+              </Box>
+              <Tooltip 
+                title={!privacyAccepted ? "Please accept the privacy policy first" : 
+                      (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}
+                arrow
+                disableHoverListener={allowVote}
+                disableFocusListener={allowVote}
+                disableTouchListener={allowVote}
+                placement="top"
+              >
+                <div style={{ display: 'inline-block' }}>
+                  <Button
+                    variant="contained"
+                    disabled={!allowVote}
+                    onClick={() => handleVote(option)}
+                    sx={{ 
+                      minWidth: '100px',
+                      order: { xs: 2, sm: 1 },
+                      width: { xs: '100%', sm: 'auto' }
+                    }}
+                  >
+                    {option}
+                  </Button>
+                </div>
+              </Tooltip>
+            </Box>
+          );
+        });
+
+      return (
+        <>
+          {existingOptions}
+          {!showCustomInput ? (
+            <Button
+              variant="outlined"
+              onClick={() => setShowCustomInput(true)}
+              sx={{ mt: 2 }}
+            >
+              Add New Option
+            </Button>
+          ) : (
+            <Box sx={{ mt: 2 }}>
+              <TextField
+                fullWidth
+                value={customOption}
+                onChange={(e) => setCustomOption(e.target.value)}
+                placeholder="Enter your option"
+                sx={{ mb: 1 }}
+              />
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="contained"
+                  disabled={!allowVote || !customOption.trim()}
+                  onClick={() => handleVote(customOption)}
+                >
+                  Submit
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setShowCustomInput(false)
+                    setCustomOption('')
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </>
+      );
+    }
+
     if (Object.keys(results).length > 0) {
       return renderResults();
     }

@@ -15,6 +15,7 @@ function CreatePoll() {
   const [optionA, setOptionA] = useState('')
   const [optionB, setOptionB] = useState('')
   const [yesNoQuestion, setYesNoQuestion] = useState('')
+  const [openQuestion, setOpenQuestion] = useState('')
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
@@ -50,6 +51,19 @@ function CreatePoll() {
 
       const pollPath = encodeURIComponent(cleanOptionA) + '_or_' + encodeURIComponent(cleanOptionB)
       navigate(`/${pollPath}`)
+    } else if (pollType === 'open') {
+      const cleanQuestion = sanitizePollText(openQuestion)
+
+      if (!cleanQuestion) {
+        setError('Please enter your question')
+        return
+      }
+      if (cleanQuestion.length > 200) {
+        setError('Question must be 200 characters or less')
+        return
+      }
+
+      navigate(`/open/${encodeURIComponent(cleanQuestion)}`)
     } else {
       const cleanQuestion = sanitizePollText(yesNoQuestion)
 
@@ -91,6 +105,11 @@ function CreatePoll() {
           control={<Radio />} 
           label="A or B poll" 
         />
+        <FormControlLabel 
+          value="open" 
+          control={<Radio />} 
+          label="Open poll (users can add their own options)" 
+        />
       </RadioGroup>
 
       {pollType === 'or' ? (
@@ -110,6 +129,14 @@ function CreatePoll() {
             sx={{ mb: 2 }}
           />
         </>
+      ) : pollType === 'open' ? (
+        <TextField
+          fullWidth
+          value={openQuestion}
+          onChange={(e) => setOpenQuestion(e.target.value)}
+          placeholder="Question (letters, numbers, and basic punctuation allowed)"
+          sx={{ mb: 2 }}
+        />
       ) : (
         <TextField
           fullWidth
