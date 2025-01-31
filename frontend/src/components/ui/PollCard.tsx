@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Card, CardContent, Typography, Box, Button, Tooltip, Alert, CircularProgress } from '@mui/material'
 import { triggerLatencyMeasurementIfNeeded } from '../../utils/latencyTriangulation'
 import { IpInfoResponse } from '../../App'
+import { SUBMIT_VOTE_HOST } from '../../constants'
 
 interface PollCardProps {
   poll: string
@@ -26,7 +27,7 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
   const vote = async (option: string) => {
     setLoading(true)
     try {
-      const response = await fetch(`https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${poll}&vote=${option}&captchaToken=${captchaToken}`)
+      const response = await fetch(`${SUBMIT_VOTE_HOST}/?poll=${poll}&vote=${option}&captchaToken=${captchaToken}`)
       const data = await response.text()
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')

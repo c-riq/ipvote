@@ -7,6 +7,7 @@ import Sidebar from './components/Sidebar'
 import MainContent from './components/MainContent'
 import Poll from './components/Poll'
 import './App.css'
+import { IP_INFO_HOST } from './constants'
 
 interface PrivacyState {
   accepted: boolean;
@@ -95,7 +96,7 @@ function App() {
       }
     }
     // Fetch user's IP
-    fetch('https://awcntp2t5izba44go77lc4evvy0ewfzy.lambda-url.us-east-1.on.aws/')
+    fetch(IP_INFO_HOST)
       .then(response => response.json() as Promise<IpInfoResponse>)
       .then(data => {
         setUserIpInfo(data)

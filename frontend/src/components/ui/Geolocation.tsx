@@ -430,7 +430,7 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
     };
 
     try {
-      await fetch(`https://lzajzm5uwcrbkn3ndakafsfsga0rcqib.lambda-url.us-east-1.on.aws/?nonce=${firstNonce || 'no_nonce'}`, {
+      await fetch(`${dataCenters.find(dc => dc.name_long === 'us-east-1')?.url}/?nonce=${firstNonce || 'no_nonce'}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

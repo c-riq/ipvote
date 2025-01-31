@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { TextField, Button, Alert, CircularProgress } from '@mui/material'
+import { NEWSLETTER_HOST } from '../../constants'
 
 function Newsletter() {
   const [email, setEmail] = useState('')
@@ -17,7 +18,7 @@ function Newsletter() {
     setLoading(true)
     try {
       const response = await fetch(
-        `https://4c6h4byudhvb77kisfehckmaim0dmswz.lambda-url.us-east-1.on.aws/?email=${encodeURIComponent(email)}`
+        `${NEWSLETTER_HOST}/?email=${encodeURIComponent(email)}`
       )
       const data = await response.json()
       setMessage(data.message)
