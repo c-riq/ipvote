@@ -540,12 +540,12 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
             <Button
               variant="outlined"
               onClick={() => setShowCustomInput(true)}
-              sx={{ mt: 2 }}
+              sx={{ mt: 2, mb: 4 }}
             >
               Add New Option
             </Button>
           ) : (
-            <Box sx={{ mt: 2 }}>
+            <Box sx={{ mt: 2, mb: 4 }}>
               <TextField
                 fullWidth
                 value={customOption}
