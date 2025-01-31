@@ -14,7 +14,8 @@ import {
   FormLabel,
   Paper,
   Popover,
-  Tooltip
+  Tooltip,
+  TextField
 } from '@mui/material'
 import Plot from 'react-plotly.js'
 import DownloadIcon from '@mui/icons-material/Download'
@@ -27,6 +28,7 @@ import ASNTreemap from './ASNTreemap'
 import { IpInfoResponse } from '../App'
 import { triggerLatencyMeasurementIfNeeded } from '../utils/latencyTriangulation'
 import { parseCSV, hasRequiredFields } from '../utils/csvParser'
+import { POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
 
 interface VoteHistory {
   date: string;
@@ -51,6 +53,7 @@ interface VoteData {
   is_tor?: string;
   is_vpn?: string;
   is_cloud_provider?: string;
+  custom_option?: string;
 }
 
 interface PollProps {
@@ -87,10 +90,12 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   const [allVotes, setAllVotes] = useState<string[]>([])
   const [asnData, setAsnData] = useState<ASNData[]>([])
   const [chartZoomEnabled, setChartZoomEnabled] = useState(false);
-  const [filteredVotes, setFilteredVotes] = useState<VoteData[]>([]);
+  const [filteredVotes, setFilteredVotes] = useState<VoteData[]>([])
   const [measuringLatency, setMeasuringLatency] = useState(false);
-
   const [requireCaptcha, setRequireCaptcha] = useState(false)
+  const [isOpenPoll, setIsOpenPoll] = useState(false)
+  const [customOption, setCustomOption] = useState('')
+  const [showCustomInput, setShowCustomInput] = useState(false)
 
   useEffect(() => {
     setRequireCaptcha(allVotes.length > 1000)
@@ -100,18 +105,20 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
 
   useEffect(() => {
     // Get poll ID from URL path only
-    const pollFromPath = decodeURIComponent(location.pathname.split('/')[1])
+    const pathParts = location.pathname.split('/')
+    const isOpen = pathParts[1] === 'open'
+    setIsOpenPoll(isOpen)
+    const pollFromPath = decodeURIComponent(isOpen ? pathParts[2] : pathParts[1])
+    
     if (pollFromPath.includes('.')) {
-      // navigate to home
       navigate('/')
-      return;
+      return
     }
 
     if (pollFromPath) {
       setPoll(pollFromPath)
-      // Only fetch if poll has changed
       if (poll !== pollFromPath) {
-        fetchResults(pollFromPath, true)
+        fetchResults(pollFromPath, true, isOpen)
       }
     }
   }, [location])
@@ -132,7 +139,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
 
   const filterOpen = Boolean(filterAnchorEl)
 
-  const fetchResults = async (pollId: string, refresh: boolean = true) => {
+  const fetchResults = async (pollId: string, refresh: boolean = true, isOpen: boolean = false) => {
     try {
       const now = Date.now();
 
@@ -161,7 +168,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
       }
 
       // Fetch fresh data
-      const response = await fetch(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${pollId}&refresh=${refresh}`);
+      const response = await fetch(`${POLL_DATA_HOST}/?poll=${pollId}&refresh=${refresh}&isOpen=${isOpen}`);
       if (response.status === 200) {
         const text = await response.text();
         const allVoteData = text.split('\n').filter(line => line.trim());
@@ -193,7 +200,14 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
     setFilteredVotes(filteredVotes);
 
     // Process current totals
-    if (poll.includes('_or_')) {
+    if (isOpenPoll) {
+      const voteCounts: { [key: string]: number } = {};
+      filteredVotes.forEach(vote => {
+        const option = vote.custom_option || vote.vote;
+        voteCounts[option] = (voteCounts[option] || 0) + 1;
+      });
+      setResults(voteCounts);
+    } else if (poll.includes('_or_')) {
       const options = poll.split('_or_');
       const option1Votes = filteredVotes.filter(vote => vote.vote === options[0]).length;
       const option2Votes = filteredVotes.filter(vote => vote.vote === options[1]).length;
@@ -267,13 +281,16 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   const handleVote = async (vote: string) => {
     setLoading(true)
     try {
-      const response = await fetch(`https://a47riucyg3q3jjnn5gic56gtcq0upfxg.lambda-url.us-east-1.on.aws/?poll=${poll}&vote=${vote}&captchaToken=${captchaToken}`)
+      const votePayload = isOpenPoll && showCustomInput ? customOption : vote
+      const response = await fetch(
+        `${SUBMIT_VOTE_HOST}/?poll=${poll}&vote=${votePayload}&captchaToken=${captchaToken}${isOpenPoll ? '&isOpen=true' : ''}`
+      )
       const data = await response.text()
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')
         // Trigger updating popular polls
         fetch(
-          `https://iqpemyqp6lwvg7x6ds3osrs6nm0fcjwy.lambda-url.us-east-1.on.aws/?limit=15&offset=0&seed=1&q=&pollToUpdate=${poll}`
+          `${POPULAR_POLLS_HOST}/?limit=15&offset=0&seed=1&q=&pollToUpdate=${encodeURIComponent(poll)}`
         )
         if (userIpInfo?.ip && requireCaptcha) {
           setMeasuringLatency(true)
@@ -286,7 +303,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
           setCaptchaToken('')
         }
       }
-      fetchResults(poll, true)
+      fetchResults(poll, true, isOpenPoll)
     } catch (error) {
       setMessage('Error submitting vote')
     }
@@ -366,17 +383,28 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   const renderVoteHistory = () => {
     if (voteHistory.length === 0) return null
 
-    const options = poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']
-    const traces = options.map((option, i) => ({
-      x: voteHistory.map(day => day.date),
-      y: voteHistory.map(day => day.votes[option] || 0),
-      name: option,
-      type: 'scatter' as const,
-      mode: 'lines' as const,
-      line: {
-        color: i === 0 ? '#4169E1' : '#ff6969'
+    const options = isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])
+    const traces = options.map((option) => {
+      // Generate consistent color for each option
+      const hash = [...option].reduce((acc, char) => {
+        return char.charCodeAt(0) + ((acc << 5) - acc);
+      }, 0);
+      const h = Math.abs(hash % 360);
+      
+      return {
+        x: voteHistory.map(day => day.date),
+        y: voteHistory.map(day => day.votes[option] || 0),
+        name: option,
+        type: 'scatter' as const,
+        mode: 'lines' as const,
+        line: {
+          // Use consistent colors with other visualizations
+          color: options.length === 2 ? 
+            (option === options[0] ? '#4169E1' : '#ff6969') : // Binary choice
+            `hsl(${h}, 70%, 50%)` // Multiple options
+        }
       }
-    }))
+    })
 
     return (
       <Box sx={{ mt: 4 }}>
@@ -415,7 +443,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
               paper_bgcolor: 'transparent',
               plot_bgcolor: 'transparent',
               dragmode: chartZoomEnabled ? 'zoom' : false,
-              hovermode: false
+              hovermode: 'x unified'
             }}
             config={{
               displayModeBar: true,
@@ -447,6 +475,108 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
   }
 
   const renderVoteButtons = () => {
+    if (isOpenPoll) {
+      const existingOptions = Object.entries(results)
+        .sort(([,a], [,b]) => b - a) // Sort by vote count descending
+        .map(([option, count]) => {
+          const percentage = count / Object.values(results).reduce((a, b) => a + b, 0) * 100;
+          return (
+            <Box key={option} sx={{ mb: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, gap: 2 }}>
+              <Box sx={{ flex: 1, order: { xs: 1, sm: 2 } }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography>{count} votes</Typography>
+                  <Typography>{percentage.toFixed(2)}%</Typography>
+                </Box>
+                <LinearProgress 
+                  variant="determinate" 
+                  value={percentage}
+                  sx={{
+                    height: 20,
+                    borderRadius: 1,
+                    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                    '& .MuiLinearProgress-bar': {
+                      backgroundColor: 'primary.main',
+                    }
+                  }}
+                />
+              </Box>
+              <Tooltip 
+                title={!privacyAccepted ? "Please accept the privacy policy first" : 
+                      (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}
+                arrow
+                disableHoverListener={allowVote}
+                disableFocusListener={allowVote}
+                disableTouchListener={allowVote}
+                placement="top"
+              >
+                <div style={{ display: 'inline-block' }}>
+                  <Button
+                    variant="contained"
+                    disabled={!allowVote}
+                    onClick={() => handleVote(option)}
+                    sx={{ 
+                      minWidth: '100px',
+                      order: { xs: 2, sm: 1 },
+                      width: { xs: '100%', sm: 'auto' },
+                      textTransform: 'none'
+                    }}
+                  >
+                    {option}
+                  </Button>
+                </div>
+              </Tooltip>
+            </Box>
+          );
+        });
+
+      return (
+        <>
+          {Object.keys(results).length > 0 ? existingOptions : (
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              No votes yet. Be the first to vote!
+            </Typography>
+          )}
+          {!showCustomInput ? (
+            <Button
+              variant="outlined"
+              onClick={() => setShowCustomInput(true)}
+              sx={{ mt: 2, mb: 4 }}
+            >
+              Add New Option
+            </Button>
+          ) : (
+            <Box sx={{ mt: 2, mb: 4 }}>
+              <TextField
+                fullWidth
+                value={customOption}
+                onChange={(e) => setCustomOption(e.target.value)}
+                placeholder="Enter your option"
+                sx={{ mb: 1 }}
+              />
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="contained"
+                  disabled={!allowVote || !customOption.trim()}
+                  onClick={() => handleVote(customOption)}
+                >
+                  Submit
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setShowCustomInput(false)
+                    setCustomOption('')
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </>
+      );
+    }
+
     if (Object.keys(results).length > 0) {
       return renderResults();
     }
@@ -522,7 +652,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
     if (!poll) return;
     
     // Direct download from the API endpoint
-    window.open(`https://qcnwhqz64hoatxs4ttdxpml7ze0mxrvg.lambda-url.us-east-1.on.aws/?poll=${poll}&refresh=true`, '_blank');
+    window.open(`${POLL_DATA_HOST}/?poll=${poll}&refresh=true&isOpen=${isOpenPoll}`, '_blank');
   };
 
   return (
@@ -648,32 +778,32 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
             <>
               <VoteMap 
                 votesByCountry={votesByCountry} 
-                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']} 
+                options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])} 
               />
               
               <ASNTreemap
                 asnData={asnData}
-                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']}
+                options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
               />
               
               <IPBlockMap
                 votes={filteredVotes.map(v => ({
                   ip: v.masked_ip,
-                  vote: v.vote,
+                  vote: isOpenPoll ? (v.custom_option || v.vote) : v.vote,
                   country: v.country_geoip,
                   asn_name_geoip: v.asn_name_geoip
                 }))}
-                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']}
+                options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
               />
               
               <IPv6BlockMap
                 votes={filteredVotes.map(v => ({
                   ip: v.masked_ip,
-                  vote: v.vote,
+                  vote: isOpenPoll ? (v.custom_option || v.vote) : v.vote,
                   country: v.country_geoip,
                   asn_name_geoip: v.asn_name_geoip
                 }))}
-                options={poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no']}
+                options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
               />
               
               <Box sx={{ mt: 2, mb: 4 }}>

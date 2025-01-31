@@ -33,16 +33,32 @@ function ASNTreemap({ asnData, options }: ASNTreemapProps) {
       return 'rgba(128, 128, 128, 0.7)' // No votes
     }
 
-    const option1Votes = votes[options[0]] || 0
-    const ratio = option1Votes / total
-    
-    if (ratio === 0.5) {
-      return 'rgba(128, 0, 128, 0.7)' // Tie: light purple
-    }
+    if (options.length === 2) {
+      // Binary choice logic
+      const option1Votes = votes[options[0]] || 0
+      const ratio = option1Votes / total
+      
+      if (ratio === 0.5) {
+        return 'rgba(128, 0, 128, 0.7)' // Tie: light purple
+      }
 
-    const red = Math.round(255 * (1 - ratio))
-    const blue = Math.round(255 * ratio)
-    return `rgba(${red}, 0, ${blue}, 0.7)`
+      const red = Math.round(255 * (1 - ratio))
+      const blue = Math.round(255 * ratio)
+      return `rgba(${red}, 0, ${blue}, 0.7)`
+    } else {
+      // Multiple options logic
+      const winner = Object.entries(votes).reduce((max, [option, count]) => 
+        count > (votes[max] || 0) ? option : max
+      , Object.keys(votes)[0])
+
+      // Generate consistent color based on winning option
+      const hash = [...winner].reduce((acc, char) => {
+        return char.charCodeAt(0) + ((acc << 5) - acc)
+      }, 0)
+      
+      const h = Math.abs(hash % 360) // Hue between 0 and 360
+      return `hsla(${h}, 70%, 50%, 0.7)`
+    }
   }
 
   // Create hover text with vote breakdown
@@ -63,11 +79,11 @@ function ASNTreemap({ asnData, options }: ASNTreemapProps) {
     const total = Object.values(votes).reduce((a, b) => a + b, 0)
     if (total === 0) return acc
     
-    const option1Votes = votes[options[0]] || 0
-    const ratio = option1Votes / total
+    const winner = Object.entries(votes).reduce((max, [option, count]) => 
+      count > (votes[max] || 0) ? option : max
+    , Object.keys(votes)[0])
     
-    if (ratio !== 0.5) {
-      const winner = ratio > 0.5 ? options[0] : options[1]
+    if (winner) {
       acc[winner] = (acc[winner] || 0) + 1
     }
     return acc
@@ -130,30 +146,40 @@ function ASNTreemap({ asnData, options }: ASNTreemapProps) {
         }}>
           <Box sx={{ 
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, auto)' },
+            gridTemplateColumns: { xs: '1fr', sm: options.length === 2 ? 'repeat(2, auto)' : 'repeat(auto-fill, minmax(150px, 1fr))' },
             gap: 2
           }}>
-            {options.map((option, i) => (
-              <Box key={option} sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 1,
-                minWidth: 0
-              }}>
-                <Box sx={{ 
-                  width: 12, 
-                  height: 12, 
-                  flexShrink: 0,
-                  bgcolor: i === 0 ? 'rgb(0, 0, 255)' : 'rgb(255, 0, 0)',
-                  borderRadius: '50%'
-                }} />
-                <Typography noWrap>
-                  {option}: {asnMajorityVotes[option] || 0}
-                  {' '}
-                  ({totalAsnVotes ? ((asnMajorityVotes[option] || 0) / totalAsnVotes * 100).toFixed(1) : 0}%)
-                </Typography>
-              </Box>
-            ))}
+            {options.map((option, i) => {
+              // Generate consistent color for each option
+              const hash = options.length === 2 ? 0 : [...option].reduce((acc, char) => {
+                return char.charCodeAt(0) + ((acc << 5) - acc)
+              }, 0)
+              const h = Math.abs(hash % 360)
+              
+              return (
+                <Box key={option} sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  minWidth: 0
+                }}>
+                  <Box sx={{ 
+                    width: 12, 
+                    height: 12, 
+                    flexShrink: 0,
+                    bgcolor: options.length === 2 
+                      ? (i === 0 ? 'rgb(0, 0, 255)' : 'rgb(255, 0, 0)')
+                      : `hsl(${h}, 70%, 50%)`,
+                    borderRadius: '50%'
+                  }} />
+                  <Typography noWrap>
+                    {option}: {asnMajorityVotes[option] || 0}
+                    {' '}
+                    ({totalAsnVotes ? ((asnMajorityVotes[option] || 0) / totalAsnVotes * 100).toFixed(1) : 0}%)
+                  </Typography>
+                </Box>
+              )
+            })}
           </Box>
           
           <Typography 

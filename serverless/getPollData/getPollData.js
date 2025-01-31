@@ -14,6 +14,7 @@ const removeForbiddenStrings = (str) => {
 exports.handler = async (event) => {
     const bucket = 'ipvotes';
     const poll = event?.queryStringParameters?.poll;
+    const isOpen = event?.queryStringParameters?.isOpen === 'true';
     const forceRefresh = event?.queryStringParameters?.refresh === 'true';
     
     if (!poll) {
@@ -26,7 +27,19 @@ exports.handler = async (event) => {
         };
     }
 
-    const cacheKey = `votes_aggregated_and_masked/poll=${poll}/votes.csv`;
+    // Prevent direct access to open_ prefixed polls
+    if (poll.startsWith('open_')) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Invalid poll name',
+                time: new Date()
+            }),
+        };
+    }
+
+    const pollPath = isOpen ? `open_${poll}` : poll;
+    const cacheKey = `votes_aggregated_and_masked/poll=${pollPath}/votes.csv`;
     
     try {
         // Check cache first if not forcing refresh
@@ -52,7 +65,7 @@ exports.handler = async (event) => {
         }
 
         // Proceed with original aggregation logic
-        const prefix = `votes/poll=${poll}/ip_prefix=`;
+        const prefix = `votes/poll=${pollPath}/ip_prefix=`;
         const files = await listAllS3Files(bucket, prefix);
         const aggregatedData = await aggregateCSVFiles(bucket, files);
 

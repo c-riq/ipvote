@@ -2,6 +2,7 @@ import { FormControlLabel, Checkbox, CircularProgress } from '@mui/material'
 import HCaptcha from '@hcaptcha/react-hcaptcha'
 import { useState, useCallback } from 'react'
 import { IpInfoResponse } from '../../App'
+import { CAPTCHA_HOST } from '../../constants'
 
 interface PrivacyAcceptProps {
   userIpInfo: IpInfoResponse | null
@@ -53,7 +54,7 @@ function PrivacyAccept({ userIpInfo, accepted, onAcceptChange, setCaptchaToken, 
     setIsVerifying(true);
     if (userIpInfo?.ip) {
       try {
-        const response = await fetch('https://fvy6d5uwjmmhjv3bvbtlrcw5xu0ldcjf.lambda-url.us-east-1.on.aws/', {
+        const response = await fetch(CAPTCHA_HOST, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

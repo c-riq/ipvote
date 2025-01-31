@@ -62,7 +62,7 @@ async function aggregateVotes(query = '', pollToUpdate = null) {
                 if (!line) continue;
                 
                 const [, , poll] = line.split(',');
-                if (poll !== pollFromPath) continue;
+                if (poll !== pollFromPath && poll !== pollFromPath.replace(/^open_/g, '')) continue;
                 
                 const currentCount = pollCounts.get(pollFromPath) || 0;
                 pollCounts.set(pollFromPath, currentCount + 1);

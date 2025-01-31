@@ -4,13 +4,15 @@ import { useNavigate } from 'react-router-dom'
 import PollCard from './PollCard'
 import PrivacyAccept from './PrivacyAccept'
 import { IpInfoResponse } from '../../App'
+import { POPULAR_POLLS_HOST } from '../../constants'
 
 const LIMIT = 15
 
-interface PollData {
+export interface PollData {
   name: string
   votes: number
   isUpdating?: boolean
+  isOpen?: boolean
 }
 
 interface PopularProps {
@@ -62,14 +64,15 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
 
     try {
       const response = await fetch(
-        `https://iqpemyqp6lwvg7x6ds3osrs6nm0fcjwy.lambda-url.us-east-1.on.aws/?limit=${LIMIT}&offset=${offset}&seed=${seed}&q=${encodeURIComponent(query)}&pollToUpdate=${pollToUpdate}`
+        `${POPULAR_POLLS_HOST}/?limit=${LIMIT}&offset=${offset}&seed=${
+          seed}&q=${encodeURIComponent(query)}&pollToUpdate=${pollToUpdate}`
       )
       const res = await response.json()
       const formattedPolls = res.data.map(([name, votes]: [string, number]) => ({
         name,
-        votes
+        votes,
+        isOpen: name.startsWith('open_')
       }))
-      
       if (loadMore) {
         setPolls(prev => [...prev, ...formattedPolls])
       } else if (pollToUpdate) {
@@ -102,18 +105,20 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
     setOffset(prev => prev + LIMIT)
   }
 
-  const handlePollClick = (pollName: string, event: React.MouseEvent) => {
+  const handlePollClick = (poll: string, event: React.MouseEvent) => {
+    const isOpen = poll.startsWith('open_')
+    const path = isOpen ? `/open/${encodeURIComponent(poll.replace(/^open_/g, ''))}` : `/${encodeURIComponent(poll)}`
     if (event.metaKey || event.ctrlKey) {
       // Open in new tab
-      window.open(`/${encodeURIComponent(pollName)}`, '_blank')
+      window.open(path, '_blank')
     } else {
       // Regular navigation
-      navigate(`/${encodeURIComponent(pollName)}`)
+      navigate(path)
     }
   }
 
-  const handleVote = (pollName: string) => {
-    fetchPopularPolls(false, pollName)
+  const handleVote = (poll: string) => {
+    fetchPopularPolls(false, poll)
   }
 
   if (loading) {
@@ -135,7 +140,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
       {polls.map((poll) => (
         <PollCard
           key={poll.name}
-          name={poll.name}
+          poll={poll.name}
           votes={poll.votes}
           onClick={(e) => handlePollClick(poll.name, e)}
           handleVote={handleVote}

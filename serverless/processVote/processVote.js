@@ -104,12 +104,35 @@ module.exports.handler = async (event) => {
 
     const vote = event.queryStringParameters.vote;
     const poll = event.queryStringParameters.poll;
+    const isOpen = event.queryStringParameters.isOpen === 'true';
     const country = event.queryStringParameters.country;
     const hcaptchaToken = event.queryStringParameters.captchaToken;
     const forbiddenStringsRegex = /,|\\n|\\r|\\t|>|<|"/;
 
+    // Prevent polls from being created with open_ prefix
+    if (poll.startsWith('open_')) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Invalid poll name',
+                time: new Date()
+            }),
+        };
+    }
+
     // Validate vote format based on poll type
-    if (poll.includes('_or_')) {
+    if (isOpen) {
+        // For open polls, just validate length and forbidden characters
+        if (!vote || vote.length > 100 || vote.match(forbiddenStringsRegex)) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Vote must be 100 characters or less and contain no special characters',
+                    time: new Date()
+                }),
+            };
+        }
+    } else if (poll.includes('_or_')) {
         // For _or_ polls, vote must match one of the options
         const [option1, option2] = poll.split('_or_');
         if (vote !== option1 && vote !== option2) {
@@ -211,7 +234,9 @@ module.exports.handler = async (event) => {
     const requestIp = event.requestContext.http.sourceIp;
     const timestamp = new Date().getTime();
     const partition = getPartitionKey(requestIp);
-    const fileName = `votes/poll=${poll}/ip_prefix=${partition}/votes.csv`;
+    // Prepend 'open_' to poll name in file path if isOpen is true
+    const pollPath = isOpen ? `open_${poll}` : poll;
+    const fileName = `votes/poll=${pollPath}/ip_prefix=${partition}/votes.csv`;
 
     console.log('Vote file details:', {
         fileName,
