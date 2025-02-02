@@ -58,6 +58,18 @@ function Sidebar({ isOpen }: SidebarProps) {
           </a>
         </li>
         <li>
+          <a href="/privacy_policy.html" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <VerifiedIcon sx={{ fontSize: 20 }} />
+            Privacy Policy
+          </a>
+        </li>
+        <li>
+          <a href="/terms_of_service.html" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <VerifiedIcon sx={{ fontSize: 20 }} />
+            Terms of Service
+          </a>
+        </li>
+        <li>
           <a href="https://globalcoordination.org/" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <PublicIcon sx={{ fontSize: 20 }} />
             globalcoordination.org
