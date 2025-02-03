@@ -6,9 +6,9 @@ export AWS_PROFILE="rix-admin-chris"
 cd "$(dirname "$0")"
 
 REGION="us-east-1"      # N. Virginia
-FUNCTION_NAME="sendSMSChallenge"
+FUNCTION_NAME="verifySMSChallenge"
 ZIP_FILE="function.zip"
-ROLE_ARN="arn:aws:iam::152769399840:role/service-role/sendSMSChallenge-role-3i2q540z"
+ROLE_ARN="arn:aws:iam::152769399840:role/service-role/verifySMSChallenge-role-gw422t4q"
 
 # Load environment variables from .env file
 if [ -f ".env" ]; then
@@ -36,8 +36,8 @@ if [ -z "$VERIFY_SERVICE_SID" ]; then
 fi
 
 # Check if required files exist
-if [ ! -f "sendSMSChallenge.js" ]; then
-    echo "Error: sendSMSChallenge.js not found in current directory ($(pwd))"
+if [ ! -f "verifySMSChallenge.js" ]; then
+    echo "Error: verifySMSChallenge.js not found in current directory ($(pwd))"
     exit 1
 fi
 
@@ -46,7 +46,7 @@ TEMP_DIR=$(mktemp -d)
 echo "Created temporary directory: $TEMP_DIR"
 
 # Copy function file
-cp sendSMSChallenge.js "$TEMP_DIR/"
+cp verifySMSChallenge.js "$TEMP_DIR/"
 cp package.json "$TEMP_DIR/"
 
 # Install dependencies
@@ -78,7 +78,7 @@ if ! aws lambda get-function --function-name $FUNCTION_NAME --region $REGION --n
         --function-name $FUNCTION_NAME \
         --runtime nodejs22.x \
         --role $ROLE_ARN \
-        --handler sendSMSChallenge.handler \
+        --handler verifySMSChallenge.handler \
         --zip-file fileb://$ZIP_FILE \
         --region $REGION \
         --timeout 10 \

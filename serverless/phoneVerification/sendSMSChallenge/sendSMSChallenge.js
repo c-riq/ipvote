@@ -24,10 +24,6 @@ const fetchFileFromS3 = async (bucketName, key) => {
   return streamToString(response.Body);
 };
 
-const generateVerificationCode = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
-
 exports.handler = async (event) => {
   console.log('Request received:', {
     method: event.requestContext?.http?.method,
@@ -49,6 +45,15 @@ exports.handler = async (event) => {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'Session ID and phone number are required' })
+      };
+    }
+
+    // Validate phone number format (only allows digits, +, and spaces)
+    const cleanPhoneNumber = phoneNumber.trim();
+    if (!/^[0-9+ ]+$/.test(cleanPhoneNumber)) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Invalid phone number format' })
       };
     }
 
@@ -80,48 +85,37 @@ exports.handler = async (event) => {
       };
     }
 
-    // Generate and save verification code
-    const verificationCode = generateVerificationCode();
-    const timestamp = Date.now();
-    
-    // Save verification code
-    const verificationFile = `phone_number/verification.csv`;
-    let verificationData;
-    
+    // Use Twilio Verify instead of direct SMS
     try {
-      verificationData = await fetchFileFromS3(bucketName, verificationFile);
-    } catch (error) {
-      if (error.name === 'NoSuchKey') {
-        verificationData = 'time,phone,token\n';
-      } else {
-        throw error;
-      }
+      await twilioClient.verify.v2
+        .services(process.env.VERIFY_SERVICE_SID)
+        .verifications.create({
+          to: phoneNumber,
+          channel: 'sms'
+        });
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          status: 'success',
+          message: 'Verification code sent'
+        })
+      };
+
+    } catch (err) {
+      console.error('Error sending verification:', {
+        message: err.message,
+        stack: err.stack
+      });
+      
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          error: 'Error sending verification',
+          message: err instanceof Error ? err.message : 'Unknown error'
+        })
+      };
     }
-
-    const newRecord = `${timestamp},${phoneNumber},${verificationCode}\n`;
-    const updatedData = (verificationData.endsWith('\n') ? verificationData : verificationData + '\n') + newRecord;
-
-    // Save to S3
-    await s3Client.send(new PutObjectCommand({
-      Bucket: bucketName,
-      Key: verificationFile,
-      Body: updatedData,
-    }));
-
-    // Send SMS
-    await twilioClient.messages.create({
-      body: `Your verification code is: ${verificationCode}`,
-      to: phoneNumber,
-      from: process.env.TWILIO_PHONE_NUMBER
-    });
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        status: 'success',
-        message: 'Verification code sent'
-      })
-    };
 
   } catch (err) {
     console.error('Error sending SMS challenge:', {
