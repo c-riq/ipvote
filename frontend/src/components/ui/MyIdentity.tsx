@@ -10,8 +10,6 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
 
 interface MyIdentityProps {
   userIpInfo: IpInfoResponse | null;
-  phoneVerified: boolean;
-  onPhoneVerified: () => void;
   privacyAccepted: boolean;
   onPrivacyAcceptChange: (accepted: boolean, captchaToken?: string) => void;
   captchaToken: string | undefined;
@@ -19,10 +17,7 @@ interface MyIdentityProps {
 }
 
 function MyIdentity({ 
-  userIpInfo, 
-  phoneVerified, 
-  // @ts-ignore
-  onPhoneVerified,
+  userIpInfo,
   privacyAccepted,
   onPrivacyAcceptChange,
   captchaToken,
@@ -32,6 +27,26 @@ function MyIdentity({
   const [error, setError] = useState<string | null>(null);
   const [showPhoneInput, setShowPhoneInput] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [validatedPhoneNumber, setValidatedPhoneNumber] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [showVerificationInput, setShowVerificationInput] = useState(false);
+  const [verificationTime, setVerificationTime] = useState<string | null>(null);
+
+  // Add effect to load stored verification on mount
+  useEffect(() => {
+    const storedVerification = localStorage.getItem('phoneVerification');
+    if (storedVerification) {
+      const verification = JSON.parse(storedVerification);
+      // Check if verification is less than 24 hours old
+      const isValid = new Date().getTime() - new Date(verification.timestamp).getTime() < 24 * 60 * 60 * 1000;
+      if (isValid) {
+        setValidatedPhoneNumber(verification.phoneNumber);
+        setVerificationTime(verification.timestamp);
+      } else {
+        localStorage.removeItem('phoneVerification');
+      }
+    }
+  }, []);
 
   // Check for successful Stripe payment on component mount
   useEffect(() => {
@@ -78,7 +93,7 @@ function MyIdentity({
     {
       label: 'Phone number',
       description: '',
-      completed: phoneVerified && privacyAccepted
+      completed: !!validatedPhoneNumber && privacyAccepted
     }
   ];
 
@@ -148,9 +163,52 @@ function MyIdentity({
         throw new Error('Failed to send verification code');
       }
 
-      alert('Verification code sent to your phone');
+      setShowVerificationInput(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send verification code');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerificationSubmit = async () => {
+    const sessionId = localStorage.getItem('stripeSessionId');
+    if (!sessionId) {
+      setError('No valid session found');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('https://acnd2kwmzq774ec53s4q6i7sfq0huotn.lambda-url.us-east-1.on.aws/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId,
+          phoneNumber,
+          code: verificationCode
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to verify code');
+      }
+
+      const data = await response.json();
+      
+      // Store verification data
+      const verificationData = {
+        phoneNumber,
+        token: data.verificationToken,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem('phoneVerification', JSON.stringify(verificationData));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to verify code');
     } finally {
       setIsLoading(false);
     }
@@ -163,7 +221,7 @@ function MyIdentity({
       </Typography>
 
       <Box sx={{ my: 4 }}>
-        <Stepper activeStep={phoneVerified ? 2 : userIpInfo ? 1 : 0}>
+        <Stepper activeStep={validatedPhoneNumber ? 2 : userIpInfo ? 1 : 0}>
           {steps.map((step, index) => (
             <Step key={index} completed={step.completed}>
               <StepLabel>
@@ -213,10 +271,19 @@ function MyIdentity({
           <Alert severity="info">
             Please accept the privacy policy first to proceed with phone verification.
           </Alert>
-        ) : phoneVerified ? (
-          <Alert severity="success">
-            Phone number verified successfully!
-          </Alert>
+        ) : validatedPhoneNumber ? (
+          <Box sx={{ mt: 2 }}>
+            <Alert severity="success">
+              Phone number verified successfully!
+            </Alert>
+            <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+              <Typography variant="body2">
+                Verified Phone: {validatedPhoneNumber}
+                <br />
+                Verified on: {verificationTime && new Date(verificationTime).toLocaleString()}
+              </Typography>
+            </Box>
+          </Box>
         ) : showPhoneInput ? (
           <>
             <Box sx={{ mt: 2 }}>
@@ -228,14 +295,36 @@ function MyIdentity({
                 placeholder="+1234567890"
                 required
                 sx={{ mb: 2 }}
+                disabled={showVerificationInput}
               />
-              <Button
-                variant="contained"
-                onClick={handlePhoneSubmit}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Verifying...' : 'Submit Phone Number'}
-              </Button>
+              {!showVerificationInput ? (
+                <Button
+                  variant="contained"
+                  onClick={handlePhoneSubmit}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Sending...' : 'Send Verification Code'}
+                </Button>
+              ) : (
+                <>
+                  <TextField
+                    fullWidth
+                    label="Verification Code"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Enter 6-digit code"
+                    required
+                    sx={{ mb: 2 }}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={handleVerificationSubmit}
+                    disabled={isLoading || verificationCode.length !== 6}
+                  >
+                    {isLoading ? 'Verifying...' : 'Verify Code'}
+                  </Button>
+                </>
+              )}
             </Box>
             {error && (
               <Alert severity="error" sx={{ mt: 2 }}>

@@ -140,7 +140,7 @@ exports.handler = async (event) => {
         
         // Update session as consumed
         sessionRecord.consumed = 1;
-        //await updateSessionInS3(bucketName, sessionsFile, sessions);
+        await updateSessionInS3(bucketName, sessionsFile, sessions);
 
         return {
           statusCode: 200,
