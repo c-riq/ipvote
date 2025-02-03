@@ -6,3 +6,5 @@ export const IP_INFO_HOST = 'https://awcntp2t5izba44go77lc4evvy0ewfzy.lambda-url
 export const NEWSLETTER_HOST = 'https://4c6h4byudhvb77kisfehckmaim0dmswz.lambda-url.us-east-1.on.aws'
 
 export const CAPTCHA_HOST = 'https://fvy6d5uwjmmhjv3bvbtlrcw5xu0ldcjf.lambda-url.us-east-1.on.aws'
+
+export const CREATE_STRIPE_SESSION_HOST = 'https://2hlx5v4iwuaxzbshebnbkeitqi0bhhbk.lambda-url.us-east-1.on.aws'

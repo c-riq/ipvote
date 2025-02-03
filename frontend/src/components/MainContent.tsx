@@ -5,6 +5,7 @@ import Newsletter from './ui/Newsletter'
 import Popular from './ui/Popular'
 import CreatePoll from './ui/CreatePoll'
 import { IpInfoResponse } from '../App'
+import MyIdentity from './ui/MyIdentity'
 
 // Lazy load Geolocation component
 const Geolocation = lazy(() => import('./ui/Geolocation'))
@@ -32,6 +33,15 @@ function MainContent({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query
           setCaptchaToken={setCaptchaToken}
         />} />
         <Route path="create" element={<CreatePoll />} />
+        <Route path="identity" element={<MyIdentity 
+          privacyAccepted={privacyAccepted}
+          onPrivacyAcceptChange={onPrivacyAcceptChange}
+          captchaToken={captchaToken}
+          setCaptchaToken={setCaptchaToken}
+          userIpInfo={userIpInfo}
+          phoneVerified={false}
+          onPhoneVerified={() => {}}
+        />} />
         <Route path="geolocation" element={
           <Suspense fallback={
             <div className="loading-container">

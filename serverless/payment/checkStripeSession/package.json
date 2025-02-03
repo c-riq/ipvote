@@ -1,0 +1,8 @@
+{
+  "name": "stripe-webhook-lambda",
+  "version": "1.0.0",
+  "dependencies": {
+    "stripe": "^14.0.0",
+    "@aws-sdk/client-s3": "^3.0.0"
+  }
+} 

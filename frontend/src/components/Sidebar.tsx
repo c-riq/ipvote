@@ -38,6 +38,12 @@ function Sidebar({ isOpen }: SidebarProps) {
             Newsletter
           </a>
         </li>
+        {/* <li>
+          <a href="/ui/identity" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <VerifiedIcon sx={{ fontSize: 20 }} />
+            Identity
+          </a>
+        </li> */}
         <li>
           <a href="/ui/geolocation" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <LocationOnIcon sx={{ fontSize: 20 }} />
