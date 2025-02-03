@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Typography, Paper, Box, Button, Stepper, Step, StepLabel, Alert } from '@mui/material';
+import { Typography, Paper, Box, Button, Stepper, Step, StepLabel, Alert, TextField } from '@mui/material';
 import { loadStripe } from '@stripe/stripe-js';
 import { IpInfoResponse } from '../../App';
 import { CREATE_STRIPE_SESSION_HOST } from '../../constants';
@@ -31,6 +31,7 @@ function MyIdentity({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPhoneInput, setShowPhoneInput] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   // Check for successful Stripe payment on component mount
   useEffect(() => {
@@ -39,7 +40,9 @@ function MyIdentity({
     const sessionId = urlParams.get('session_id');
     
     if (paymentStatus === 'success' && sessionId) {
-      // Validate the session with backend
+      // Store session ID in localStorage
+      localStorage.setItem('stripeSessionId', sessionId);
+      
       fetch('https://2hsykhxggic633voycp33xxwam0ijpvp.lambda-url.us-east-1.on.aws', {
         method: 'POST',
         headers: {
@@ -54,9 +57,7 @@ function MyIdentity({
         return response.json();
       })
       .then(() => {
-        // Clear the URL parameters
         window.history.replaceState({}, '', window.location.pathname);
-        // Show phone verification input
         setShowPhoneInput(true);
       })
       .catch(err => {
@@ -81,7 +82,7 @@ function MyIdentity({
     }
   ];
 
-  const handlePhoneVerification = async () => {
+  const handlePaymentStarted = async () => {
     setIsLoading(true);
     setError(null);
 
@@ -115,6 +116,41 @@ function MyIdentity({
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePhoneSubmit = async () => {
+    const sessionId = localStorage.getItem('stripeSessionId');
+    if (!sessionId) {
+      setError('No valid session found');
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('https://a53qp2o22d2kljgnjqwux6n5dq0diats.lambda-url.us-east-1.on.aws/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId,
+          phoneNumber
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send verification code');
+      }
+
+      alert('Verification code sent to your phone');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send verification code');
     } finally {
       setIsLoading(false);
     }
@@ -182,9 +218,31 @@ function MyIdentity({
             Phone number verified successfully!
           </Alert>
         ) : showPhoneInput ? (
-          <Alert severity="info">
-            Payment successful! Phone verification form will be implemented here.
-          </Alert>
+          <>
+            <Box sx={{ mt: 2 }}>
+              <TextField
+                fullWidth
+                label="Phone Number"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="+1234567890"
+                required
+                sx={{ mb: 2 }}
+              />
+              <Button
+                variant="contained"
+                onClick={handlePhoneSubmit}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Verifying...' : 'Submit Phone Number'}
+              </Button>
+            </Box>
+            {error && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {error}
+              </Alert>
+            )}
+          </>
         ) : (
           <>
             <Typography variant="body2" paragraph>
@@ -192,7 +250,7 @@ function MyIdentity({
             </Typography>
             <Button
               variant="contained"
-              onClick={handlePhoneVerification}
+              onClick={handlePaymentStarted}
               disabled={isLoading || !userIpInfo}
             >
               {isLoading ? 'Processing...' : 'Verify Phone Number (1€)'}
