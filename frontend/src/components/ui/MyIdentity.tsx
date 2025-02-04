@@ -207,6 +207,13 @@ function MyIdentity({
         timestamp: new Date().toISOString()
       };
       localStorage.setItem('phoneVerification', JSON.stringify(verificationData));
+      
+      // Update state to show verified status
+      setValidatedPhoneNumber(phoneNumber);
+      setVerificationTime(verificationData.timestamp);
+      setShowVerificationInput(false);
+      setShowPhoneInput(false);
+      localStorage.removeItem('stripeSessionId'); // Clean up session ID
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to verify code');
     } finally {
@@ -336,7 +343,7 @@ function MyIdentity({
         ) : (
           <>
             <Typography variant="body2" paragraph>
-              Verify your identity with a phone number. This requires a one-time payment of 1€.
+              Verify your phone number for 1€ to increase the credibility of your votes for 24 hours.
             </Typography>
             <Button
               variant="contained"
