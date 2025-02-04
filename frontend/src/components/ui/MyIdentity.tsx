@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Typography, Paper, Box, Button, Stepper, Step, StepLabel, Alert, TextField, CircularProgress } from '@mui/material';
+import { Typography, Paper, Box, Button, Stepper, Step, StepLabel, Alert, TextField, CircularProgress, Tooltip } from '@mui/material';
 import { loadStripe } from '@stripe/stripe-js';
 import { IpInfoResponse } from '../../App';
 import { CREATE_STRIPE_SESSION_HOST } from '../../constants';
@@ -175,6 +175,12 @@ function MyIdentity({
     }
   };
 
+  // Add phone number validation function
+  const isValidPhoneNumber = (phone: string) => {
+    // Check if phone number starts with + and country code
+    return /^\+\d{1,4}[0-9\s.-]{6,}$/.test(phone);
+  };
+
   const handleVerificationSubmit = async () => {
     const sessionId = localStorage.getItem('stripeSessionId');
     if (!sessionId) {
@@ -308,22 +314,30 @@ function MyIdentity({
                 required
                 sx={{ mb: 2 }}
                 disabled={showVerificationInput || isLoading}
+                helperText="Include country code (e.g., +1 for USA)"
               />
               {!showVerificationInput ? (
-                <Button
-                  variant="contained"
-                  onClick={handlePhoneSubmit}
-                  disabled={isLoading || !phoneNumber}
+                <Tooltip 
+                  title={!isValidPhoneNumber(phoneNumber) ? "Please include country code (e.g., +1 for USA)" : ""}
+                  arrow
                 >
-                  {isLoading ? (
-                    <>
-                      <CircularProgress size={20} sx={{ mr: 1 }} />
-                      Sending...
-                    </>
-                  ) : (
-                    'Send Verification Code'
-                  )}
-                </Button>
+                  <span>
+                    <Button
+                      variant="contained"
+                      onClick={handlePhoneSubmit}
+                      disabled={isLoading || !phoneNumber || !isValidPhoneNumber(phoneNumber)}
+                    >
+                      {isLoading ? (
+                        <>
+                          <CircularProgress size={20} sx={{ mr: 1 }} />
+                          Sending...
+                        </>
+                      ) : (
+                        'Send Verification Code'
+                      )}
+                    </Button>
+                  </span>
+                </Tooltip>
               ) : (
                 <>
                   <TextField
