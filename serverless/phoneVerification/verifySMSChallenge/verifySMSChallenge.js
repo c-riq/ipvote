@@ -152,7 +152,8 @@ exports.handler = async (event) => {
           body: JSON.stringify({
             status: 'success',
             message: 'Phone number verified successfully',
-            verificationToken: verificationToken
+            verificationToken: verificationToken,
+            phoneNumber
           })
         };
       } else {
