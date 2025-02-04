@@ -5,10 +5,10 @@ import Newsletter from './ui/Newsletter'
 import Popular from './ui/Popular'
 import CreatePoll from './ui/CreatePoll'
 import { IpInfoResponse } from '../App'
-import MyIdentity from './ui/MyIdentity'
 
-// Lazy load Geolocation component
+// Lazy load components
 const Geolocation = lazy(() => import('./ui/Geolocation'))
+const MyIdentity = lazy(() => import('./ui/MyIdentity'))
 
 interface MainContentProps {
   privacyAccepted: boolean
@@ -33,15 +33,22 @@ function MainContent({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query
           setCaptchaToken={setCaptchaToken}
         />} />
         <Route path="create" element={<CreatePoll />} />
-        <Route path="identity" element={<MyIdentity 
-          privacyAccepted={privacyAccepted}
-          onPrivacyAcceptChange={onPrivacyAcceptChange}
-          captchaToken={captchaToken}
-          setCaptchaToken={setCaptchaToken}
-          userIpInfo={userIpInfo}
-          phoneVerified={false}
-          onPhoneVerified={() => {}}
-        />} />
+        <Route path="identity" element={
+          <Suspense fallback={
+            <div className="loading-container">
+              <div className="loading-spinner"></div>
+              <div>Loading identity tools...</div>
+            </div>
+          }>
+            <MyIdentity 
+              privacyAccepted={privacyAccepted}
+              onPrivacyAcceptChange={onPrivacyAcceptChange}
+              captchaToken={captchaToken}
+              setCaptchaToken={setCaptchaToken}
+              userIpInfo={userIpInfo}
+            />
+          </Suspense>
+        } />
         <Route path="geolocation" element={
           <Suspense fallback={
             <div className="loading-container">
