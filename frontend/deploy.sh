@@ -40,7 +40,7 @@ mv dist/index.html "dist/index_${random_string}.html"
 
 # Sync all files except HTML with long cache duration
 echo Synching Build Folder: $s3_bucket...
-aws s3 sync dist/ s3://$s3_bucket --delete --exclude "*.html" --exclude ".DS_Store" --cache-control max-age=31530000,public
+aws s3 sync dist/ s3://$s3_bucket --delete --exclude "*.html" --exclude "**/.DS_Store" --cache-control max-age=31530000,public
 
 # Upload static HTML files (privacy policy and terms of service) with standard caching
 aws s3 cp "dist/privacy_policy.html" "s3://$s3_bucket/privacy_policy.html" \

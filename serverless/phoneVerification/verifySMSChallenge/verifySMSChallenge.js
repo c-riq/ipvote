@@ -58,7 +58,7 @@ const storeVerificationToken = async (bucketName, phoneNumber, token) => {
   // Ensure existing content ends with newline
   const normalizedData = existingData.endsWith('\n') ? existingData : existingData + '\n';
   
-  const timestamp = new Date().toISOString();
+  const timestamp = new Date().getTime();
   const newEntry = `${timestamp},${phoneNumber},${token}\n`;
   const updatedContent = normalizedData + newEntry;
 
@@ -103,9 +103,14 @@ exports.handler = async (event) => {
     const sessionsData = await fetchFileFromS3(bucketName, sessionsFile);
     const sessions = sessionsData.split('\n')
       .slice(1) // Skip header
+      .filter(line => line.trim()) // Filter out empty lines
       .map(line => {
         const [time, id, consumed] = line.split(',');
-        return { time, id, consumed: parseInt(consumed) };
+        return {
+          time: time || '',
+          id: id || '',
+          consumed: consumed ? parseInt(consumed, 10) || 0 : 0
+        };
       });
 
     const sessionRecord = sessions.find(s => s.id === sessionId);
