@@ -8,3 +8,7 @@ export const NEWSLETTER_HOST = 'https://4c6h4byudhvb77kisfehckmaim0dmswz.lambda-
 export const CAPTCHA_HOST = 'https://fvy6d5uwjmmhjv3bvbtlrcw5xu0ldcjf.lambda-url.us-east-1.on.aws'
 
 export const CREATE_STRIPE_SESSION_HOST = 'https://2hlx5v4iwuaxzbshebnbkeitqi0bhhbk.lambda-url.us-east-1.on.aws'
+export const VALIDATE_STRIPE_SESSION_HOST = 'https://2hsykhxggic633voycp33xxwam0ijpvp.lambda-url.us-east-1.on.aws'
+
+export const SEND_SMS_CHALLENGE_HOST = 'https://a53qp2o22d2kljgnjqwux6n5dq0diats.lambda-url.us-east-1.on.aws'
+export const VERIFY_SMS_CHALLENGE_HOST = 'https://acnd2kwmzq774ec53s4q6i7sfq0huotn.lambda-url.us-east-1.on.aws'

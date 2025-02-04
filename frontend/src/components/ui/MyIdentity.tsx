@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Typography, Paper, Box, Button, Stepper, Step, StepLabel, Alert, TextField, CircularProgress, Tooltip } from '@mui/material';
+import { Typography, Paper, Box, Button, Stepper, Step, StepLabel, 
+    Alert, TextField, CircularProgress, Tooltip } from '@mui/material';
 import { loadStripe } from '@stripe/stripe-js';
 import { IpInfoResponse } from '../../App';
-import { CREATE_STRIPE_SESSION_HOST } from '../../constants';
+import { CREATE_STRIPE_SESSION_HOST, SEND_SMS_CHALLENGE_HOST, 
+    VALIDATE_STRIPE_SESSION_HOST, VERIFY_SMS_CHALLENGE_HOST } from '../../constants';
 import PrivacyAccept from './PrivacyAccept';
 
 // Initialize Stripe
@@ -59,7 +61,7 @@ function MyIdentity({
       localStorage.setItem('stripeSessionId', sessionId);
       
       setIsLoading(true); // Add loading state while validating
-      fetch('https://2hsykhxggic633voycp33xxwam0ijpvp.lambda-url.us-east-1.on.aws', {
+      fetch(VALIDATE_STRIPE_SESSION_HOST, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -152,7 +154,7 @@ function MyIdentity({
     setError(null);
 
     try {
-      const response = await fetch('https://a53qp2o22d2kljgnjqwux6n5dq0diats.lambda-url.us-east-1.on.aws/', {
+      const response = await fetch(SEND_SMS_CHALLENGE_HOST, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -192,7 +194,7 @@ function MyIdentity({
     setError(null);
 
     try {
-      const response = await fetch('https://acnd2kwmzq774ec53s4q6i7sfq0huotn.lambda-url.us-east-1.on.aws/', {
+      const response = await fetch(VERIFY_SMS_CHALLENGE_HOST, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -210,20 +212,18 @@ function MyIdentity({
 
       const data = await response.json();
       
-      // Store verification data
       const verificationData = {
-        phoneNumber,
+        phoneNumber: data.phoneNumber,
         token: data.verificationToken,
         timestamp: new Date().toISOString()
       };
       localStorage.setItem('phoneVerification', JSON.stringify(verificationData));
       
-      // Update state to show verified status
-      setValidatedPhoneNumber(phoneNumber);
+      setValidatedPhoneNumber(data.phoneNumber);
       setVerificationTime(verificationData.timestamp);
       setShowVerificationInput(false);
       setShowPhoneInput(false);
-      localStorage.removeItem('stripeSessionId'); // Clean up session ID
+      localStorage.removeItem('stripeSessionId');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to verify code');
     } finally {
