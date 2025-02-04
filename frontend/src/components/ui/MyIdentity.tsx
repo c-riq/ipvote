@@ -244,6 +244,7 @@ function MyIdentity({
             setCaptchaToken={setCaptchaToken}
             captchaToken={captchaToken}
             showCaptcha={false}
+            showPrivacy={true}
           />
 
           {privacyAccepted && (
