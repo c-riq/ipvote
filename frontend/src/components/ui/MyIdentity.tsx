@@ -349,21 +349,29 @@ function MyIdentity({
                     required
                     sx={{ mb: 2 }}
                     disabled={isLoading}
+                    helperText="Enter the 6-digit code sent to your phone"
                   />
-                  <Button
-                    variant="contained"
-                    onClick={handleVerificationSubmit}
-                    disabled={isLoading || verificationCode.length !== 6}
+                  <Tooltip 
+                    title={verificationCode.length !== 6 ? "Please enter all 6 digits of the verification code" : ""}
+                    arrow
                   >
-                    {isLoading ? (
-                      <>
-                        <CircularProgress size={20} sx={{ mr: 1 }} />
-                        Verifying...
-                      </>
-                    ) : (
-                      'Verify Code'
-                    )}
-                  </Button>
+                    <span>
+                      <Button
+                        variant="contained"
+                        onClick={handleVerificationSubmit}
+                        disabled={isLoading || verificationCode.length !== 6}
+                      >
+                        {isLoading ? (
+                          <>
+                            <CircularProgress size={20} sx={{ mr: 1 }} />
+                            Verifying...
+                          </>
+                        ) : (
+                          'Verify Code'
+                        )}
+                      </Button>
+                    </span>
+                  </Tooltip>
                 </>
               )}
             </Box>
