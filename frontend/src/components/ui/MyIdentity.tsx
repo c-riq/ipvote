@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Typography, Paper, Box, Button, Stepper, Step, StepLabel, Alert, TextField } from '@mui/material';
+import { Typography, Paper, Box, Button, Stepper, Step, StepLabel, Alert, TextField, CircularProgress } from '@mui/material';
 import { loadStripe } from '@stripe/stripe-js';
 import { IpInfoResponse } from '../../App';
 import { CREATE_STRIPE_SESSION_HOST } from '../../constants';
@@ -58,6 +58,7 @@ function MyIdentity({
       // Store session ID in localStorage
       localStorage.setItem('stripeSessionId', sessionId);
       
+      setIsLoading(true); // Add loading state while validating
       fetch('https://2hsykhxggic633voycp33xxwam0ijpvp.lambda-url.us-east-1.on.aws', {
         method: 'POST',
         headers: {
@@ -77,6 +78,9 @@ function MyIdentity({
       })
       .catch(err => {
         setError(err instanceof Error ? err.message : 'Failed to validate payment');
+      })
+      .finally(() => {
+        setIsLoading(false); // Clear loading state when done
       });
     } else if (paymentStatus === 'failed') {
       setError('Payment failed. Please try again.');
@@ -303,15 +307,22 @@ function MyIdentity({
                 placeholder="+1234567890"
                 required
                 sx={{ mb: 2 }}
-                disabled={showVerificationInput}
+                disabled={showVerificationInput || isLoading}
               />
               {!showVerificationInput ? (
                 <Button
                   variant="contained"
                   onClick={handlePhoneSubmit}
-                  disabled={isLoading}
+                  disabled={isLoading || !phoneNumber}
                 >
-                  {isLoading ? 'Sending...' : 'Send Verification Code'}
+                  {isLoading ? (
+                    <>
+                      <CircularProgress size={20} sx={{ mr: 1 }} />
+                      Sending...
+                    </>
+                  ) : (
+                    'Send Verification Code'
+                  )}
                 </Button>
               ) : (
                 <>
@@ -323,13 +334,21 @@ function MyIdentity({
                     placeholder="Enter 6-digit code"
                     required
                     sx={{ mb: 2 }}
+                    disabled={isLoading}
                   />
                   <Button
                     variant="contained"
                     onClick={handleVerificationSubmit}
                     disabled={isLoading || verificationCode.length !== 6}
                   >
-                    {isLoading ? 'Verifying...' : 'Verify Code'}
+                    {isLoading ? (
+                      <>
+                        <CircularProgress size={20} sx={{ mr: 1 }} />
+                        Verifying...
+                      </>
+                    ) : (
+                      'Verify Code'
+                    )}
                   </Button>
                 </>
               )}
@@ -350,7 +369,14 @@ function MyIdentity({
               onClick={handlePaymentStarted}
               disabled={isLoading || !userIpInfo}
             >
-              {isLoading ? 'Processing...' : 'Verify Phone Number (1€)'}
+              {isLoading ? (
+                <>
+                  <CircularProgress size={20} sx={{ mr: 1 }} />
+                  Processing...
+                </>
+              ) : (
+                'Verify Phone Number (1€)'
+              )}
             </Button>
             {error && (
               <Alert severity="error" sx={{ mt: 2 }}>
