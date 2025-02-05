@@ -65,7 +65,7 @@ function Sidebar({ isOpen }: SidebarProps) {
             </a>
           </li>
           <li>
-            <a href="https://x.com/ipvote" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <a href="https://x.com/ip_vote_com" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <XIcon sx={{ fontSize: 20 }} />
               Follow on X
             </a>
