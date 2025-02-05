@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 import TrendingUp from '@mui/icons-material/Home';
-import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import Lightbulb from '@mui/icons-material/Lightbulb';
