@@ -41,7 +41,7 @@ function Sidebar({ isOpen }: SidebarProps) {
         <li>
           <a href="/ui/identity" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <VerifiedIcon sx={{ fontSize: 20 }} />
-            Identity
+            My identity
           </a>
         </li>
         <li>

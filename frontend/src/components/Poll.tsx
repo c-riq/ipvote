@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { 
   Button, 
   Checkbox, 
@@ -694,6 +694,12 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
               World President Election
             </a>
           </Typography>
+          {privacyAccepted && !phoneVerification?.phoneNumber && (
+            <Alert severity="warning" sx={{ mt: 1 }}>
+              Only votes with a verified phone number will be counted in the World President Election.
+              {' '}<Link to="/ui/identity">Add phone number</Link>
+            </Alert>
+          )}
         </Box>
       )}
 
