@@ -1,6 +1,7 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Typography } from '@mui/material';
 import { useState, useEffect } from 'react';
+import PersonIcon from '@mui/icons-material/Person';
 
 interface HeaderProps {
   isSidebarOpen: boolean;
@@ -87,6 +88,22 @@ function Header({ isSidebarOpen, setIsSidebarOpen, onSearchChange }: HeaderProps
       <button className="create-button desktop-only" onClick={() => navigate('/ui/create')}>
         Create Poll
       </button>
+      <div 
+        onClick={() => navigate('/ui/identity')}
+        style={{ 
+          cursor: 'pointer',
+          width: '40px',
+          height: '40px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: '50%',
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          marginLeft: '12px'
+        }}
+      >
+        <PersonIcon />
+      </div>
     </header>
   )
 }
