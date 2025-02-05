@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Card, CardContent, Typography, Box, Button, Tooltip, Alert, CircularProgress } from '@mui/material'
 import { triggerLatencyMeasurementIfNeeded } from '../../utils/latencyTriangulation'
-import { IpInfoResponse } from '../../App'
+import { IpInfoResponse, PhoneVerificationState } from '../../App'
 import { SUBMIT_VOTE_HOST } from '../../constants'
 
 interface PollCardProps {
@@ -15,9 +15,11 @@ interface PollCardProps {
   userIpInfo: IpInfoResponse | null
   requireCaptcha?: boolean
   setShowCaptcha: (show: boolean) => void
+  phoneVerification: PhoneVerificationState | null
 }
 
-function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdating, captchaToken, userIpInfo, requireCaptcha = false, setShowCaptcha }: PollCardProps) {
+function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdating, captchaToken, 
+  userIpInfo, requireCaptcha = false, setShowCaptcha, phoneVerification }: PollCardProps) {
   const [message, setMessage] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [measuringLatency, setMeasuringLatency] = useState(false)
@@ -27,7 +29,23 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
   const vote = async (option: string) => {
     setLoading(true)
     try {
-      const response = await fetch(`${SUBMIT_VOTE_HOST}/?poll=${poll}&vote=${option}&captchaToken=${captchaToken}`)
+      const {phoneNumber, token: phoneToken} = phoneVerification || {}
+      
+      const params = new URLSearchParams({
+        poll: poll,
+        vote: option,
+        captchaToken: captchaToken || ''
+      });
+      
+      if (phoneNumber) {
+        params.append('phoneNumber', phoneNumber);
+      }
+      
+      if (phoneToken) {
+        params.append('phoneToken', phoneToken);
+      }
+
+      const response = await fetch(`${SUBMIT_VOTE_HOST}/?${params.toString()}`)
       const data = await response.text()
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')

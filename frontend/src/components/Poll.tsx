@@ -25,7 +25,7 @@ import VoteMap from './VoteMap'
 import IPBlockMap from './IPBlockMap'
 import IPv6BlockMap from './IPv6BlockMap'
 import ASNTreemap from './ASNTreemap'
-import { IpInfoResponse } from '../App'
+import { IpInfoResponse, PhoneVerificationState } from '../App'
 import { triggerLatencyMeasurementIfNeeded } from '../utils/latencyTriangulation'
 import { parseCSV, hasRequiredFields } from '../utils/csvParser'
 import { POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
@@ -62,6 +62,7 @@ interface PollProps {
   captchaToken: string | undefined
   setCaptchaToken: (token: string) => void
   onPrivacyAcceptChange: (accepted: boolean, captchaToken?: string) => void
+  phoneVerification: PhoneVerificationState | null
 }
 /* voting data schema:
 time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider
@@ -74,7 +75,8 @@ time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vp
 const resultsCache: { [key: string]: { data: string[], timestamp: number } } = {};
 const CACHE_DURATION = 3 * 60 * 1000; // 3 minutes in milliseconds
 
-function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPrivacyAcceptChange }: PollProps) {
+function Poll({ privacyAccepted, userIpInfo, captchaToken, 
+    setCaptchaToken, onPrivacyAcceptChange, phoneVerification }: PollProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const [poll, setPoll] = useState<string>('')
@@ -282,9 +284,27 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken, setCaptchaToken, onPr
     setLoading(true)
     try {
       const votePayload = isOpenPoll && showCustomInput ? customOption : vote
-      const response = await fetch(
-        `${SUBMIT_VOTE_HOST}/?poll=${poll}&vote=${votePayload}&captchaToken=${captchaToken}${isOpenPoll ? '&isOpen=true' : ''}`
-      )
+      const phoneNumber = phoneVerification?.phoneNumber
+      const phoneToken = phoneVerification?.token
+      const params = new URLSearchParams({
+        poll: poll,
+        vote: votePayload,
+        captchaToken: captchaToken || ''
+      });
+
+      if (isOpenPoll) {
+        params.append('isOpen', 'true');
+      }
+      
+      if (phoneNumber) {
+        params.append('phoneNumber', phoneNumber);
+      }
+      
+      if (phoneToken) {
+        params.append('phoneToken', phoneToken);
+      }
+
+      const response = await fetch(`${SUBMIT_VOTE_HOST}/?${params.toString()}`);
       const data = await response.text()
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')

@@ -56,7 +56,8 @@ exports.handler = async (event) => {
                     body: data,
                     headers: {
                         'Content-Type': 'text/csv',
-                        'X-Cache': 'HIT'
+                        'X-Cache': 'HIT',
+                        'Content-Disposition': `attachment; filename="${poll}_results.csv"`
                     }
                 };
             } catch (error) {
@@ -82,7 +83,8 @@ exports.handler = async (event) => {
             body: aggregatedData,
             headers: {
                 'Content-Type': 'text/csv',
-                'X-Cache': 'MISS'
+                'X-Cache': 'MISS',
+                'Content-Disposition': `attachment; filename="${poll}_results.csv"`
             }
         };
     } catch (error) {
@@ -131,6 +133,13 @@ function maskIP(ip) {
     }
 }
 
+function maskPhoneNumber(phone) {
+    if (!phone) return '';
+    // Keep country code and first digits, mask the last 6 digits
+    // Example: +491234567890 -> +491234XXXXXX
+    return phone.replace(/(\+\d+)(\d{6})$/, '$1XXXXXX');
+}
+
 async function aggregateCSVFiles(bucket, files) {
     try {
         if (!files || files.length === 0) {
@@ -163,6 +172,10 @@ async function aggregateCSVFiles(bucket, files) {
                         if (columns.length >= 8) {
                             columns[6] = removeForbiddenStrings(columns[6]);
                             columns[7] = removeForbiddenStrings(columns[7]);
+                        }
+                        // Mask phone number if present (assuming it's the last column)
+                        if (columns.length >= 14) {
+                            columns[13] = maskPhoneNumber(columns[13]);
                         }
                         return columns.join(',');
                     })

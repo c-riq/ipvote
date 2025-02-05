@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Typography, Paper, Box, Button, Stepper, Step, StepLabel, 
     Alert, TextField, CircularProgress, Tooltip } from '@mui/material';
 import { loadStripe } from '@stripe/stripe-js';
-import { IpInfoResponse } from '../../App';
+import { IpInfoResponse, PhoneVerificationState } from '../../App';
 import { CREATE_STRIPE_SESSION_HOST, SEND_SMS_CHALLENGE_HOST, 
     VALIDATE_STRIPE_SESSION_HOST, VERIFY_SMS_CHALLENGE_HOST } from '../../constants';
 import PrivacyAccept from './PrivacyAccept';
@@ -16,6 +16,8 @@ interface MyIdentityProps {
   onPrivacyAcceptChange: (accepted: boolean, captchaToken?: string) => void;
   captchaToken: string | undefined;
   setCaptchaToken: (token: string) => void;
+  phoneVerification: PhoneVerificationState | null;
+  setPhoneVerification: (phoneVerification: PhoneVerificationState | null) => void;
 }
 
 function MyIdentity({ 
@@ -23,7 +25,9 @@ function MyIdentity({
   privacyAccepted,
   onPrivacyAcceptChange,
   captchaToken,
-  setCaptchaToken 
+  setCaptchaToken,
+  phoneVerification,
+  setPhoneVerification
 }: MyIdentityProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,21 +38,16 @@ function MyIdentity({
   const [showVerificationInput, setShowVerificationInput] = useState(false);
   const [verificationTime, setVerificationTime] = useState<string | null>(null);
 
-  // Add effect to load stored verification on mount
+  // Update local state when phoneVerification prop changes
   useEffect(() => {
-    const storedVerification = localStorage.getItem('phoneVerification');
-    if (storedVerification) {
-      const verification = JSON.parse(storedVerification);
-      // Check if verification is less than 24 hours old
-      const isValid = new Date().getTime() - new Date(verification.timestamp).getTime() < 24 * 60 * 60 * 1000;
-      if (isValid) {
-        setValidatedPhoneNumber(verification.phoneNumber);
-        setVerificationTime(verification.timestamp);
-      } else {
-        localStorage.removeItem('phoneVerification');
-      }
+    if (phoneVerification) {
+      setValidatedPhoneNumber(phoneVerification.phoneNumber);
+      setVerificationTime(phoneVerification.timestamp);
+    } else {
+      setValidatedPhoneNumber('');
+      setVerificationTime(null);
     }
-  }, []);
+  }, [phoneVerification]);
 
   // Check for successful Stripe payment on component mount
   useEffect(() => {
@@ -218,9 +217,8 @@ function MyIdentity({
         timestamp: new Date().toISOString()
       };
       localStorage.setItem('phoneVerification', JSON.stringify(verificationData));
+      setPhoneVerification(verificationData);  // Update the parent state
       
-      setValidatedPhoneNumber(data.phoneNumber);
-      setVerificationTime(verificationData.timestamp);
       setShowVerificationInput(false);
       setShowPhoneInput(false);
       localStorage.removeItem('stripeSessionId');

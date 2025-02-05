@@ -94,6 +94,34 @@ const validateCachedCaptcha = async (ip, token, bucketName) => {
     return false;
 };
 
+const validatePhoneToken = async (phoneNumber, token, bucketName) => {
+    const fileName = 'phone_number/verification.csv';
+    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000; // One week in milliseconds
+    
+    try {
+        const data = await fetchFileFromS3(bucketName, fileName);
+        const lines = data.split('\n');
+        
+        for (let i = 1; i < lines.length; i++) { // Skip header
+            const [timestamp, storedPhone, storedToken] = lines[i].split(',');
+            if (!storedPhone || !storedToken || !timestamp) continue;
+            
+            // Check if this verification is for the same phone and token
+            if (storedPhone === phoneNumber && storedToken === token) {
+                const verificationTime = parseInt(timestamp);
+                const now = Date.now();
+                // Verify that the token is not older than one week
+                if (now - verificationTime < oneWeekInMs) {
+                    return true;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error validating phone token:', error);
+    }
+    return false;
+};
+
 module.exports.handler = async (event) => {
     console.log('Processing vote request:', {
         ip: event.requestContext.http.sourceIp,
@@ -107,6 +135,8 @@ module.exports.handler = async (event) => {
     const isOpen = event.queryStringParameters.isOpen === 'true';
     const country = event.queryStringParameters.country;
     const hcaptchaToken = event.queryStringParameters.captchaToken;
+    const phoneNumber = event.queryStringParameters.phoneNumber;
+    const phoneToken = event.queryStringParameters.phoneToken;
     const forbiddenStringsRegex = /,|\\n|\\r|\\t|>|<|"/;
 
     // Prevent polls from being created with open_ prefix
@@ -186,6 +216,7 @@ module.exports.handler = async (event) => {
     }
 
     let captchaVerified = 0
+    let verifiedPhone = '';
 
     if (pollsToRequireCaptcha.includes(poll)) {
         if (!hcaptchaToken) {
@@ -231,6 +262,26 @@ module.exports.handler = async (event) => {
         }
     }
 
+    if (phoneNumber && phoneToken) {
+        try {
+            const isValidPhone = await validatePhoneToken(
+                phoneNumber,
+                phoneToken,
+                'ipvotes'
+            );
+            if (isValidPhone) {
+                verifiedPhone = phoneNumber;
+            } else {
+                console.log('Invalid phone verification:', {
+                    phoneNumber,
+                    time: new Date()
+                });
+            }
+        } catch (error) {
+            console.error('Phone verification error:', error);
+        }
+    }
+
     const requestIp = event.requestContext.http.sourceIp;
     const timestamp = new Date().getTime();
     const partition = getPartitionKey(requestIp);
@@ -253,7 +304,8 @@ module.exports.handler = async (event) => {
     } catch (error) {
         if (error.name === 'NoSuchKey') {
             // File does not exist, create a new one with updated schema
-            data = 'time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms,captcha_verified\n';
+            data = 'time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,'+
+                'closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number,phone_number\n';
         } else {
             console.log(error);
             return {
@@ -288,7 +340,7 @@ module.exports.handler = async (event) => {
                     return {
                         statusCode: 400,
                         body: JSON.stringify({
-                            message: `Cannot vote again until ${nextVoteTime.toISOString()}`,
+                            message: `Cannot vote again for this poll until ${nextVoteTime.toISOString()}`,
                             time: new Date()
                         }),
                     };
@@ -312,7 +364,7 @@ module.exports.handler = async (event) => {
                     return {
                         statusCode: 400,
                         body: JSON.stringify({
-                            message: `Cannot vote again from this IPv6 block until ${nextVoteTime.toISOString()}`,
+                            message: `Cannot vote again for this poll from this IPv6 block until ${nextVoteTime.toISOString()}`,
                             time: new Date()
                         }),
                     };
@@ -334,7 +386,7 @@ module.exports.handler = async (event) => {
     // Create new vote line with GeoIP data (added new columns with empty values)
     const newVote = `${timestamp},${requestIp},${poll},${vote},${
         countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')},,,,,,,${
-            captchaVerified}`;
+            captchaVerified},${verifiedPhone}`;
     console.log('Attempting to save vote:', {
         fileName,
         voteData: newVote.trim()

@@ -3,7 +3,7 @@ import { CircularProgress } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import PollCard from './PollCard'
 import PrivacyAccept from './PrivacyAccept'
-import { IpInfoResponse } from '../../App'
+import { IpInfoResponse, PhoneVerificationState } from '../../App'
 import { POPULAR_POLLS_HOST } from '../../constants'
 
 const LIMIT = 15
@@ -22,9 +22,11 @@ interface PopularProps {
   query: string
   captchaToken: string | undefined
   setCaptchaToken: (token: string) => void
+  phoneVerification: PhoneVerificationState | null
 }
 
-function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, captchaToken, setCaptchaToken }: PopularProps) {
+function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, 
+    query, captchaToken, setCaptchaToken, phoneVerification }: PopularProps) {
   const [polls, setPolls] = useState<PollData[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -150,6 +152,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, ca
           userIpInfo={userIpInfo}
           requireCaptcha={poll.votes > 1000}
           setShowCaptcha={setShowCaptcha}
+          phoneVerification={phoneVerification}
         />
       ))}
       
