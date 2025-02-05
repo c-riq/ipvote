@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import PollCard from './PollCard'
 import PrivacyAccept from './PrivacyAccept'
 import { IpInfoResponse, PhoneVerificationState } from '../../App'
-import { POPULAR_POLLS_HOST } from '../../constants'
+import { CAPTCHA_THRESHOLD, POPULAR_POLLS_HOST } from '../../constants'
 
 const LIMIT = 15
 
@@ -150,7 +150,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
           isUpdating={poll.isUpdating}
           captchaToken={captchaToken}
           userIpInfo={userIpInfo}
-          requireCaptcha={poll.votes > 1000}
+          requireCaptcha={poll.votes > CAPTCHA_THRESHOLD}
           setShowCaptcha={setShowCaptcha}
           phoneVerification={phoneVerification}
         />

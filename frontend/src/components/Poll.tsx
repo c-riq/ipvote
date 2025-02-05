@@ -28,7 +28,7 @@ import ASNTreemap from './ASNTreemap'
 import { IpInfoResponse, PhoneVerificationState } from '../App'
 import { triggerLatencyMeasurementIfNeeded } from '../utils/latencyTriangulation'
 import { parseCSV, hasRequiredFields } from '../utils/csvParser'
-import { POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
+import { CAPTCHA_THRESHOLD, POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 
 interface VoteHistory {
@@ -103,7 +103,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   const [includePhoneVerifiedOnly, setIncludePhoneVerifiedOnly] = useState(false)
 
   useEffect(() => {
-    setRequireCaptcha(allVotes.length > 1000)
+    setRequireCaptcha(allVotes.length > CAPTCHA_THRESHOLD)
   }, [allVotes])
 
   const allowVote = privacyAccepted ? requireCaptcha ? !!captchaToken : true : false

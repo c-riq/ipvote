@@ -93,6 +93,7 @@
     <h2>Security Measures and Manipulation Prevention</h2>
     <p>Several layers of security can be implemented to ensure poll reliability:</p>
     <ul>
+        <li>Phone number verification</li>
         <li>Network latency-based geolocation verification (see <a href="geolocation_via_latency.html">Network Latency Geolocation</a>)</li>
         <li>IP address reputation checking</li>
         <li>Exclusion of known datacenter, VPN and Tor IP address ranges</li>
@@ -101,7 +102,7 @@
     </ul>
 
     <p>
-        Currently, polls that exceed 1,000 votes automatically require both CAPTCHA verification and network latency geolocation 
+        Currently, polls that exceed 10,000 votes automatically require both CAPTCHA verification and network latency geolocation 
         checks for new participants. These thresholds may be adjusted and additional verification measures introduced as 
         needed to maintain poll integrity.
     </p>

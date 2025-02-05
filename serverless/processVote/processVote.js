@@ -10,7 +10,8 @@ time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,
 
 const { Readable } = require('stream');
 
-const pollsToRequireCaptcha = ['harris_or_trump']
+// TODO: check which polls exceed the threshold to require captcha
+const pollsToRequireCaptcha = []
 
 const s3Client = new S3Client(); 
 
