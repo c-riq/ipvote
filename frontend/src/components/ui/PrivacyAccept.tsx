@@ -12,6 +12,7 @@ interface PrivacyAcceptProps {
   captchaToken: string | undefined
   textAlign?: 'left' | 'center' | 'right'
   showCaptcha?: boolean
+  showPrivacy?: boolean
 }
 
 function maskIP(ip: string) {
@@ -37,12 +38,13 @@ function maskIP(ip: string) {
   }
 }
 
-function PrivacyAccept({ userIpInfo, accepted, onAcceptChange, setCaptchaToken, captchaToken, textAlign = 'center', showCaptcha = false }: PrivacyAcceptProps) {
+function PrivacyAccept({ userIpInfo, accepted, onAcceptChange, setCaptchaToken, captchaToken,
+  textAlign = 'center', showCaptcha = false, showPrivacy = false }: PrivacyAcceptProps) {
   const [privacyChecked, setPrivacyChecked] = useState(accepted);
   const [verificationError, setVerificationError] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  const hide = privacyChecked && (!showCaptcha || captchaToken)
+  const hide = privacyChecked && (!showCaptcha || captchaToken) && !showPrivacy
 
   const handlePrivacyChange = useCallback((checked: boolean) => {
     setPrivacyChecked(checked);

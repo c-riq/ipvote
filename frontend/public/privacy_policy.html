@@ -15,6 +15,7 @@
     <h2>Information We Collect for every vote, which will be shared with the public:</h2>
     <ul>
         <li><strong>IP Address</strong>: When you use our voting functionality, we automatically record your IP address. This information helps us ensure the integrity of our voting system and prevent multiple votes from a single source.</li>
+        <li><strong>Phone number</strong>: When you use our phone number verification service, we record your phone number. This information helps us ensure the integrity of our voting system and prevent multiple votes from a single source.</li>
         <li><strong>hCaptcha Response</strong>: We use hCaptcha to prevent automated voting. When you complete a captcha, your responses are processed by hCaptcha. For more information about how hCaptcha handles your data, please visit <a href="https://www.hcaptcha.com/privacy">hCaptcha's Privacy Policy</a>.</li>
         <li><strong>Nonce</strong>: A unique identifier to allow determining the rough location of the user.</li>
         <li><strong>Rough location by latency triangulation</strong>: By measuring the time it takes for internet packets to travel 
@@ -32,7 +33,18 @@
     <p>Your IP address will be retained only for as long as necessary to administer and safeguard the voting feature. After this period, your information will be deleted from our systems.</p>
 
     <h2>Data Sharing:</h2>
-    <p>All voting data will be shared publicly to allow for independent verification and analysis of the results.</p>
+    <p>All voting data will be shared publicly to allow for independent verification and analysis of the results.
+        In the public data, IP addresses will be redacted by 4 digits, i.e. 123.456.78.90 -> 123.456.07X.XXX.   
+        This means the data set does not reveal the exact IP address of the voter, but only that the vote could have been 
+        submitted from any of the 2550 IP addresses in the 123.456.07X.XXX range.
+        Likewise, phone numbers will be redacted by 6 digits, i.e. +49123 4567890 -> +49123 4XXXXXX. 
+        This means the data set does not reveal the exact phone number of the voter, but only that the vote could have been 
+        submitted from any of the 10'000'000 phone numbers in the +49123 4XXXXXX range.
+    </p>
+
+    <h2>Payment Processing:</h2>
+    <p>For premium features, we use Stripe as our payment processor. When you make a payment, you will be redirected to Stripe's secure payment interface. Stripe collects and processes your payment information directly - we never see or store your full credit card details. We only receive basic transaction details and a reference ID from Stripe.</p>
+    <p>For more information about how Stripe handles your data, please visit <a href="https://stripe.com/privacy">Stripe's Privacy Policy</a>.</p>
 
     <h2>Your Consent:</h2>
     <p>By ticking the "I accept the privacy policy ..." check box, you agree to this privacy policy, the collection of your IP address, and the processing of your captcha responses by hCaptcha.</p>

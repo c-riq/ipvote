@@ -1,4 +1,4 @@
-set x
+set -x
 trap "exit" INT
 
 aws_profile=rix-admin-chris
@@ -40,12 +40,29 @@ mv dist/index.html "dist/index_${random_string}.html"
 
 # Sync all files except HTML with long cache duration
 echo Synching Build Folder: $s3_bucket...
-aws s3 sync dist/ s3://$s3_bucket --delete --exclude "*.html" --cache-control max-age=31530000,public
+aws s3 sync dist/ s3://$s3_bucket --delete --exclude "*.html" --exclude "**/.DS_Store" --cache-control max-age=31530000,public
 
-# Upload HTML file with no-cache headers
+# Upload static HTML files (privacy policy and terms of service) with standard caching
+aws s3 cp "dist/privacy_policy.html" "s3://$s3_bucket/privacy_policy.html" \
+    --cache-control "max-age=3600" \
+    --content-type "text/html; charset=UTF-8"
+
+aws s3 cp "dist/terms_of_service.html" "s3://$s3_bucket/terms_of_service.html" \
+    --cache-control "max-age=3600" \
+    --content-type "text/html; charset=UTF-8"
+
+# Upload index HTML file with no-cache headers
 aws s3 cp "dist/index_${random_string}.html" "s3://$s3_bucket/index_${random_string}.html" \
     --cache-control "no-cache, no-store, must-revalidate" \
     --content-type "text/html; charset=UTF-8"
+
+# Delete old index HTML files
+echo "Cleaning up old index HTML files..."
+aws s3 ls "s3://$s3_bucket/" | grep 'index_.*\.html' | grep -v "index_${random_string}.html" | awk '{print $4}' | \
+while read -r file; do
+    echo "Deleting old file: $file"
+    aws s3 rm "s3://$s3_bucket/$file"
+done
 
 # Update CloudFront function or origin response policy to use the new index file
 if [ ! -z "$cf_id" ]; then

@@ -20,6 +20,12 @@ interface CaptchaState {
   timestamp: string;
 }
 
+export interface PhoneVerificationState {
+  phoneNumber: string;
+  token: string;
+  timestamp: string;
+}
+
 export interface IpInfoResponse {
   ip: string
   geo: {
@@ -61,6 +67,16 @@ function App() {
     return undefined;
   });
   const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [phoneVerification, setPhoneVerification] = useState<PhoneVerificationState | null>(() => {
+    const stored = localStorage.getItem('phoneVerification');
+    if (stored) {
+      const verification = JSON.parse(stored);
+      // Check if verification is less than 24 hours old
+      const isValid = Date.now() - new Date(verification.timestamp).getTime() < 24 * 60 * 60 * 1000;
+      return isValid ? verification : null;
+    }
+    return null;
+  });
 
   useEffect(() => {
     if (captchaState) {
@@ -171,6 +187,8 @@ function App() {
                   query={searchQuery}
                   captchaToken={captchaVerified && captchaState?.token || undefined}
                   setCaptchaToken={handleCaptchaToken}
+                  phoneVerification={phoneVerification}
+                  setPhoneVerification={setPhoneVerification}
                 />} />
                 
                 {/* Routes with dots (e.g., file extensions) */}
@@ -181,6 +199,8 @@ function App() {
                   query={searchQuery}
                   captchaToken={captchaVerified && captchaState?.token || undefined}
                   setCaptchaToken={handleCaptchaToken}
+                  phoneVerification={phoneVerification}
+                  setPhoneVerification={setPhoneVerification}
                 />} />
                 
                 {/* All other routes show Poll component */}
@@ -191,6 +211,7 @@ function App() {
                     onPrivacyAcceptChange={handlePrivacyAcceptChange}
                     captchaToken={captchaVerified && captchaState?.token || undefined}
                     setCaptchaToken={handleCaptchaToken}
+                    phoneVerification={phoneVerification}
                   />
                 } />
                 

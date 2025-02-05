@@ -4,21 +4,25 @@ import { lazy } from 'react'
 import Newsletter from './ui/Newsletter'
 import Popular from './ui/Popular'
 import CreatePoll from './ui/CreatePoll'
-import { IpInfoResponse } from '../App'
+import { IpInfoResponse, PhoneVerificationState } from '../App'
 
-// Lazy load Geolocation component
+// Lazy load components
 const Geolocation = lazy(() => import('./ui/Geolocation'))
+const MyIdentity = lazy(() => import('./ui/MyIdentity'))
 
 interface MainContentProps {
   privacyAccepted: boolean
   userIpInfo: IpInfoResponse | null
+  phoneVerification: PhoneVerificationState | null
+  setPhoneVerification: (phoneVerification: PhoneVerificationState | null) => void
   onPrivacyAcceptChange: (accepted: boolean) => void
   query: string
   captchaToken: string | undefined
   setCaptchaToken: (token: string) => void
 }
 
-function MainContent({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query, captchaToken, setCaptchaToken }: MainContentProps) {
+function MainContent({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, 
+  query, captchaToken, setCaptchaToken, phoneVerification, setPhoneVerification }: MainContentProps) {
   return (
     <main className="content">
       <Routes>
@@ -30,8 +34,27 @@ function MainContent({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, query
           query={query}
           captchaToken={captchaToken}
           setCaptchaToken={setCaptchaToken}
+          phoneVerification={phoneVerification}
         />} />
         <Route path="create" element={<CreatePoll />} />
+        <Route path="identity" element={
+          <Suspense fallback={
+            <div className="loading-container">
+              <div className="loading-spinner"></div>
+              <div>Loading identity tools...</div>
+            </div>
+          }>
+            <MyIdentity 
+              privacyAccepted={privacyAccepted}
+              onPrivacyAcceptChange={onPrivacyAcceptChange}
+              captchaToken={captchaToken}
+              setCaptchaToken={setCaptchaToken}
+              userIpInfo={userIpInfo}
+              phoneVerification={phoneVerification}
+              setPhoneVerification={setPhoneVerification}
+            />
+          </Suspense>
+        } />
         <Route path="geolocation" element={
           <Suspense fallback={
             <div className="loading-container">

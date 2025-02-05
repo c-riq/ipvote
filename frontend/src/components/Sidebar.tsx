@@ -39,6 +39,12 @@ function Sidebar({ isOpen }: SidebarProps) {
           </a>
         </li>
         <li>
+          <a href="/ui/identity" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <VerifiedIcon sx={{ fontSize: 20 }} />
+            Identity
+          </a>
+        </li>
+        <li>
           <a href="/ui/geolocation" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <LocationOnIcon sx={{ fontSize: 20 }} />
             Geolocation (beta)
@@ -55,6 +61,18 @@ function Sidebar({ isOpen }: SidebarProps) {
           <a href="/ip_based_polls_as_a_proxy_for_popular_opinion.html" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Lightbulb sx={{ fontSize: 20 }} />
             Why IP-based polls?
+          </a>
+        </li>
+        <li>
+          <a href="/privacy_policy.html" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <VerifiedIcon sx={{ fontSize: 20 }} />
+            Privacy Policy
+          </a>
+        </li>
+        <li>
+          <a href="/terms_of_service.html" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <VerifiedIcon sx={{ fontSize: 20 }} />
+            Terms of Service
           </a>
         </li>
         <li>

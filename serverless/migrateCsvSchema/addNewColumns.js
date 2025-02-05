@@ -50,18 +50,18 @@ const migrateFile = async (fileKey) => {
         const currentColumns = headerLine.split(',');
         
         // Get index of column we need to check
-        const captchaVerifiedIndex = currentColumns.indexOf('captcha_verified');
+        const phoneNumberIndex = currentColumns.indexOf('phone_number');
         
         let needsMigration = false;
         
         // Check if column needs to be added
-        if (captchaVerifiedIndex === -1) {
-            currentColumns.push('captcha_verified');
+        if (phoneNumberIndex === -1) {
+            currentColumns.push('phone_number');
             needsMigration = true;
         }
 
         if (!needsMigration) {
-            console.log(`File ${fileKey} already has captcha_verified column`);
+            console.log(`File ${fileKey} already has phone_number column`);
             return false;
         }
 
@@ -106,7 +106,7 @@ const migrateFile = async (fileKey) => {
 // Main execution function
 async function main() {
     try {
-        console.log('Starting schema migration for proxy columns...');
+        console.log('Starting schema migration...');
         
         // Get all vote files
         const files = await listAllVoteFiles();
@@ -115,6 +115,7 @@ async function main() {
         // Migrate each file
         let migratedCount = 0;
         for (const file of files) {
+            // if (migratedCount > 0) break;
             const wasMigrated = await migrateFile(file.Key);
             if (wasMigrated) migratedCount++;
         }
