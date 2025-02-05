@@ -6,6 +6,7 @@ import VerifiedIcon from '@mui/icons-material/Verified';
 import Lightbulb from '@mui/icons-material/Lightbulb';
 import PublicIcon from '@mui/icons-material/Public';
 import GitHubIcon from '@mui/icons-material/GitHub';
+import XIcon from '@mui/icons-material/X';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -25,69 +26,61 @@ function Sidebar({ isOpen }: SidebarProps) {
           Create Poll
         </button>
       </div>
-      <ul>
-        <li>
-          <a href="/ui/popular" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <TrendingUp sx={{ fontSize: 20 }} />
-            Popular polls
-          </a>
-        </li>
-        <li>
-          <a href="/ui/newsletter" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <MailOutlineIcon sx={{ fontSize: 20 }} />
-            Newsletter
-          </a>
-        </li>
-        <li>
-          <a href="/ui/identity" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <VerifiedIcon sx={{ fontSize: 20 }} />
-            My identity
-          </a>
-        </li>
-        <li>
-          <a href="/ui/geolocation" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <LocationOnIcon sx={{ fontSize: 20 }} />
-            Geolocation (beta)
-          </a>
-        </li>
-        <hr style={{ margin: '1rem 0', border: 'none', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }} />
-        <li>
-          <a href="/geolocation_via_latency.html" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <VerifiedIcon sx={{ fontSize: 20 }} />
-            Proof of location
-          </a>
-        </li>
-        <li>
-          <a href="/ip_based_polls_as_a_proxy_for_popular_opinion.html" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Lightbulb sx={{ fontSize: 20 }} />
-            Why IP-based polls?
-          </a>
-        </li>
-        <li>
-          <a href="/privacy_policy.html" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <VerifiedIcon sx={{ fontSize: 20 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <ul>
+          <li>
+            <a href="/ui/popular" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <TrendingUp sx={{ fontSize: 20 }} />
+              Popular polls
+            </a>
+          </li>
+          <li>
+            <a href="/ui/identity" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <VerifiedIcon sx={{ fontSize: 20 }} />
+              My identity
+            </a>
+          </li>
+          <hr style={{ margin: '1rem 0', border: 'none', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }} />
+          <li>
+            <a href="/ip_based_polls_as_a_proxy_for_popular_opinion.html" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Lightbulb sx={{ fontSize: 20 }} />
+              Why IP-based polls?
+            </a>
+          </li>
+          <li>
+            <a href="/ui/geolocation" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <LocationOnIcon sx={{ fontSize: 20 }} />
+              Geolocation (beta)
+            </a>
+          </li>
+          <li>
+            <a href="https://globalcoordination.org/" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <PublicIcon sx={{ fontSize: 20 }} />
+              globalcoordination.org
+            </a>
+          </li>
+          <li>
+            <a href="https://github.com/c-riq/ipvote" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <GitHubIcon sx={{ fontSize: 20 }} />
+              GitHub Repository
+            </a>
+          </li>
+          <li>
+            <a href="https://x.com/ipvote" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <XIcon sx={{ fontSize: 20 }} />
+              Follow on X
+            </a>
+          </li>
+        </ul>
+        <div style={{ marginTop: 'auto', fontSize: '0.8rem', textAlign: 'center', padding: '1rem 0' }}>
+          <a href="/privacy_policy.html" target="_blank" rel="noopener noreferrer" style={{ marginRight: '1rem' }}>
             Privacy Policy
           </a>
-        </li>
-        <li>
-          <a href="/terms_of_service.html" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <VerifiedIcon sx={{ fontSize: 20 }} />
+          <a href="/terms_of_service.html" target="_blank" rel="noopener noreferrer">
             Terms of Service
           </a>
-        </li>
-        <li>
-          <a href="https://globalcoordination.org/" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <PublicIcon sx={{ fontSize: 20 }} />
-            globalcoordination.org
-          </a>
-        </li>
-        <li>
-          <a href="https://github.com/c-riq/ipvote" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <GitHubIcon sx={{ fontSize: 20 }} />
-            GitHub Repository
-          </a>
-        </li>
-      </ul>
+        </div>
+      </div>
     </div>
   )
 }
