@@ -501,11 +501,9 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   const renderVoteButtons = () => {
     if (isOpenPoll) {
       const existingOptions = Object.entries(results)
-        .sort(([,a], [,b]) => b - a) // Sort by vote count descending
+        .sort(([,a], [,b]) => b - a)
         .map(([option, count]) => {
           const percentage = count / Object.values(results).reduce((a, b) => a + b, 0) * 100;
-          
-          // Check if this is a URL (for world president election)
           const isUrl = poll === "Who should be world president?" && 
                        (option.startsWith('http://') || option.startsWith('https://'));
 
@@ -531,25 +529,13 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, order: { xs: 2, sm: 1 } }}>
                 {isUrl && (
-                  <a
-                    href={option}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: 'inherit', display: 'flex', alignItems: 'center' }}
-                  >
+                  <a href={option} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', display: 'flex', alignItems: 'center' }}>
                     <OpenInNewIcon fontSize="small" />
                   </a>
                 )}
-                <Tooltip 
-                  title={!privacyAccepted ? "Please accept the privacy policy first" : 
-                        (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}
-                  arrow
-                  disableHoverListener={allowVote}
-                  disableFocusListener={allowVote}
-                  disableTouchListener={allowVote}
-                  placement="top"
-                >
-                  <div style={{ display: 'inline-block' }}>
+                <Tooltip title={!privacyAccepted ? "Please accept the privacy policy first" : 
+                              (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}>
+                  <div style={{ display: 'inline-block', width: '100%' }}>
                     <Button
                       variant="contained"
                       disabled={!allowVote}
@@ -557,7 +543,11 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                       sx={{ 
                         minWidth: '100px',
                         width: { xs: '100%', sm: 'auto' },
-                        textTransform: 'none'
+                        textTransform: 'none',
+                        whiteSpace: 'normal',
+                        height: 'auto',
+                        padding: '8px 16px',
+                        lineHeight: 1.2
                       }}
                     >
                       {option}
@@ -655,18 +645,9 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
             }}
           />
         </Box>
-        <Tooltip 
-          title={!privacyAccepted ? "Please accept the privacy policy first" : 
-                (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}
-          arrow
-          disableHoverListener={allowVote}
-          disableFocusListener={allowVote}
-          disableTouchListener={allowVote}
-          placement="top"
-          enterTouchDelay={0}
-          leaveTouchDelay={5000}
-        >
-          <div style={{ display: 'inline-block' }}>
+        <Tooltip title={!privacyAccepted ? "Please accept the privacy policy first" : 
+                      (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}>
+          <div style={{ display: 'inline-block', width: '100%' }}>
             <Button
               variant="contained"
               disabled={!allowVote}
@@ -677,7 +658,11 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                 width: { xs: '100%', sm: 'auto' },
                 '&.Mui-disabled': {
                   pointerEvents: 'auto'
-                }
+                },
+                whiteSpace: 'normal',
+                height: 'auto',
+                padding: '8px 16px',
+                lineHeight: 1.2
               }}
             >
               {option}
