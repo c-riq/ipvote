@@ -54,6 +54,7 @@ interface VoteData {
   is_vpn?: string;
   is_cloud_provider?: string;
   custom_option?: string;
+  phone_number?: string;
 }
 
 interface PollProps {
@@ -98,6 +99,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   const [isOpenPoll, setIsOpenPoll] = useState(false)
   const [customOption, setCustomOption] = useState('')
   const [showCustomInput, setShowCustomInput] = useState(false)
+  const [includePhoneVerifiedOnly, setIncludePhoneVerifiedOnly] = useState(false)
 
   useEffect(() => {
     setRequireCaptcha(allVotes.length > 1000)
@@ -129,7 +131,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     if (allVotes.length > 0 && poll) {
       processVotes(allVotes)
     }
-  }, [includeTor, includeVpn, includeCloud, allVotes, poll])
+  }, [includeTor, includeVpn, includeCloud, includePhoneVerifiedOnly, allVotes, poll])
 
   const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setFilterAnchorEl(event.currentTarget)
@@ -196,7 +198,8 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     const filteredVotes = parsed.filter(vote => {
       return (includeTor || vote.is_tor !== '1') && 
              (includeVpn || vote.is_vpn !== '1') && 
-             (includeCloud || !vote.is_cloud_provider?.trim());
+             (includeCloud || !vote.is_cloud_provider?.trim()) &&
+             (!includePhoneVerifiedOnly || vote.phone_number);
     });
 
     setFilteredVotes(filteredVotes);
@@ -783,6 +786,17 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                           />
                         }
                         label="Include votes from cloud providers"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={includePhoneVerifiedOnly}
+                            onChange={(e) => {
+                              setIncludePhoneVerifiedOnly(e.target.checked);
+                            }}
+                          />
+                        }
+                        label="Show only votes with verified phone number"
                       />
                     </FormGroup>
                   </FormControl>
