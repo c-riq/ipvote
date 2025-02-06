@@ -101,6 +101,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   const [customOption, setCustomOption] = useState('')
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [includePhoneVerifiedOnly, setIncludePhoneVerifiedOnly] = useState(false)
+  const [dataLoading, setDataLoading] = useState(false)
 
   useEffect(() => {
     setRequireCaptcha(allVotes.length > CAPTCHA_THRESHOLD)
@@ -145,6 +146,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   const filterOpen = Boolean(filterAnchorEl)
 
   const fetchResults = async (pollId: string, refresh: boolean = true, isOpen: boolean = false) => {
+    setDataLoading(true)
     try {
       const now = Date.now();
 
@@ -187,6 +189,8 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
       }
     } catch (error) {
       console.error('Error fetching results:', error);
+    } finally {
+      setDataLoading(false)
     }
   }
 
@@ -733,7 +737,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
             showCaptcha={requireCaptcha}
           />
 
-          {loading ? (
+          {loading || dataLoading ? (
             <CircularProgress />
           ) : (
             <div style={{ marginTop: '20px' }}>
