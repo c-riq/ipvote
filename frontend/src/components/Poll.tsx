@@ -694,7 +694,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
         <Box sx={{ mb: 2 }}>
           <Typography>
             Learn more about the{' '}
-            <a href="/world_president_election.html" target="_blank" rel="noopener noreferrer">
+            <a href="/world_presidential_election.html" target="_blank" rel="noopener noreferrer">
               World President Election
             </a>
           </Typography>
