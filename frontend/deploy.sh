@@ -51,6 +51,15 @@ aws s3 cp "dist/terms_of_service.html" "s3://$s3_bucket/terms_of_service.html" \
     --cache-control "max-age=3600" \
     --content-type "text/html; charset=UTF-8"
 
+aws s3 cp "dist/ip_based_polls_as_a_proxy_for_popular_opinion.html" "s3://$s3_bucket/ip_based_polls_as_a_proxy_for_popular_opinion.html" \
+    --cache-control "max-age=3600" \
+    --content-type "text/html; charset=UTF-8"
+
+
+aws s3 cp "dist/world_presidential_election.html" "s3://$s3_bucket/world_presidential_election.html" \
+    --cache-control "max-age=3600" \
+    --content-type "text/html; charset=UTF-8"
+
 # Upload index HTML file with no-cache headers
 aws s3 cp "dist/index_${random_string}.html" "s3://$s3_bucket/index_${random_string}.html" \
     --cache-control "no-cache, no-store, must-revalidate" \

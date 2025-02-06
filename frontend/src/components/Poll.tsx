@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { 
   Button, 
   Checkbox, 
@@ -28,7 +28,8 @@ import ASNTreemap from './ASNTreemap'
 import { IpInfoResponse, PhoneVerificationState } from '../App'
 import { triggerLatencyMeasurementIfNeeded } from '../utils/latencyTriangulation'
 import { parseCSV, hasRequiredFields } from '../utils/csvParser'
-import { POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
+import { CAPTCHA_THRESHOLD, POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
+import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 
 interface VoteHistory {
   date: string;
@@ -100,9 +101,10 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   const [customOption, setCustomOption] = useState('')
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [includePhoneVerifiedOnly, setIncludePhoneVerifiedOnly] = useState(false)
+  const [dataLoading, setDataLoading] = useState(false)
 
   useEffect(() => {
-    setRequireCaptcha(allVotes.length > 1000)
+    setRequireCaptcha(allVotes.length > CAPTCHA_THRESHOLD)
   }, [allVotes])
 
   const allowVote = privacyAccepted ? requireCaptcha ? !!captchaToken : true : false
@@ -144,6 +146,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   const filterOpen = Boolean(filterAnchorEl)
 
   const fetchResults = async (pollId: string, refresh: boolean = true, isOpen: boolean = false) => {
+    setDataLoading(true)
     try {
       const now = Date.now();
 
@@ -186,6 +189,8 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
       }
     } catch (error) {
       console.error('Error fetching results:', error);
+    } finally {
+      setDataLoading(false)
     }
   }
 
@@ -500,9 +505,12 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   const renderVoteButtons = () => {
     if (isOpenPoll) {
       const existingOptions = Object.entries(results)
-        .sort(([,a], [,b]) => b - a) // Sort by vote count descending
+        .sort(([,a], [,b]) => b - a)
         .map(([option, count]) => {
           const percentage = count / Object.values(results).reduce((a, b) => a + b, 0) * 100;
+          const isUrl = poll === "Who should be world president?" && 
+                       (option.startsWith('http://') || option.startsWith('https://'));
+
           return (
             <Box key={option} sx={{ mb: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, gap: 2 }}>
               <Box sx={{ flex: 1, order: { xs: 1, sm: 2 } }}>
@@ -523,31 +531,34 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                   }}
                 />
               </Box>
-              <Tooltip 
-                title={!privacyAccepted ? "Please accept the privacy policy first" : 
-                      (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}
-                arrow
-                disableHoverListener={allowVote}
-                disableFocusListener={allowVote}
-                disableTouchListener={allowVote}
-                placement="top"
-              >
-                <div style={{ display: 'inline-block' }}>
-                  <Button
-                    variant="contained"
-                    disabled={!allowVote}
-                    onClick={() => handleVote(option)}
-                    sx={{ 
-                      minWidth: '100px',
-                      order: { xs: 2, sm: 1 },
-                      width: { xs: '100%', sm: 'auto' },
-                      textTransform: 'none'
-                    }}
-                  >
-                    {option}
-                  </Button>
-                </div>
-              </Tooltip>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, order: { xs: 2, sm: 1 } }}>
+                {isUrl && (
+                  <a href={option} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', display: 'flex', alignItems: 'center' }}>
+                    <OpenInNewIcon fontSize="small" />
+                  </a>
+                )}
+                <Tooltip title={!privacyAccepted ? "Please accept the privacy policy first" : 
+                              (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}>
+                  <div style={{ display: 'inline-block', width: '100%' }}>
+                    <Button
+                      variant="contained"
+                      disabled={!allowVote}
+                      onClick={() => handleVote(option)}
+                      sx={{ 
+                        minWidth: '100px',
+                        width: { xs: '100%', sm: 'auto' },
+                        textTransform: 'none',
+                        whiteSpace: 'normal',
+                        height: 'auto',
+                        padding: '8px 16px',
+                        lineHeight: 1.2
+                      }}
+                    >
+                      {option}
+                    </Button>
+                  </div>
+                </Tooltip>
+              </Box>
             </Box>
           );
         });
@@ -638,18 +649,9 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
             }}
           />
         </Box>
-        <Tooltip 
-          title={!privacyAccepted ? "Please accept the privacy policy first" : 
-                (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}
-          arrow
-          disableHoverListener={allowVote}
-          disableFocusListener={allowVote}
-          disableTouchListener={allowVote}
-          placement="top"
-          enterTouchDelay={0}
-          leaveTouchDelay={5000}
-        >
-          <div style={{ display: 'inline-block' }}>
+        <Tooltip title={!privacyAccepted ? "Please accept the privacy policy first" : 
+                      (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}>
+          <div style={{ display: 'inline-block', width: '100%' }}>
             <Button
               variant="contained"
               disabled={!allowVote}
@@ -660,7 +662,11 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                 width: { xs: '100%', sm: 'auto' },
                 '&.Mui-disabled': {
                   pointerEvents: 'auto'
-                }
+                },
+                whiteSpace: 'normal',
+                height: 'auto',
+                padding: '8px 16px',
+                lineHeight: 1.2
               }}
             >
               {option}
@@ -684,6 +690,23 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
         {poll.includes('_or_') ? poll.replace(/_/g, ' ') + '?' : poll.replace(/_/g, ' ')}
       </h1>
       
+      {poll === "Who should be world president?" && isOpenPoll && (
+        <Box sx={{ mb: 2 }}>
+          <Typography>
+            Learn more about the{' '}
+            <a href="/world_presidential_election.html" target="_blank" rel="noopener noreferrer">
+              World President Election
+            </a>
+          </Typography>
+          {privacyAccepted && !phoneVerification?.phoneNumber && (
+            <Alert severity="warning" sx={{ mt: 1 }}>
+              Only votes with a verified phone number will be counted in the World President Election.
+              {' '}<Link to="/ui/identity">Add phone number</Link>
+            </Alert>
+          )}
+        </Box>
+      )}
+
       {message && (
         <Alert 
           severity={message === 'Vote submitted successfully!' ? 'success' : 'warning'}
@@ -714,7 +737,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
             showCaptcha={requireCaptcha}
           />
 
-          {loading ? (
+          {loading || dataLoading ? (
             <CircularProgress />
           ) : (
             <div style={{ marginTop: '20px' }}>

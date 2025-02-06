@@ -263,18 +263,20 @@ function MyIdentity({
           />
 
           {privacyAccepted && (
-            <Box sx={{ my: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-              <Typography variant="h6" gutterBottom>
-                Level 1: IP Address Information
-              </Typography>
-              <Typography variant="body2">
-                IP Address: {userIpInfo.ip}
-                <br />
-                Country: {userIpInfo.geo.country_name}
-                <br />
-                Network: {userIpInfo.geo.as_name}
-              </Typography>
-            </Box>
+            <>
+                <Typography variant="h6" gutterBottom>
+                    Level 1: IP Address Information
+                </Typography>
+                <Box sx={{ my: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                <Typography variant="body2">
+                    IP Address: {userIpInfo.ip}
+                    <br />
+                    Country: {userIpInfo.geo.country_name}
+                    <br />
+                    Network: {userIpInfo.geo.as_name}
+                </Typography>
+                </Box>
+            </>
           )}
         </>
       )}
@@ -289,9 +291,6 @@ function MyIdentity({
           </Alert>
         ) : validatedPhoneNumber ? (
           <Box sx={{ mt: 2 }}>
-            <Alert severity="success">
-              Phone number verified successfully!
-            </Alert>
             <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
               <Typography variant="body2">
                 Verified Phone: {validatedPhoneNumber}
