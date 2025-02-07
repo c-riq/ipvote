@@ -306,7 +306,7 @@ module.exports.handler = async (event) => {
         if (error.name === 'NoSuchKey') {
             // File does not exist, create a new one with updated schema
             data = 'time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,'+
-                'closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number,phone_number\n';
+                'closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number\n';
         } else {
             console.log(error);
             return {
