@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { CircularProgress } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import PollCard from './PollCard'
@@ -34,6 +34,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
   const [offset, setOffset] = useState(0)
   const [seed] = useState(1)
   const [showCaptcha, setShowCaptcha] = useState(false)
+  const lastQueryTimestampRef = useRef<number>(0)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -49,13 +50,13 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
   }, [offset])
 
   const fetchPopularPolls = async (loadMore = false, pollToUpdate: string = '') => {
+
     if (loadMore) {
       setLoadingMore(true)
     } else {
       if (!pollToUpdate) {
         setLoading(true)
       } else {
-        // Set updating state for specific poll
         setPolls(prev => prev.map(poll => 
           poll.name === pollToUpdate 
             ? { ...poll, isUpdating: true }
@@ -65,20 +66,29 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
     }
 
     try {
+      const queryTimestamp = Date.now()
+      lastQueryTimestampRef.current = queryTimestamp
+      console.log('fetchPopularPolls', queryTimestamp, query)
       const response = await fetch(
         `${POPULAR_POLLS_HOST}/?limit=${LIMIT}&offset=${offset}&seed=${
           seed}&q=${encodeURIComponent(query)}&pollToUpdate=${pollToUpdate}`
       )
       const res = await response.json()
+
+      if (queryTimestamp < lastQueryTimestampRef.current) {
+        console.log('Ignoring stale response from earlier query')
+        return
+      }
+
       const formattedPolls = res.data.map(([name, votes]: [string, number]) => ({
         name,
         votes,
         isOpen: name.startsWith('open_')
       }))
+
       if (loadMore) {
         setPolls(prev => [...prev, ...formattedPolls])
       } else if (pollToUpdate) {
-        // Update only the specific poll's votes and remove updating state
         setPolls(prev => prev.map(poll => 
           poll.name === pollToUpdate 
             ? { ...formattedPolls[0], isUpdating: false }
@@ -90,7 +100,6 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
       setHasMore(formattedPolls.length === LIMIT)
     } catch (error) {
       console.error('Error fetching popular polls:', error)
-      // Remove updating state in case of error
       if (pollToUpdate) {
         setPolls(prev => prev.map(poll => 
           poll.name === pollToUpdate 
@@ -141,7 +150,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
       <div style={{ marginTop: '20px' }} />
       {polls.map((poll) => (
         <PollCard
-          key={poll.name}
+          key={`${poll.name}-${poll.votes}`}
           poll={poll.name}
           votes={poll.votes}
           onClick={(e) => handlePollClick(poll.name, e)}
