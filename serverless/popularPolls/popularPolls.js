@@ -31,9 +31,11 @@ async function listAllVoteFiles() {
 
 async function aggregateVotes(query = '', pollToUpdate = null, tagFilter = null) {
     const pollCounts = new Map();
+    const recentCounts = new Map();
     const files = await listAllVoteFiles();
     const searchTerms = query.toLowerCase().split(/\s+/);
     const tagFilters = tagFilter ? tagFilter.toLowerCase().split(',') : null;
+    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
     
     for (const file of files) {
         try {
@@ -109,20 +111,26 @@ async function aggregateVotes(query = '', pollToUpdate = null, tagFilter = null)
                 const line = lines[i].trim();
                 if (!line) continue;
                 
-                const [, , poll] = line.split(',');
+                const [timestamp, , poll] = line.split(',');
                 if (poll !== pollFromPath && poll !== pollFromPath.replace(/^open_/g, '')) continue;
                 
                 const currentCount = pollCounts.get(pollFromPath) || 0;
                 pollCounts.set(pollFromPath, currentCount + 1);
+
+                const voteTime = new Date(timestamp).getTime();
+                if (voteTime >= sevenDaysAgo) {
+                    const currentRecentCount = recentCounts.get(pollFromPath) || 0;
+                    recentCounts.set(pollFromPath, currentRecentCount + 1);
+                }
             }
         } catch (error) {
             console.error(`Error processing file ${file.Key}:`, error);
         }
     }
     
-    // Convert to array and sort by count
+    // Convert to array and sort by count, now including recent counts
     const results = Array.from(pollCounts.entries())
-        .map(([poll, count]) => [poll, count])
+        .map(([poll, count]) => [poll, count, recentCounts.get(poll) || 0])
         .sort((a, b) => b[1] - a[1]);
 
     // If pollToUpdate is set, only return that poll's data
@@ -214,7 +222,7 @@ module.exports.handler = async (event) => {
                         return {
                             statusCode: 200,
                             body: JSON.stringify({
-                                columns: ['poll', 'count'],
+                                columns: ['poll', 'count', 'last_7_days_count'],
                                 data: updatedPollData
                             })
                         }
@@ -233,7 +241,7 @@ module.exports.handler = async (event) => {
                 return {
                     statusCode: 200,
                     body: JSON.stringify({
-                        columns: ['poll', 'count'],
+                        columns: ['poll', 'count', 'last_7_days_count'],
                         data: selectedPolls
                     }),
                     headers: {
@@ -257,7 +265,7 @@ module.exports.handler = async (event) => {
         return {
             statusCode: 200,
             body: JSON.stringify({
-                columns: ['poll', 'count'],
+                columns: ['poll', 'count', 'last_7_days_count'],
                 data: aggregatedData
             })
         }
@@ -270,7 +278,7 @@ module.exports.handler = async (event) => {
     const cacheObject = {
         timestamp: Date.now(),
         results: {
-            columns: ['poll', 'count'],
+            columns: ['poll', 'count', 'last_7_days_count'],
             fullData: filteredData
         }
     };
@@ -293,7 +301,7 @@ module.exports.handler = async (event) => {
     return {
         statusCode: 200,
         body: JSON.stringify({
-            columns: ['poll', 'count'],
+            columns: ['poll', 'count', 'last_7_days_count'],
             data: selectedPolls
         }),
         headers: {
