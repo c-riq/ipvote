@@ -173,6 +173,11 @@
 }
 
 @media (max-width: 768px) {
+  #root {
+    padding: 1rem 0.25rem;
+    margin: 0;
+  }
+
   .burger-menu {
     display: block;
   }
