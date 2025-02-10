@@ -15,7 +15,8 @@ import {
   Paper,
   Popover,
   Tooltip,
-  TextField
+  TextField,
+  Chip
 } from '@mui/material'
 import Plot from 'react-plotly.js'
 import DownloadIcon from '@mui/icons-material/Download'
@@ -28,8 +29,9 @@ import ASNTreemap from './ASNTreemap'
 import { IpInfoResponse, PhoneVerificationState } from '../App'
 import { triggerLatencyMeasurementIfNeeded } from '../utils/latencyTriangulation'
 import { parseCSV, hasRequiredFields } from '../utils/csvParser'
-import { CAPTCHA_THRESHOLD, POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
+import { CAPTCHA_THRESHOLD, POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST, ADD_METADATA_HOST } from '../constants'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import PollMetadata from './PollMetadata'
 
 interface VoteHistory {
   date: string;
@@ -56,6 +58,20 @@ interface VoteData {
   is_cloud_provider?: string;
   custom_option?: string;
   phone_number?: string;
+}
+
+interface Metadata {
+  comments: {
+    comment: string;
+    userId: string;
+    timestamp: number;
+  }[];
+  tags: {
+    tag: string;
+    userId: string;
+    timestamp: number;
+  }[];
+  lastUpdated: number;
 }
 
 interface PollProps {
@@ -102,6 +118,8 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [includePhoneVerifiedOnly, setIncludePhoneVerifiedOnly] = useState(false)
   const [dataLoading, setDataLoading] = useState(false)
+  const [metadata, setMetadata] = useState<Metadata | null>(null);
+  const [metadataLoading, setMetadataLoading] = useState(false);
 
   useEffect(() => {
     setRequireCaptcha(allVotes.length > CAPTCHA_THRESHOLD)
@@ -134,6 +152,12 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
       processVotes(allVotes)
     }
   }, [includeTor, includeVpn, includeCloud, includePhoneVerifiedOnly, allVotes, poll])
+
+  useEffect(() => {
+    if (poll) {
+      fetchMetadata();
+    }
+  }, [poll]);
 
   const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setFilterAnchorEl(event.currentTarget)
@@ -694,6 +718,21 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     window.open(`${POLL_DATA_HOST}/?poll=${poll}&refresh=true&isOpen=${isOpenPoll}`, '_blank');
   };
 
+  const fetchMetadata = async () => {
+    setMetadataLoading(true);
+    try {
+      const response = await fetch(`${ADD_METADATA_HOST}/?poll=${encodeURIComponent(poll)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setMetadata(data);
+      }
+    } catch (error) {
+      console.error('Error fetching metadata:', error);
+    } finally {
+      setMetadataLoading(false);
+    }
+  };
+
   return (
     <div className="content">
       <h1 style={{ wordBreak: 'break-word' }}>
@@ -881,6 +920,15 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                 >
                   Download Poll Data
                 </Button>
+              </Box>
+
+              <Box sx={{ mt: 4 }}>
+                <PollMetadata 
+                  poll={poll}
+                  phoneVerification={phoneVerification}
+                  setMessage={setMessage}
+                  isOpen={isOpenPoll}
+                />
               </Box>
             </>
           )}

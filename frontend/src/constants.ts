@@ -12,5 +12,7 @@ export const VALIDATE_STRIPE_SESSION_HOST = 'https://2hsykhxggic633voycp33xxwam0
 
 export const SEND_SMS_CHALLENGE_HOST = 'https://a53qp2o22d2kljgnjqwux6n5dq0diats.lambda-url.us-east-1.on.aws'
 export const VERIFY_SMS_CHALLENGE_HOST = 'https://acnd2kwmzq774ec53s4q6i7sfq0huotn.lambda-url.us-east-1.on.aws'
+export const ADD_METADATA_HOST = 'https://3ky5zgrkk5x6tqai2z5viqeury0ymdxg.lambda-url.us-east-1.on.aws'
 
 export const CAPTCHA_THRESHOLD = 10000
+

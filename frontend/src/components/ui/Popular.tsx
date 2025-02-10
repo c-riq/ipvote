@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { CircularProgress } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import PollCard from './PollCard'
 import PrivacyAccept from './PrivacyAccept'
 import { IpInfoResponse, PhoneVerificationState } from '../../App'
@@ -13,6 +13,7 @@ export interface PollData {
   votes: number
   isUpdating?: boolean
   isOpen?: boolean
+  tags?: string[]
 }
 
 interface PopularProps {
@@ -25,6 +26,8 @@ interface PopularProps {
   phoneVerification: PhoneVerificationState | null
 }
 
+const VALID_TAGS = ['all', 'global', 'approval rating', 'national', 'other'] as const
+
 function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, 
     query, captchaToken, setCaptchaToken, phoneVerification }: PopularProps) {
   const [polls, setPolls] = useState<PollData[]>([])
@@ -36,12 +39,24 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
   const [showCaptcha, setShowCaptcha] = useState(false)
   const lastQueryTimestampRef = useRef<number>(0)
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tag = searchParams.get('tag') || 'all'
+
+  const handleTagChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const newTag = event.target.value
+    if (newTag === 'all') {
+      searchParams.delete('tag')
+    } else {
+      searchParams.set('tag', newTag)
+    }
+    setSearchParams(searchParams)
+  }
 
   useEffect(() => {
     setOffset(0)
     setPolls([])
     fetchPopularPolls(false)
-  }, [query])
+  }, [query, tag])
 
   useEffect(() => {
     if (offset > 0) {
@@ -71,7 +86,8 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
       console.log('fetchPopularPolls', queryTimestamp, query)
       const response = await fetch(
         `${POPULAR_POLLS_HOST}/?limit=${LIMIT}&offset=${offset}&seed=${
-          seed}&q=${encodeURIComponent(query)}&pollToUpdate=${pollToUpdate}`
+          seed}&q=${encodeURIComponent(query)}&pollToUpdate=${pollToUpdate}${
+          tag !== 'all' ? `&tag=${encodeURIComponent(tag)}` : ''}`
       )
       const res = await response.json()
 
@@ -139,6 +155,27 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
   return (
     <div>
       <h2>Let the internet vote!</h2>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'flex-end',
+        marginBottom: '20px'
+      }}>
+        <select 
+          value={tag}
+          onChange={handleTagChange}
+          style={{
+            padding: '8px',
+            borderRadius: '4px',
+            border: '1px solid #ccc'
+          }}
+        >
+          {VALID_TAGS.map((tagOption) => (
+            <option key={tagOption} value={tagOption}>
+              {tagOption.charAt(0).toUpperCase() + tagOption.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
       <PrivacyAccept
         userIpInfo={userIpInfo}
         accepted={privacyAccepted}
@@ -148,22 +185,38 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
         showCaptcha={showCaptcha}
       />
       <div style={{ marginTop: '20px' }} />
-      {polls.map((poll) => (
-        <PollCard
-          key={`${poll.name}-${poll.votes}`}
-          poll={poll.name}
-          votes={poll.votes}
-          onClick={(e) => handlePollClick(poll.name, e)}
-          handleVote={handleVote}
-          privacyAccepted={privacyAccepted}
-          isUpdating={poll.isUpdating}
-          captchaToken={captchaToken}
-          userIpInfo={userIpInfo}
-          requireCaptcha={poll.votes > CAPTCHA_THRESHOLD}
-          setShowCaptcha={setShowCaptcha}
-          phoneVerification={phoneVerification}
-        />
-      ))}
+      {polls.length > 0 ? (
+        polls.map((poll) => (
+          <PollCard
+            key={`${poll.name}-${poll.votes}`}
+            poll={poll.name}
+            votes={poll.votes}
+            onClick={(e) => handlePollClick(poll.name, e)}
+            handleVote={handleVote}
+            privacyAccepted={privacyAccepted}
+            isUpdating={poll.isUpdating}
+            captchaToken={captchaToken}
+            userIpInfo={userIpInfo}
+            requireCaptcha={poll.votes > CAPTCHA_THRESHOLD}
+            setShowCaptcha={setShowCaptcha}
+            phoneVerification={phoneVerification}
+          />
+        ))
+      ) : (
+        <div style={{
+          textAlign: 'center',
+          padding: '40px',
+          color: '#666',
+          backgroundColor: '#f5f5f5',
+          borderRadius: '8px',
+          marginTop: '20px'
+        }}>
+          <p>No polls found {query ? 'matching your search' : 'in this category'}</p>
+          {tag !== 'all' && (
+            <p>Try selecting a different category or view all polls</p>
+          )}
+        </div>
+      )}
       
       {hasMore && !loading && (
         <button 

@@ -5,6 +5,9 @@ const { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = r
 const s3Client = new S3Client();
 const BUCKET_NAME = 'ipvotes';
 
+// Add this at the top level with other constants
+const metadataCache = new Map();
+
 async function listAllVoteFiles() {
     const files = [];
     let continuationToken = undefined;
@@ -26,7 +29,7 @@ async function listAllVoteFiles() {
     return files;
 }
 
-async function aggregateVotes(query = '', pollToUpdate = null) {
+async function aggregateVotes(query = '', pollToUpdate = null, tagFilter = null) {
     const pollCounts = new Map();
     const files = await listAllVoteFiles();
     const searchTerms = query.toLowerCase().split(/\s+/);
@@ -35,6 +38,48 @@ async function aggregateVotes(query = '', pollToUpdate = null) {
         try {
             let pollFromPath = file.Key.split('/')[1]?.split('.')[0];
             pollFromPath = pollFromPath?.replace('poll=', '');
+            
+            // Check tag filter first if present
+            if (tagFilter) {
+                try {
+                    const metadataPath = `metadata/poll=${pollFromPath}/metadata.json`;
+                    
+                    // Try to get metadata from cache first
+                    let pollMetadata;
+                    if (metadataCache.has(metadataPath)) {
+                        pollMetadata = metadataCache.get(metadataPath);
+                    } else {
+                        const metadata = await s3Client.send(new GetObjectCommand({
+                            Bucket: BUCKET_NAME,
+                            Key: metadataPath
+                        }));
+                        const metadataContent = await metadata.Body.transformToString();
+                        pollMetadata = JSON.parse(metadataContent);
+                        // Cache the metadata
+                        metadataCache.set(metadataPath, pollMetadata);
+                    }
+                    
+                    // Count tag occurrences
+                    const tagCounts = {};
+                    pollMetadata.tags.forEach(t => {
+                        const tag = t.tag.toLowerCase();
+                        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                    });
+
+                    // Find the most frequent tag
+                    const mostFrequentTag = Object.entries(tagCounts)
+                        .sort((a, b) => b[1] - a[1])[0]?.[0];
+
+                    // Skip if the most frequent tag doesn't match the filter
+                    if (!mostFrequentTag || mostFrequentTag !== tagFilter.toLowerCase()) {
+                        continue;
+                    }
+                } catch (error) {
+                    // If metadata doesn't exist or there's an error, skip this poll
+                    continue;
+                }
+            }
+
             if (pollToUpdate) {
                 const pollPath = `votes/poll=${pollToUpdate}/`;
                 if (!file.Key.startsWith(pollPath)) {
@@ -119,9 +164,10 @@ module.exports.handler = async (event) => {
     const limit = parseInt(event?.queryStringParameters?.limit) || 15;
     const offset = parseInt(event?.queryStringParameters?.offset) || 0;
     const query = event?.queryStringParameters?.q || '';
+    const tagFilter = event?.queryStringParameters?.tag || '';
     
-    // Create a unique cache key based on parameters including search query
-    const CACHE_KEY = `popular_polls/cached_results_${seed}_${query}.json`;
+    // Update cache key to include tag filter
+    const CACHE_KEY = `popular_polls/cached_results_${seed}_${query}_${tagFilter}.json`;
     
     // Try cache first if not forcing refresh
     if (!forceRefresh) {
@@ -139,7 +185,7 @@ module.exports.handler = async (event) => {
             if (cacheValid) {
                 // If updating specific poll, update just that poll's data
                 if (pollToUpdate) {
-                    const updatedPollData = await aggregateVotes(query, pollToUpdate);
+                    const updatedPollData = await aggregateVotes(query, pollToUpdate, tagFilter);
                     if (updatedPollData.length > 0) {
                         console.log('Updating poll:', pollToUpdate);
                         // Update the specific poll's count in cached data
@@ -201,7 +247,7 @@ module.exports.handler = async (event) => {
     }
 
     // Aggregate votes directly from S3
-    const aggregatedData = await aggregateVotes(query, pollToUpdate);
+    const aggregatedData = await aggregateVotes(query, pollToUpdate, tagFilter);
 
     if (pollToUpdate) {
         // send response already

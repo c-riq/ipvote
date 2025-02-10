@@ -4,8 +4,8 @@ const { getIPInfo } = require('./from_ipInfos/ipCountryLookup');
 const https = require('https');
 
 /* schema of csv file:
-time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms
-1716891868980,146.103.108.202,1_or_2,2,AU,TPG Telecom Limited,false,false,false,us-east-1,120,240
+time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number
+1716891868980,146.103.108.202,Abolish the US Electoral College,yes,US,Comcast Cable Communications%2C LLC,0,,,us-west-2,65.5,145,,
 */
 
 const { Readable } = require('stream');
@@ -97,7 +97,7 @@ const validateCachedCaptcha = async (ip, token, bucketName) => {
 
 const validatePhoneToken = async (phoneNumber, token, bucketName) => {
     const fileName = 'phone_number/verification.csv';
-    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000; // One week in milliseconds
+    const monthInMs = 31 * 24 * 60 * 60 * 1000; // One month in milliseconds
     
     try {
         const data = await fetchFileFromS3(bucketName, fileName);
@@ -111,8 +111,8 @@ const validatePhoneToken = async (phoneNumber, token, bucketName) => {
             if (storedPhone === phoneNumber && storedToken === token) {
                 const verificationTime = parseInt(timestamp);
                 const now = Date.now();
-                // Verify that the token is not older than one week
-                if (now - verificationTime < oneWeekInMs) {
+                // Verify that the token is not older than one month
+                if (now - verificationTime < monthInMs) {
                     return true;
                 }
             }

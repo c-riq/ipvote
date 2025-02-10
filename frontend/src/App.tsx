@@ -71,8 +71,8 @@ function App() {
     const stored = localStorage.getItem('phoneVerification');
     if (stored) {
       const verification = JSON.parse(stored);
-      // Check if verification is less than 24 hours old
-      const isValid = Date.now() - new Date(verification.timestamp).getTime() < 24 * 60 * 60 * 1000;
+      // Check if verification is less than 31 days old
+      const isValid = Date.now() - new Date(verification.timestamp).getTime() < 31 * 24 * 60 * 60 * 1000;
       return isValid ? verification : null;
     }
     return null;
