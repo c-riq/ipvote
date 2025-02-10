@@ -152,13 +152,17 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
         position: 'relative',
         transition: 'transform 0.3s ease-in-out',
         '&:hover': {
-          transform: 'scale(1.02)',
+          transform: 'scale(1.01)',
+        },
+        width: {
+          xs: '100%',
+          sm: '500px'
         },
         ...((!isVisible) && {
           animation: 'pulse 1s ease-in-out',
           '@keyframes pulse': {
             '0%': { transform: 'scale(1)' },
-            '50%': { transform: 'scale(1.02)' },
+            '50%': { transform: 'scale(1.01)' },
             '100%': { transform: 'scale(1)' },
           }
         })
