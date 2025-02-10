@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { CircularProgress } from '@mui/material'
+import { CircularProgress, Button, Popover, Paper, FormControl, FormLabel, FormGroup, FormControlLabel, Checkbox } from '@mui/material'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import PollCard from './PollCard'
 import PrivacyAccept from './PrivacyAccept'
 import { IpInfoResponse, PhoneVerificationState } from '../../App'
 import { CAPTCHA_THRESHOLD, POPULAR_POLLS_HOST } from '../../constants'
+import FilterListIcon from '@mui/icons-material/FilterList'
 
 const LIMIT = 15
 
@@ -40,23 +41,70 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
   const lastQueryTimestampRef = useRef<number>(0)
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const tag = searchParams.get('tag') || 'all'
-
-  const handleTagChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newTag = event.target.value
-    if (newTag === 'all') {
-      searchParams.delete('tag')
-    } else {
-      searchParams.set('tag', newTag)
+  const [filterOpen, setFilterOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement | null>(null);
+  
+  // Initialize selectedTags from URL params or default values
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(() => {
+    const tagParam = searchParams.get('tags');
+    if (tagParam) {
+      return new Set(tagParam.split(','));
     }
-    setSearchParams(searchParams)
-  }
+    return new Set(['global', 'approval rating']);
+  });
+
+  const handleTagChange = (tag: string) => {
+    const newTags = new Set(selectedTags);
+    if (tag === 'all') {
+      // If 'all' is selected, clear other selections
+      setSelectedTags(new Set(['all']));
+      setSearchParams(query ? { q: query } : {});  // Preserve search query
+    } else {
+      // If another tag is selected, remove 'all'
+      newTags.delete('all');
+      if (newTags.has(tag)) {
+        newTags.delete(tag);
+        // If no tags selected, default to 'all'
+        if (newTags.size === 0) {
+          newTags.add('all');
+          setSearchParams(query ? { q: query } : {});  // Preserve search query
+        } else {
+          setSearchParams({ 
+            ...(query ? { q: query } : {}),
+            tags: Array.from(newTags).join(',') 
+          });
+        }
+      } else {
+        newTags.add(tag);
+        setSearchParams({ 
+          ...(query ? { q: query } : {}),
+          tags: Array.from(newTags).join(',') 
+        });
+      }
+      setSelectedTags(newTags);
+    }
+  };
 
   useEffect(() => {
-    setOffset(0)
-    setPolls([])
-    fetchPopularPolls(false)
-  }, [query, tag])
+    setOffset(0);
+    setPolls([]);
+    fetchPopularPolls(false);
+  }, [selectedTags]);
+
+  // Add new effect for query changes
+  useEffect(() => {
+    setOffset(0);
+    setPolls([]);
+    fetchPopularPolls(false);
+  }, [query]);
+
+  const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setFilterOpen(true);
+  };
+
+  const handleFilterClose = () => {
+    setFilterOpen(false);
+  };
 
   useEffect(() => {
     if (offset > 0) {
@@ -84,10 +132,11 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
       const queryTimestamp = Date.now()
       lastQueryTimestampRef.current = queryTimestamp
       console.log('fetchPopularPolls', queryTimestamp, query)
+      const tagsParam = selectedTags.has('all') ? '' : 
+        `&tags=${Array.from(selectedTags).map(t => encodeURIComponent(t)).join(',')}`;
       const response = await fetch(
         `${POPULAR_POLLS_HOST}/?limit=${LIMIT}&offset=${offset}&seed=${
-          seed}&q=${encodeURIComponent(query)}&pollToUpdate=${pollToUpdate}${
-          tag !== 'all' ? `&tag=${encodeURIComponent(tag)}` : ''}`
+          seed}&q=${encodeURIComponent(query)}&pollToUpdate=${pollToUpdate}${tagsParam}`
       )
       const res = await response.json()
 
@@ -148,34 +197,60 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
     fetchPopularPolls(false, poll)
   }
 
-  if (loading) {
-    return <CircularProgress />
-  }
-
   return (
     <div>
-      <h2>Let the internet vote!</h2>
       <div style={{ 
         display: 'flex', 
-        justifyContent: 'flex-end',
+        flexDirection: 'row', 
+        alignItems: 'center',
+        justifyContent: 'space-between',
         marginBottom: '20px'
       }}>
-        <select 
-          value={tag}
-          onChange={handleTagChange}
-          style={{
-            padding: '8px',
-            borderRadius: '4px',
-            border: '1px solid #ccc'
-          }}
+        <h2 style={{ margin: 0 }}>Let the internet vote!</h2>
+        <Button
+          ref={anchorRef}
+          variant="outlined"
+          onClick={handleFilterClick}
+          startIcon={<FilterListIcon />}
+          size="small"
         >
-          {VALID_TAGS.map((tagOption) => (
-            <option key={tagOption} value={tagOption}>
-              {tagOption.charAt(0).toUpperCase() + tagOption.slice(1)}
-            </option>
-          ))}
-        </select>
+          Filter by Tags
+        </Button>
       </div>
+      <Popover
+        open={filterOpen}
+        anchorEl={anchorRef.current}
+        onClose={handleFilterClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        disablePortal
+      >
+        <Paper sx={{ p: 2 }}>
+          <FormControl component="fieldset">
+            <FormLabel component="legend">Filter by Tags</FormLabel>
+            <FormGroup>
+              {VALID_TAGS.map((tagOption) => (
+                <FormControlLabel
+                  key={tagOption}
+                  control={
+                    <Checkbox
+                      checked={selectedTags.has(tagOption)}
+                      onChange={() => handleTagChange(tagOption)}
+                    />
+                  }
+                  label={tagOption.charAt(0).toUpperCase() + tagOption.slice(1)}
+                />
+              ))}
+            </FormGroup>
+          </FormControl>
+        </Paper>
+      </Popover>
       <PrivacyAccept
         userIpInfo={userIpInfo}
         accepted={privacyAccepted}
@@ -185,9 +260,21 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
         showCaptcha={showCaptcha}
       />
       <div style={{ marginTop: '20px' }} />
-      {polls.length > 0 ? (
-        polls.map((poll) => (
-          <PollCard
+      {loading ? (
+        <div style={{
+          width: '100%',
+          maxWidth: '500px',
+          margin: '0 auto',
+          display: 'flex',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <CircularProgress />
+        </div>
+      ) : (
+        polls.length > 0 ? (
+          polls.map((poll) => (
+            <PollCard
             key={`${poll.name}-${poll.votes}`}
             poll={poll.name}
             votes={poll.votes}
@@ -212,11 +299,11 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
           marginTop: '20px'
         }}>
           <p>No polls found {query ? 'matching your search' : 'in this category'}</p>
-          {tag !== 'all' && (
+          {selectedTags.size > 1 && (
             <p>Try selecting a different category or view all polls</p>
           )}
         </div>
-      )}
+      ))}
       
       {hasMore && !loading && (
         <button 

@@ -33,14 +33,15 @@ async function aggregateVotes(query = '', pollToUpdate = null, tagFilter = null)
     const pollCounts = new Map();
     const files = await listAllVoteFiles();
     const searchTerms = query.toLowerCase().split(/\s+/);
+    const tagFilters = tagFilter ? tagFilter.toLowerCase().split(',') : null;
     
     for (const file of files) {
         try {
             let pollFromPath = file.Key.split('/')[1]?.split('.')[0];
             pollFromPath = pollFromPath?.replace('poll=', '');
             
-            // Check tag filter first if present
-            if (tagFilter) {
+            // Check tag filters first if present
+            if (tagFilters) {
                 try {
                     const metadataPath = `metadata/poll=${pollFromPath}/metadata.json`;
                     
@@ -60,18 +61,20 @@ async function aggregateVotes(query = '', pollToUpdate = null, tagFilter = null)
                     }
                     
                     // Count tag occurrences
-                    const tagCounts = {};
+                    const tagCounts = new Map();
                     pollMetadata.tags.forEach(t => {
                         const tag = t.tag.toLowerCase();
-                        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
                     });
 
-                    // Find the most frequent tag
-                    const mostFrequentTag = Object.entries(tagCounts)
-                        .sort((a, b) => b[1] - a[1])[0]?.[0];
+                    // Sort tags by count to get top 2
+                    const topTags = Array.from(tagCounts.entries())
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 2)
+                        .map(([tag]) => tag);
 
-                    // Skip if the most frequent tag doesn't match the filter
-                    if (!mostFrequentTag || mostFrequentTag !== tagFilter.toLowerCase()) {
+                    // Check if any of the requested tags is in top 2
+                    if (!tagFilters.some(tag => topTags.includes(tag))) {
                         continue;
                     }
                 } catch (error) {
@@ -164,7 +167,7 @@ module.exports.handler = async (event) => {
     const limit = parseInt(event?.queryStringParameters?.limit) || 15;
     const offset = parseInt(event?.queryStringParameters?.offset) || 0;
     const query = event?.queryStringParameters?.q || '';
-    const tagFilter = event?.queryStringParameters?.tag || '';
+    const tagFilter = event?.queryStringParameters?.tags || '';
     
     // Update cache key to include tag filter
     const CACHE_KEY = `popular_polls/cached_results_${seed}_${query}_${tagFilter}.json`;

@@ -35,7 +35,11 @@ function Header({ isSidebarOpen, setIsSidebarOpen, onSearchChange }: HeaderProps
   const handleSearchSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       onSearchChange(inputValue);
-      navigate(`/ui/popular?q=${encodeURIComponent(inputValue)}`);
+      if (inputValue) {
+        navigate(`/ui/popular?q=${encodeURIComponent(inputValue)}`);
+      } else {
+        navigate('/ui/popular');
+      }
     }
   }
   
@@ -75,7 +79,13 @@ function Header({ isSidebarOpen, setIsSidebarOpen, onSearchChange }: HeaderProps
           placeholder="Search..."
           className="search-bar"
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+          onChange={(e) => {
+            setInputValue(e.target.value)
+            if (e.target.value === '') {
+              onSearchChange('')
+              navigate('/ui/popular');
+            }
+          }}
           onKeyDown={handleSearchSubmit}
           style={{
             fontSize: '16px',
