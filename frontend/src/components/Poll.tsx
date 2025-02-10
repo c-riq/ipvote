@@ -531,7 +531,13 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                   }}
                 />
               </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, order: { xs: 2, sm: 1 } }}>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1, 
+                order: { xs: 2, sm: 1 },
+                minWidth: { sm: '200px' }  // Added minimum width
+              }}>
                 {isUrl && (
                   <a href={option} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', display: 'flex', alignItems: 'center' }}>
                     <OpenInNewIcon fontSize="small" />
@@ -545,7 +551,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                       disabled={!allowVote}
                       onClick={() => handleVote(option)}
                       sx={{ 
-                        minWidth: '100px',
+                        minWidth: '200px',  // Updated minimum width
                         width: { xs: '100%', sm: 'auto' },
                         textTransform: 'none',
                         whiteSpace: 'normal',
@@ -649,30 +655,34 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
             }}
           />
         </Box>
-        <Tooltip title={!privacyAccepted ? "Please accept the privacy policy first" : 
-                      (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}>
-          <div style={{ display: 'inline-block', width: '100%' }}>
-            <Button
-              variant="contained"
-              disabled={!allowVote}
-              onClick={() => handleVote(option)}
-              sx={{ 
-                minWidth: '100px',
-                order: { xs: 2, sm: 1 },
-                width: { xs: '100%', sm: 'auto' },
-                '&.Mui-disabled': {
-                  pointerEvents: 'auto'
-                },
-                whiteSpace: 'normal',
-                height: 'auto',
-                padding: '8px 16px',
-                lineHeight: 1.2
-              }}
-            >
-              {option}
-            </Button>
-          </div>
-        </Tooltip>
+        <Box sx={{ 
+          order: { xs: 2, sm: 1 },
+          minWidth: { sm: '200px' }  // Added minimum width
+        }}>
+          <Tooltip title={!privacyAccepted ? "Please accept the privacy policy first" : 
+                        (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}>
+            <div style={{ display: 'inline-block', width: '100%' }}>
+              <Button
+                variant="contained"
+                disabled={!allowVote}
+                onClick={() => handleVote(option)}
+                sx={{ 
+                  minWidth: '200px',  // Updated minimum width
+                  width: { xs: '100%', sm: 'auto' },
+                  '&.Mui-disabled': {
+                    pointerEvents: 'auto'
+                  },
+                  whiteSpace: 'normal',
+                  height: 'auto',
+                  padding: '8px 16px',
+                  lineHeight: 1.2
+                }}
+              >
+                {option}
+              </Button>
+            </div>
+          </Tooltip>
+        </Box>
       </Box>
     ));
   };
@@ -699,7 +709,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
             </a>
           </Typography>
           {privacyAccepted && !phoneVerification?.phoneNumber && (
-            <Alert severity="warning" sx={{ mt: 1 }}>
+            <Alert severity="info" sx={{ mt: 1 }}>
               Only votes with a verified phone number will be counted in the World President Election.
               {' '}<Link to="/ui/identity">Add phone number</Link>
             </Alert>
