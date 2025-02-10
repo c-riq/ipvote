@@ -59,7 +59,7 @@ async function aggregateAllPollsData(specificPoll = null) {
     const files = await listAllVoteFiles();
     const pollsData = new Map(); // Map to store vote counts for each poll
     const recentCounts = new Map(); // Map to store recent vote counts
-    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = (new Date()).getTime() - (7 * 24 * 60 * 60 * 1000);
     
     // Process all vote files
     for (const file of files) {
@@ -90,7 +90,7 @@ async function aggregateAllPollsData(specificPoll = null) {
                 const currentCount = pollsData.get(pollFromPath) || 0;
                 pollsData.set(pollFromPath, currentCount + 1);
 
-                const voteTime = new Date(timestamp).getTime();
+                const voteTime = new Date(parseInt(timestamp)).getTime();
                 if (voteTime >= sevenDaysAgo) {
                     const currentRecentCount = recentCounts.get(pollFromPath) || 0;
                     recentCounts.set(pollFromPath, currentRecentCount + 1);
@@ -100,7 +100,6 @@ async function aggregateAllPollsData(specificPoll = null) {
             console.error(`Error processing file ${file.Key}:`, error);
         }
     }
-
     // Get metadata for all polls (or just the specific poll)
     const pollMetadata = new Map();
     for (const pollName of pollsData.keys()) {
