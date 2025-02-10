@@ -138,7 +138,7 @@ module.exports.handler = async (event) => {
     const hcaptchaToken = event.queryStringParameters.captchaToken;
     const phoneNumber = event.queryStringParameters.phoneNumber;
     const phoneToken = event.queryStringParameters.phoneToken;
-    const forbiddenStringsRegex = /,|\\n|\\r|\\t|>|<|"/;
+    const forbiddenStringsRegex = /,|\\n|\\r|\\t|>|<|"|=/;
 
     // Prevent polls from being created with open_ prefix
     if (poll.startsWith('open_')) {
