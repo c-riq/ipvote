@@ -381,7 +381,8 @@ function MyIdentity({
         ) : (
           <>
             <Typography variant="body2" paragraph>
-              Verify your phone number for 1€ to increase the credibility of your votes for 24 hours.
+              Verify your phone number for 1€ to increase the credibility of your votes for 1 month.
+              <br /> With a verified phone number, you can also add tags to polls.
             </Typography>
             <Button
               variant="contained"

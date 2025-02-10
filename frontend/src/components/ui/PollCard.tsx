@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, Typography, Box, Button, Tooltip, Alert, CircularProgress } from '@mui/material'
 import { triggerLatencyMeasurementIfNeeded } from '../../utils/latencyTriangulation'
 import { IpInfoResponse, PhoneVerificationState } from '../../App'
@@ -23,6 +23,23 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
   const [message, setMessage] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [measuringLatency, setMeasuringLatency] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting)
+      },
+      { threshold: 0.5 }
+    )
+
+    const element = document.getElementById(`poll-${poll}`)
+    if (element) {
+      observer.observe(element)
+    }
+
+    return () => observer.disconnect()
+  }, [poll])
 
   const allowVote = requireCaptcha ? privacyAccepted && !!captchaToken : privacyAccepted
 
@@ -128,7 +145,28 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
 
   return (
     <Card
-      sx={{ mb: 2, cursor: 'pointer' }}
+      id={`poll-${poll}`}
+      sx={{
+        mb: 2,
+        cursor: 'pointer',
+        position: 'relative',
+        transition: 'transform 0.3s ease-in-out',
+        '&:hover': {
+          transform: 'scale(1.01)',
+        },
+        width: {
+          xs: '100%',
+          sm: '500px'
+        },
+        ...((!isVisible) && {
+          animation: 'pulse 1s ease-in-out',
+          '@keyframes pulse': {
+            '0%': { transform: 'scale(1)' },
+            '50%': { transform: 'scale(1.01)' },
+            '100%': { transform: 'scale(1)' },
+          }
+        })
+      }}
       onClick={onClick}
     >
       <CardContent>
@@ -156,6 +194,19 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
           </Alert>
         )}
         {renderVoteButtons()}
+        <Typography 
+          sx={{ 
+            position: 'absolute',
+            right: 16,
+            bottom: 4,
+            fontSize: '0.8rem',
+            color: 'text.secondary',
+            opacity: 0.7,
+            mt: 3
+          }}
+        >
+          Click to view details
+        </Typography>
       </CardContent>
     </Card>
   )

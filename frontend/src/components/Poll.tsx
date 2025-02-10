@@ -15,7 +15,7 @@ import {
   Paper,
   Popover,
   Tooltip,
-  TextField
+  TextField,
 } from '@mui/material'
 import Plot from 'react-plotly.js'
 import DownloadIcon from '@mui/icons-material/Download'
@@ -30,6 +30,7 @@ import { triggerLatencyMeasurementIfNeeded } from '../utils/latencyTriangulation
 import { parseCSV, hasRequiredFields } from '../utils/csvParser'
 import { CAPTCHA_THRESHOLD, POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import PollMetadata from './PollMetadata'
 
 interface VoteHistory {
   date: string;
@@ -531,7 +532,13 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                   }}
                 />
               </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, order: { xs: 2, sm: 1 } }}>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1, 
+                order: { xs: 2, sm: 1 },
+                minWidth: { sm: '200px' }  // Added minimum width
+              }}>
                 {isUrl && (
                   <a href={option} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', display: 'flex', alignItems: 'center' }}>
                     <OpenInNewIcon fontSize="small" />
@@ -545,7 +552,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                       disabled={!allowVote}
                       onClick={() => handleVote(option)}
                       sx={{ 
-                        minWidth: '100px',
+                        minWidth: '200px',  // Updated minimum width
                         width: { xs: '100%', sm: 'auto' },
                         textTransform: 'none',
                         whiteSpace: 'normal',
@@ -649,30 +656,34 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
             }}
           />
         </Box>
-        <Tooltip title={!privacyAccepted ? "Please accept the privacy policy first" : 
-                      (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}>
-          <div style={{ display: 'inline-block', width: '100%' }}>
-            <Button
-              variant="contained"
-              disabled={!allowVote}
-              onClick={() => handleVote(option)}
-              sx={{ 
-                minWidth: '100px',
-                order: { xs: 2, sm: 1 },
-                width: { xs: '100%', sm: 'auto' },
-                '&.Mui-disabled': {
-                  pointerEvents: 'auto'
-                },
-                whiteSpace: 'normal',
-                height: 'auto',
-                padding: '8px 16px',
-                lineHeight: 1.2
-              }}
-            >
-              {option}
-            </Button>
-          </div>
-        </Tooltip>
+        <Box sx={{ 
+          order: { xs: 2, sm: 1 },
+          minWidth: { sm: '200px' }  // Added minimum width
+        }}>
+          <Tooltip title={!privacyAccepted ? "Please accept the privacy policy first" : 
+                        (requireCaptcha && !captchaToken) ? "Please complete the captcha verification" : ""}>
+            <div style={{ display: 'inline-block', width: '100%' }}>
+              <Button
+                variant="contained"
+                disabled={!allowVote}
+                onClick={() => handleVote(option)}
+                sx={{ 
+                  minWidth: '200px',  // Updated minimum width
+                  width: { xs: '100%', sm: 'auto' },
+                  '&.Mui-disabled': {
+                    pointerEvents: 'auto'
+                  },
+                  whiteSpace: 'normal',
+                  height: 'auto',
+                  padding: '8px 16px',
+                  lineHeight: 1.2
+                }}
+              >
+                {option}
+              </Button>
+            </div>
+          </Tooltip>
+        </Box>
       </Box>
     ));
   };
@@ -683,6 +694,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     // Direct download from the API endpoint
     window.open(`${POLL_DATA_HOST}/?poll=${poll}&refresh=true&isOpen=${isOpenPoll}`, '_blank');
   };
+
 
   return (
     <div className="content">
@@ -699,7 +711,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
             </a>
           </Typography>
           {privacyAccepted && !phoneVerification?.phoneNumber && (
-            <Alert severity="warning" sx={{ mt: 1 }}>
+            <Alert severity="info" sx={{ mt: 1 }}>
               Only votes with a verified phone number will be counted in the World President Election.
               {' '}<Link to="/ui/identity">Add phone number</Link>
             </Alert>
@@ -871,6 +883,14 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                 >
                   Download Poll Data
                 </Button>
+              </Box>
+
+              <Box sx={{ mt: 4 }}>
+                <PollMetadata 
+                  poll={poll}
+                  phoneVerification={phoneVerification}
+                  isOpen={isOpenPoll}
+                />
               </Box>
             </>
           )}
