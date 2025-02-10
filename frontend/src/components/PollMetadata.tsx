@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Box, 
   Paper, 
@@ -30,11 +30,10 @@ interface Metadata {
 interface PollMetadataProps {
   poll: string;
   phoneVerification: PhoneVerificationState | null;
-  setMessage: (message: string) => void;
   isOpen: boolean;
 }
 
-function PollMetadata({ poll, phoneVerification, setMessage, isOpen }: PollMetadataProps) {
+function PollMetadata({ poll, phoneVerification, isOpen }: PollMetadataProps) {
   const [metadata, setMetadata] = useState<Metadata | null>(null);
   const [metadataLoading, setMetadataLoading] = useState(false);
   const [tagSubmitting, setTagSubmitting] = useState(false);

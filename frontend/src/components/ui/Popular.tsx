@@ -98,7 +98,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
     fetchPopularPolls(false);
   }, [query]);
 
-  const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleFilterClick = (_: React.MouseEvent<HTMLButtonElement>) => {
     setFilterOpen(true);
   };
 
