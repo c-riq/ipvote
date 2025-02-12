@@ -88,6 +88,8 @@
             <li>Only votes which are submitted with a verified phone number proof are considered</li>
             <li>Phone numbers, which don't belong to individuals and appear to be used for automated voting are excluded</li>
             <li>IP addresses, which are associated with VPNs or datacenters and appear to be used for automated voting are excluded</li>
+            <li>If there are less than 100 votes per month via verified phone numbers, the IP address based result is considered</li>
+            <li>If there are less than 100 votes per month via IP addresses, the election is cancelled</li>
         </ul>
     </div>
 
