@@ -2,15 +2,18 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Typography } from '@mui/material';
 import { useState, useEffect } from 'react';
 import PersonIcon from '@mui/icons-material/Person';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { PhoneVerificationState } from '../App';
 
 interface HeaderProps {
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  phoneVerification: PhoneVerificationState | null;
 }
 
-function Header({ isSidebarOpen, setIsSidebarOpen, onSearchChange }: HeaderProps) {
+function Header({ isSidebarOpen, setIsSidebarOpen, onSearchChange, phoneVerification }: HeaderProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [inputValue, setInputValue] = useState(() => searchParams.get('q') || '');
@@ -109,10 +112,24 @@ function Header({ isSidebarOpen, setIsSidebarOpen, onSearchChange }: HeaderProps
           justifyContent: 'center',
           borderRadius: '50%',
           backgroundColor: 'rgba(255, 255, 255, 0.1)',
-          marginLeft: '12px'
+          marginLeft: '12px',
+          position: 'relative'
         }}
       >
         <PersonIcon />
+        {phoneVerification && (
+          <CheckCircleIcon
+            sx={{
+              position: 'absolute',
+              bottom: 5,
+              right: 5,
+              color: '#4caf50',
+              backgroundColor: 'white',
+              borderRadius: '50%',
+              fontSize: '14px'
+            }}
+          />
+        )}
       </div>
     </header>
   )

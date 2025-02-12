@@ -57,6 +57,37 @@ const sanitizeInput = (str) => {
 
 const VALID_TAGS = ['global', 'approval rating', 'national', 'other'];
 
+const maskIP = (ip) => {
+    try {
+        if (ip.includes('.')) {
+            // IPv4
+            const parts = ip.split('.');
+            const thirdOctet = parts[2] || '';
+            const paddedThird = thirdOctet.padStart(3, '0');
+            const maskedThird = paddedThird.substring(0, 2) + 'X';
+            return `${parts[0]}.${parts[1]}.${maskedThird}.XXX`;
+        } else {
+            // IPv6
+            const parts = ip.split(':');
+            const thirdOctet = parts[2] || '';
+            const paddedThird = thirdOctet.padStart(4, '0');
+            const maskedThird = paddedThird.substring(0, 1) + 'XXX';
+            return `${parts[0]}:${parts[1]}:${maskedThird}:XXXX:XXXX:XXXX`;
+        }
+    } catch (error) {
+        console.error('Error in maskIP:', error, 'IP:', ip);
+        throw error;
+    }
+};
+
+
+function maskPhoneNumber(phone) {
+    if (!phone) return '';
+    // Keep country code and first digits, mask the last 6 digits
+    // Example: +491234567890 -> +491234XXXXXX
+    return phone.replace(/(\+\d+)(\d{6})$/, '$1XXXXXX');
+}
+
 module.exports.handler = async (event) => {
     // Handle GET request to fetch metadata
     if (event.requestContext?.http?.method === 'GET' && event.queryStringParameters?.poll) {
@@ -112,13 +143,25 @@ module.exports.handler = async (event) => {
     const phoneToken = requestData.phoneToken;
     const comment = sanitizeInput(requestData.comment);
     const tag = sanitizeInput(requestData.tag);
+    const parentId = requestData.parentId;
     
     // Validate inputs
-    if (!poll || !phoneNumber || !phoneToken || (!comment && !tag)) {
+    if (!poll || (!comment && !tag)) {
         return {
             statusCode: 400,
             body: JSON.stringify({
                 message: 'Missing required parameters',
+                time: new Date()
+            }),
+        };
+    }
+
+    // Validate comment length
+    if (comment && comment.length > 1000) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Comment exceeds maximum length of 1000 characters',
                 time: new Date()
             }),
         };
@@ -135,19 +178,28 @@ module.exports.handler = async (event) => {
         };
     }
 
-    // Create userId from phone number (removing last 6 digits) and first 3 digits of token
-    const userId = `${phoneNumber.slice(0, -6)}-${phoneToken.slice(0, 3)}`;
-
-    // Validate phone token
-    const isValidPhone = await validatePhoneToken(phoneNumber, phoneToken, 'ipvotes');
-    if (!isValidPhone) {
-        return {
-            statusCode: 401,
-            body: JSON.stringify({
-                message: 'Invalid phone verification',
-                time: new Date()
-            }),
-        };
+    // Create userId from phone verification or redacted IP
+    let userId;
+    let isPhoneVerified = false;
+    
+    if (phoneNumber && phoneToken) {
+        isPhoneVerified = await validatePhoneToken(phoneNumber, phoneToken, 'ipvotes');
+        if (isPhoneVerified) {
+            userId = `${maskPhoneNumber(phoneNumber)}_${phoneToken.slice(0, 3)}`;
+        }
+    }
+    
+    if (!isPhoneVerified) {
+        if (tag) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({
+                    message: 'Phone verification required for adding tags',
+                    time: new Date()
+                }),
+            };
+        }
+        userId = `${maskIP(event.requestContext.http.sourceIp)}`;
     }
 
     const metadataPath = `metadata/poll=${poll}/metadata.json`;
@@ -162,19 +214,24 @@ module.exports.handler = async (event) => {
             lastUpdated: Date.now()
         };
 
-        // Check existing user submissions
+        // Check existing user submissions with adjusted limits
         const userComments = metadataObj.comments.filter(c => c.userId === userId).length;
         const userTags = metadataObj.tags.filter(t => t.userId === userId).length;
 
         // Validate submission limits
-        if (comment && userComments >= 5) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({
-                    message: 'Maximum comment limit reached (5 comments per user)',
-                    time: new Date()
-                }),
-            };
+        if (comment) {
+            const maxComments = isPhoneVerified ? 20 : 1;
+            if (userComments >= maxComments) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: isPhoneVerified ? 
+                            'Maximum comment limit reached (20 comments per verified user)' :
+                            'Maximum comment limit reached (1 comment per unverified user)',
+                        time: new Date()
+                    }),
+                };
+            }
         }
         if (tag && userTags >= 1) {
             return {
@@ -188,10 +245,15 @@ module.exports.handler = async (event) => {
 
         // Add new metadata
         if (comment) {
+            const timestamp = Date.now();
+            const commentId = `${userId}_${timestamp}`;
+            
             metadataObj.comments.push({
                 comment: comment,
                 userId: userId,
-                timestamp: Date.now()
+                timestamp: timestamp,
+                id: commentId,
+                ...(parentId && { parentId })
             });
         }
         if (tag) {

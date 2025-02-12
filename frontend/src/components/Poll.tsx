@@ -413,12 +413,26 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     if (voteHistory.length === 0) return null
 
     const options = isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])
-    const traces = options.map((option) => {
-      // Generate consistent color for each option
-      const hash = [...option].reduce((acc, char) => {
-        return char.charCodeAt(0) + ((acc << 5) - acc);
-      }, 0);
-      const h = Math.abs(hash % 360);
+    const traces = options.map((option, index) => {
+      // For binary choices, keep original colors
+      if (options.length === 2) {
+        return {
+          x: voteHistory.map(day => day.date),
+          y: voteHistory.map(day => day.votes[option] || 0),
+          name: option,
+          type: 'scatter' as const,
+          mode: 'lines' as const,
+          line: {
+            color: index === 0 ? '#4169E1' : '#ff6969'
+          }
+        }
+      }
+
+      // For multiple options, use golden ratio color generation
+      const goldenRatio = 0.618033988749895
+      const hue = (index * goldenRatio * 360) % 360
+      const saturation = 70 + (index % 3) * 10
+      const lightness = 45 + (index % 3) * 5
       
       return {
         x: voteHistory.map(day => day.date),
@@ -427,10 +441,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
         type: 'scatter' as const,
         mode: 'lines' as const,
         line: {
-          // Use consistent colors with other visualizations
-          color: options.length === 2 ? 
-            (option === options[0] ? '#4169E1' : '#ff6969') : // Binary choice
-            `hsl(${h}, 70%, 50%)` // Multiple options
+          color: `hsl(${hue}, ${saturation}%, ${lightness}%)`
         }
       }
     })
