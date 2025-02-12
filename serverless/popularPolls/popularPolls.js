@@ -64,7 +64,7 @@ async function aggregateAllPollsData(specificPoll = null) {
     // Process all vote files
     for (const file of files) {
         try {
-            let pollFromPath = file.Key.split('/')[1]?.split('.')[0];
+            let pollFromPath = file.Key.split('/')[1]?.split('.csv')[0];
             pollFromPath = pollFromPath?.replace('poll=', '');
             if (!pollFromPath) continue;
             
@@ -132,7 +132,12 @@ async function aggregateAllPollsData(specificPoll = null) {
 
 module.exports.handler = async (event) => {
     const forceRefresh = event?.queryStringParameters?.refresh === 'true';
-    const pollToUpdate = event?.queryStringParameters?.pollToUpdate;
+    let pollToUpdate = event?.queryStringParameters?.pollToUpdate;
+    // Only try to replace if pollToUpdate exists
+    if (pollToUpdate) {
+        pollToUpdate = pollToUpdate.replace(/,/g, '%2C');
+        console.log('pollToUpdate:', pollToUpdate);
+    }
     const seed = parseInt(event?.queryStringParameters?.seed) || 1;
     const limit = parseInt(event?.queryStringParameters?.limit) || 15;
     const offset = parseInt(event?.queryStringParameters?.offset) || 0;
@@ -183,12 +188,19 @@ module.exports.handler = async (event) => {
                         }));
                     }
                     
+                    // Helper function to unescape poll titles
+                    const unescapePollTitle = (poll) => poll.replace(/%2C/g, ',');
+
                     return {
                         statusCode: 200,
                         body: JSON.stringify({
                             columns: ['poll', 'count', 'last_7_days_count'],
-                            data: freshPollData.map(item => [item.poll, item.count, item.last_7_days_count])
-                        })
+                            data: freshPollData.map(item => [unescapePollTitle(item.poll), item.count, item.last_7_days_count])
+                        }),
+                        headers: {
+                            'X-Cache': 'HIT',
+                            'X-Cache-Age': Math.round(cacheAge / 1000)
+                        }
                     };
                 }
 
@@ -225,11 +237,16 @@ module.exports.handler = async (event) => {
                     offset
                 );
 
+                // Helper function to unescape poll titles
+                const unescapePollTitle = (poll) => poll.replace(/%2C/g, ',');
+
                 return {
                     statusCode: 200,
                     body: JSON.stringify({
                         columns: ['poll', 'count', 'last_7_days_count'],
-                        data: selectedPolls
+                        data: selectedPolls.map(([poll, count, last_7_days]) => 
+                            [unescapePollTitle(poll), count, last_7_days]
+                        )
                     }),
                     headers: {
                         'X-Cache': 'HIT',
@@ -295,11 +312,16 @@ module.exports.handler = async (event) => {
         offset
     );
 
+    // Helper function to unescape poll titles
+    const unescapePollTitle = (poll) => poll.replace(/%2C/g, ',');
+
     return {
         statusCode: 200,
         body: JSON.stringify({
             columns: ['poll', 'count', 'last_7_days_count'],
-            data: selectedPolls
+            data: selectedPolls.map(([poll, count, last_7_days]) => 
+                [unescapePollTitle(poll), count, last_7_days]
+            )
         }),
         headers: {
             'X-Cache': 'MISS'
