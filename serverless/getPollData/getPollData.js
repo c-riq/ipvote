@@ -13,7 +13,8 @@ const removeForbiddenStrings = (str) => {
 
 exports.handler = async (event) => {
     const bucket = 'ipvotes';
-    const poll = event?.queryStringParameters?.poll;
+    let poll = event?.queryStringParameters?.poll;
+    poll = poll.replace(/,/g, '%2C');
     const isOpen = event?.queryStringParameters?.isOpen === 'true';
     const forceRefresh = event?.queryStringParameters?.refresh === 'true';
     
@@ -89,6 +90,7 @@ exports.handler = async (event) => {
         };
     } catch (error) {
         console.error('Error:', error);
+        console.log('poll:', poll);
         return {
             statusCode: 500,
             body: JSON.stringify({ error: 'Failed to aggregate CSV files' })

@@ -117,15 +117,17 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     setIsOpenPoll(isOpen)
     const pollFromPath = decodeURIComponent(isOpen ? pathParts[2] : pathParts[1])
     
-    if (pollFromPath.includes('.')) {
+    // Only redirect if the poll name ends with specific file extensions
+    if (/\.(html|js|css|jpg)$/i.test(pollFromPath)) {
       navigate('/')
       return
     }
 
     if (pollFromPath) {
-      setPoll(pollFromPath)
-      if (poll !== pollFromPath) {
-        fetchResults(pollFromPath, true, isOpen)
+      const decodedPoll = decodeURIComponent(pollFromPath)
+      setPoll(decodedPoll)
+      if (poll !== decodedPoll) {
+        fetchResults(decodedPoll, true, isOpen)
       }
     }
   }, [location])
@@ -710,7 +712,9 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   return (
     <div className="content">
       <h1 style={{ wordBreak: 'break-word' }}>
-        {poll.includes('_or_') ? poll.replace(/_/g, ' ') + '?' : poll.replace(/_/g, ' ')}
+        {poll.includes('_or_') 
+          ? poll.replace(/_/g, ' ') + '?' 
+          : poll.replace(/_/g, ' ')}
       </h1>
       
       {poll === "Who should be world president?" && isOpenPoll && (

@@ -23,10 +23,12 @@ function CreatePoll() {
     return text
       // Replace all types of whitespace with regular space
       .replace(/[\s\u00A0\u1680\u180E\u2000-\u200B\u2028\u2029\u202F\u205F\u3000\uFEFF]/g, ' ')
-      // Remove special chars
-      .replace(/[<>{}[\]\\\/\|;:'"`,~!@#$%^&*()]/g, '')
+      // URL encode specific punctuation marks
+      .replace(/[<>{}\\|;:'"`~!@#$%^&*]/g, '')
       // Replace multiple spaces with single space
       .replace(/\s+/g, ' ')
+      // double encode ,
+      //.replace(/,/g, '%2C')
       // Remove leading/trailing whitespace
       .trim()
   }
@@ -66,6 +68,7 @@ function CreatePoll() {
       navigate(`/open/${encodeURIComponent(cleanQuestion)}`)
     } else {
       const cleanQuestion = sanitizePollText(yesNoQuestion)
+      console.log(cleanQuestion)
 
       if (!cleanQuestion) {
         setError('Please enter your question')

@@ -132,7 +132,9 @@ module.exports.handler = async (event) => {
     });
 
     const vote = event.queryStringParameters.vote;
-    const poll = event.queryStringParameters.poll;
+    let poll = event.queryStringParameters.poll;
+    // Replace commas with %2C
+    poll = poll.replace(/,/g, '%2C');
     const isOpen = event.queryStringParameters.isOpen === 'true';
     const country = event.queryStringParameters.country;
     const hcaptchaToken = event.queryStringParameters.captchaToken;
@@ -210,7 +212,7 @@ module.exports.handler = async (event) => {
         return {
             statusCode: 400,
             body: JSON.stringify({
-                message: 'Poll contains forbidden characters',
+                message: 'Poll contains forbidden characters: ' + poll,
                 time: new Date()
             }),
         };
