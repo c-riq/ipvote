@@ -174,6 +174,7 @@ function App() {
             setIsSidebarOpen={setIsSidebarOpen}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            phoneVerification={phoneVerification}
           />
           <div className="main-content">
             <Sidebar isOpen={isSidebarOpen} />
