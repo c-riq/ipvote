@@ -91,10 +91,15 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
     fetchPopularPolls(false);
   }, [selectedTags]);
 
-  // Add new effect for query changes
+  // Modify useEffect for query changes to reset tags when searching
   useEffect(() => {
     setOffset(0);
     setPolls([]);
+    if (query) {
+      // Reset to 'all' tags when searching
+      setSelectedTags(new Set(['all']));
+      setSearchParams({ q: query }); // Only keep search parameter
+    }
     fetchPopularPolls(false);
   }, [query]);
 
