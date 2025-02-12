@@ -8,12 +8,14 @@ import {
   CircularProgress,
   Alert,
   IconButton,
-  Collapse
+  Collapse,
+  Tooltip
 } from '@mui/material';
 import ReplyIcon from '@mui/icons-material/Reply';
 import { ADD_METADATA_HOST } from '../constants';
 import { PhoneVerificationState } from '../App';
 import { alpha } from '@mui/material/styles';
+import { Link } from 'react-router-dom';
 
 interface Comment {
   comment: string;
@@ -90,19 +92,29 @@ function PollComments({ poll, phoneVerification, isOpen, comments, onCommentAdde
     }
   };
 
+  const decodeHtmlEntities = (text: string) => {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
+  };
+
   const renderCommentInput = (parentId?: string) => {
     const fieldId = parentId || 'main';
     const isSubmitting = submittingComments[fieldId] || false;
     
     return (
-      <Box sx={{ mb: parentId ? 0 : 3 }}>
+      <Box sx={{ mb: parentId ? 0 : 3, maxWidth: '80vw', overflowX: 'hidden' }}>
         <TextField
           fullWidth
           multiline
           rows={3}
           value={commentFields[fieldId] || ''}
           onChange={(e) => setCommentFields(prev => ({ ...prev, [fieldId]: e.target.value }))}
-          placeholder={parentId ? "Write a reply..." : "Share your thoughts..."}
+          placeholder={
+            phoneVerification?.phoneNumber 
+              ? parentId ? "Write a reply..." : "Share your thoughts..."
+              : "Share your thoughts... (1 comment allowed without phone verification)"
+          }
           disabled={isSubmitting}
           sx={{
             mb: 1,
@@ -117,7 +129,7 @@ function PollComments({ poll, phoneVerification, isOpen, comments, onCommentAdde
             }
           }}
         />
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           <Button
             variant="contained"
             onClick={() => handleSubmitComment(parentId)}
@@ -143,6 +155,17 @@ function PollComments({ poll, phoneVerification, isOpen, comments, onCommentAdde
               Cancel
             </Button>
           )}
+          {!phoneVerification?.phoneNumber && (
+            <Typography 
+              variant="caption" 
+              color="text.secondary"
+              sx={{ ml: 2 }}
+            >
+              <Link to="/ui/identity" style={{ textDecoration: 'none', color: 'inherit' }}>
+                <b>Verify your phone number</b>
+              </Link> to unlock more comments and replies
+            </Typography>
+          )}
         </Box>
       </Box>
     );
@@ -151,26 +174,38 @@ function PollComments({ poll, phoneVerification, isOpen, comments, onCommentAdde
   const renderCommentThread = (comment: Comment, depth: number = 0) => {
     const replies = comments.filter(c => c.parentId === comment.id);
     const isReplying = replyingTo === comment.id;
-    const maxDepth = 5;
+    const maxDepth = 4;
     
+    const shortenUserId = (userId: string) => {
+        // remove chars after the first X
+        return userId.replace(/X[\s\S]+$/, '...');
+    };
+
     return (
       <Box key={comment.id}>
         <Paper 
           variant="outlined" 
           sx={{
             p: 2,
-            borderColor: (theme) => alpha(theme.palette.divider, 0.5)
+            borderColor: (theme) => alpha(theme.palette.divider, 0.5),
+            maxWidth: '100%',
+            '& pre': {
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word'
+            }
           }}
         >
           <Typography 
             variant="body1" 
             sx={{ 
               whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
               lineHeight: 1.6,
-              mb: 1.5
+              mb: 1.5,
+              overflowWrap: 'break-word'
             }}
           >
-            {comment.comment}
+            {decodeHtmlEntities(comment.comment)}
           </Typography>
           <Box sx={{ 
             display: 'flex', 
@@ -186,7 +221,9 @@ function PollComments({ poll, phoneVerification, isOpen, comments, onCommentAdde
                 gap: 0.5
               }}
             >
-              <strong>{comment.userId}</strong>
+              <Tooltip title={comment.userId} placement="top">
+                <strong>{shortenUserId(comment.userId)}</strong>
+              </Tooltip>
               <span>•</span>
               {new Date(comment.timestamp).toLocaleString(undefined, {
                 year: 'numeric',
@@ -196,7 +233,7 @@ function PollComments({ poll, phoneVerification, isOpen, comments, onCommentAdde
                 minute: '2-digit'
               })}
             </Typography>
-            {depth < maxDepth && (
+            {depth < maxDepth && phoneVerification?.phoneNumber && (
               <IconButton 
                 size="small" 
                 onClick={() => {
@@ -208,6 +245,7 @@ function PollComments({ poll, phoneVerification, isOpen, comments, onCommentAdde
                   }
                 }}
                 color={isReplying ? "primary" : "default"}
+                title={depth === maxDepth - 1 ? "Maximum reply depth reached" : "Reply"}
               >
                 <ReplyIcon fontSize="small" />
               </IconButton>
@@ -223,10 +261,11 @@ function PollComments({ poll, phoneVerification, isOpen, comments, onCommentAdde
         {replies.length > 0 && (
           <Box 
             sx={{ 
-              ml: { xs: 2, sm: 4 }, 
+              ml: { xs: 1, sm: 4 },
               mt: 1,
-              pl: 2,
-              borderLeft: (theme) => `2px solid ${alpha(theme.palette.divider, 0.3)}`
+              pl: { xs: 1, sm: 2 },
+              borderLeft: (theme) => `2px solid ${alpha(theme.palette.divider, 0.3)}`,
+              maxWidth: '100%'
             }}
           >
             {replies
@@ -238,10 +277,6 @@ function PollComments({ poll, phoneVerification, isOpen, comments, onCommentAdde
     );
   };
 
-  if (!phoneVerification?.phoneNumber) {
-    return null;
-  }
-
   const topLevelComments = comments.filter(c => !c.parentId);
 
   return (
@@ -250,6 +285,8 @@ function PollComments({ poll, phoneVerification, isOpen, comments, onCommentAdde
         p: { xs: 2, sm: 3 }, 
         mt: 4,
         backgroundColor: (theme) => alpha(theme.palette.background.paper, 0.7),
+        maxWidth: '100%',
+        overflowX: 'hidden'
       }}
     >
       <Typography variant="h6" sx={{ mb: 3, fontWeight: 500 }}>Discussion</Typography>

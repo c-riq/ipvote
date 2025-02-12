@@ -138,8 +138,6 @@ function PollMetadata({ poll, phoneVerification, isOpen }: PollMetadataProps) {
     );
   };
 
-  if (!phoneVerification?.phoneNumber) return null;
-
   if (metadataLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -150,28 +148,32 @@ function PollMetadata({ poll, phoneVerification, isOpen }: PollMetadataProps) {
 
   return (
     <>
-      {!!metadata?.tags?.length && (
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>Tags</Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {metadata.tags.map((tag, index) => (
-              <Box key={index} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <Chip
-                  label={tag.tag}
-                  color="primary"
-                  variant="outlined"
-                  sx={{ textTransform: 'capitalize' }}
-                />
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                  by {tag.userId}
-                </Typography>
+      {phoneVerification?.phoneNumber && (
+        <>
+          {!!metadata?.tags?.length && (
+            <Paper sx={{ p: 2, mb: 2 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>Tags</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {metadata.tags.map((tag, index) => (
+                  <Box key={index} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <Chip
+                      label={tag.tag}
+                      color="primary"
+                      variant="outlined"
+                      sx={{ textTransform: 'capitalize' }}
+                    />
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                      by {tag.userId}
+                    </Typography>
+                  </Box>
+                ))}
               </Box>
-            ))}
-          </Box>
-        </Paper>
-      )}
+            </Paper>
+          )}
 
-      {renderTagSubmission()}
+          {renderTagSubmission()}
+        </>
+      )}
 
       <PollComments
         poll={poll}
