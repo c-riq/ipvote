@@ -1,5 +1,5 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Typography, Badge } from '@mui/material';
+import { Typography } from '@mui/material';
 import { useState, useEffect } from 'react';
 import PersonIcon from '@mui/icons-material/Person';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';

@@ -24,6 +24,19 @@ interface BlockData {
   countries: { [key: string]: number };
 }
 
+// Add the same color generation utility function
+const generateColor = (index: number, totalOptions: number) => {
+  if (totalOptions === 2) {
+    return index === 0 ? '#4169E1' : '#ff6969';
+  }
+  
+  const goldenRatio = 0.618033988749895;
+  const hue = (index * goldenRatio * 360) % 360;
+  const saturation = 70 + (index % 3) * 10;
+  const lightness = 45 + (index % 3) * 5;
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+};
+
 const IPBlockMap: React.FC<IPBlockMapProps> = ({ votes, options }) => {
   const [selectedBlock, setSelectedBlock] = useState<{
     block: string;
@@ -71,33 +84,17 @@ const IPBlockMap: React.FC<IPBlockMapProps> = ({ votes, options }) => {
     }
 
     const opacity = (data.total / maxVotes) * 0.8 + 0.2;
-
-    // For binary choices (2 options)
-    if (options.length === 2) {
-      const option1Votes = data.votes[options[0]] || 0;
-      const ratio = option1Votes / data.total;
-
-      if (ratio > 0.5) {
-        return `rgba(0, 0, 255, ${opacity})`;
-      } else if (ratio < 0.5) {
-        return `rgba(255, 0, 0, ${opacity})`;
-      } else {
-        return `rgba(128, 0, 128, ${opacity})`;
-      }
-    }
-
-    // For multiple options (open polls)
     const winningOption = Object.entries(data.votes).reduce((max, [option, count]) => 
       count > (data.votes[max] || 0) ? option : max
     , Object.keys(data.votes)[0]);
 
-    // Generate a consistent color based on the winning option string
-    const hash = [...winningOption].reduce((acc, char) => {
-      return char.charCodeAt(0) + ((acc << 5) - acc);
-    }, 0);
+    const optionIndex = options.indexOf(winningOption);
+    if (options.length === 2) {
+      return `rgba(${optionIndex === 0 ? '65, 105, 225' : '255, 105, 105'}, ${opacity})`;
+    }
     
-    const h = Math.abs(hash % 360); // Hue between 0 and 360
-    return `hsla(${h}, 70%, 50%, ${opacity})`;
+    const baseColor = generateColor(optionIndex, options.length);
+    return baseColor.replace('hsl', 'hsla').replace(')', `, ${opacity})`);
   };
 
   // Calculate block-level majority votes for /8 blocks
@@ -194,37 +191,27 @@ const IPBlockMap: React.FC<IPBlockMapProps> = ({ votes, options }) => {
             gridTemplateColumns: { xs: '1fr', sm: options.length === 2 ? 'repeat(2, auto)' : 'repeat(auto-fill, minmax(150px, 1fr))' },
             gap: 2
           }}>
-            {options.map((option, i) => {
-              // Generate consistent color for each option
-              const hash = options.length === 2 ? 0 : [...option].reduce((acc, char) => {
-                return char.charCodeAt(0) + ((acc << 5) - acc)
-              }, 0)
-              const h = Math.abs(hash % 360)
-              
-              return (
-                <Box key={option} sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 1,
-                  minWidth: 0
-                }}>
-                  <Box sx={{ 
-                    width: 12, 
-                    height: 12, 
-                    flexShrink: 0,
-                    bgcolor: options.length === 2 
-                      ? (i === 0 ? '#4169E1' : '#ff6969')  // Keep consistent with existing colors
-                      : `hsl(${h}, 70%, 50%)`,
-                    borderRadius: '50%'
-                  }} />
-                  <Typography noWrap>
-                    {option}: {(majorityVotes?.[option] || 0)} blocks
-                    {' '}
-                    ({totalBlocks ? ((majorityVotes?.[option] || 0) / totalBlocks * 100).toFixed(1) : 0}%)
-                  </Typography>
-                </Box>
-              )
-            })}
+            {options.map((option, i) => (
+              <Box key={option} sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1,
+                minWidth: 0
+              }}>
+                <Box sx={{ 
+                  width: 12, 
+                  height: 12, 
+                  flexShrink: 0,
+                  bgcolor: generateColor(i, options.length),
+                  borderRadius: '50%'
+                }} />
+                <Typography noWrap>
+                  {option}: {(majorityVotes?.[option] || 0)} blocks
+                  {' '}
+                  ({totalBlocks ? ((majorityVotes?.[option] || 0) / totalBlocks * 100).toFixed(1) : 0}%)
+                </Typography>
+              </Box>
+            ))}
           </Box>
           
           <Typography 
@@ -306,32 +293,15 @@ const IPBlockMap: React.FC<IPBlockMapProps> = ({ votes, options }) => {
 
       {/* Updated legend */}
       <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
-        {options.length === 2 ? (
-          <>
-            <Typography variant="caption" sx={{ color: 'rgb(0, 0, 255)' }}>
-              {options[0]} majority
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'rgb(255, 0, 0)' }}>
-              {options[1]} majority
-            </Typography>
-          </>
-        ) : (
-          options.map((option) => {
-            const hash = [...option].reduce((acc, char) => {
-              return char.charCodeAt(0) + ((acc << 5) - acc);
-            }, 0);
-            const h = Math.abs(hash % 360);
-            return (
-              <Typography 
-                key={option} 
-                variant="caption" 
-                sx={{ color: `hsl(${h}, 70%, 50%)` }}
-              >
-                {option}
-              </Typography>
-            );
-          })
-        )}
+        {options.map((option, index) => (
+          <Typography 
+            key={option} 
+            variant="caption" 
+            sx={{ color: generateColor(index, options.length) }}
+          >
+            {option} majority
+          </Typography>
+        ))}
         <Typography variant="caption" sx={{ color: 'rgb(128, 128, 128)' }}>
           No data
         </Typography>
