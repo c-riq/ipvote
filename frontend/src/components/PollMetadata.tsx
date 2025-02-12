@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { ADD_METADATA_HOST } from '../constants';
 import { PhoneVerificationState } from '../App';
+import PollComments from './PollComments';
 
 interface Metadata {
   comments: {
@@ -165,25 +166,15 @@ function PollMetadata({ poll, phoneVerification, isOpen }: PollMetadataProps) {
         </Paper>
       )}
 
-      { !!metadata?.comments?.length && (
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>Comments</Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {metadata?.comments
-              .sort((a, b) => b.timestamp - a.timestamp)
-              .map((comment, index) => (
-                <Paper key={index} variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="body1">{comment.comment}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {new Date(comment.timestamp).toLocaleString()}
-                  </Typography>
-                </Paper>
-              ))}
-          </Box>
-        </Paper>
-      )}
-
       {renderTagSubmission()}
+
+      <PollComments
+        poll={poll}
+        phoneVerification={phoneVerification}
+        isOpen={isOpen}
+        comments={metadata?.comments || []}
+        onCommentAdded={fetchMetadata}
+      />
     </>
   );
 }
