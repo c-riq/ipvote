@@ -19,6 +19,8 @@ interface Metadata {
     comment: string;
     userId: string;
     timestamp: number;
+    id: string;
+    parentId?: string;
   }[];
   tags: {
     tag: string;
@@ -136,7 +138,6 @@ function PollMetadata({ poll, phoneVerification, isOpen }: PollMetadataProps) {
     );
   };
 
-  // Return null if no phone verification
   if (!phoneVerification?.phoneNumber) return null;
 
   if (metadataLoading) {
@@ -149,18 +150,22 @@ function PollMetadata({ poll, phoneVerification, isOpen }: PollMetadataProps) {
 
   return (
     <>
-      { !!metadata?.tags?.length && (
+      {!!metadata?.tags?.length && (
         <Paper sx={{ p: 2, mb: 2 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Tags</Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {metadata?.tags?.map((tag, index) => (
-              <Chip
-                key={index}
-                label={tag.tag}
-                color="primary"
-                variant="outlined"
-                sx={{ textTransform: 'capitalize' }}
-              />
+            {metadata.tags.map((tag, index) => (
+              <Box key={index} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <Chip
+                  label={tag.tag}
+                  color="primary"
+                  variant="outlined"
+                  sx={{ textTransform: 'capitalize' }}
+                />
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                  by {tag.userId}
+                </Typography>
+              </Box>
             ))}
           </Box>
         </Paper>

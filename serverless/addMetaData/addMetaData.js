@@ -112,6 +112,7 @@ module.exports.handler = async (event) => {
     const phoneToken = requestData.phoneToken;
     const comment = sanitizeInput(requestData.comment);
     const tag = sanitizeInput(requestData.tag);
+    const parentId = requestData.parentId;
     
     // Validate inputs
     if (!poll || !phoneNumber || !phoneToken || (!comment && !tag)) {
@@ -188,10 +189,15 @@ module.exports.handler = async (event) => {
 
         // Add new metadata
         if (comment) {
+            const timestamp = Date.now();
+            const commentId = `${userId}_${timestamp}`;
+            
             metadataObj.comments.push({
                 comment: comment,
                 userId: userId,
-                timestamp: Date.now()
+                timestamp: timestamp,
+                id: commentId,
+                ...(parentId && { parentId })
             });
         }
         if (tag) {
