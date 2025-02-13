@@ -103,6 +103,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [includePhoneVerifiedOnly, setIncludePhoneVerifiedOnly] = useState(false)
   const [dataLoading, setDataLoading] = useState(false)
+  const [showAdvancedMaps, setShowAdvancedMaps] = useState(false);
 
   useEffect(() => {
     setRequireCaptcha(allVotes.length > CAPTCHA_THRESHOLD)
@@ -869,26 +870,40 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                 asnData={asnData}
                 options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
               />
+
+              <Box sx={{ mt: 4, mb: 2 }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => setShowAdvancedMaps(!showAdvancedMaps)}
+                  sx={{ mb: 2 }}
+                >
+                  {showAdvancedMaps ? 'Hide' : 'Show'} IP block data
+                </Button>
+              </Box>
               
-              <IPBlockMap
-                votes={filteredVotes.map(v => ({
-                  ip: v.masked_ip,
-                  vote: isOpenPoll ? (v.custom_option || v.vote) : v.vote,
-                  country: v.country_geoip,
-                  asn_name_geoip: v.asn_name_geoip
-                }))}
-                options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
-              />
-              
-              <IPv6BlockMap
-                votes={filteredVotes.map(v => ({
-                  ip: v.masked_ip,
-                  vote: isOpenPoll ? (v.custom_option || v.vote) : v.vote,
-                  country: v.country_geoip,
-                  asn_name_geoip: v.asn_name_geoip
-                }))}
-                options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
-              />
+              {showAdvancedMaps && (
+                <>
+                  <IPBlockMap
+                    votes={filteredVotes.map(v => ({
+                      ip: v.masked_ip,
+                      vote: isOpenPoll ? (v.custom_option || v.vote) : v.vote,
+                      country: v.country_geoip,
+                      asn_name_geoip: v.asn_name_geoip
+                    }))}
+                    options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
+                  />
+                  
+                  <IPv6BlockMap
+                    votes={filteredVotes.map(v => ({
+                      ip: v.masked_ip,
+                      vote: isOpenPoll ? (v.custom_option || v.vote) : v.vote,
+                      country: v.country_geoip,
+                      asn_name_geoip: v.asn_name_geoip
+                    }))}
+                    options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
+                  />
+                </>
+              )}
               
               <Box sx={{ mt: 2, mb: 4 }}>
                 <Button
