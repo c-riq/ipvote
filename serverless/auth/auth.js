@@ -45,6 +45,12 @@ const generateSessionToken = () => {
     return `${crypto.randomBytes(32).toString('hex')}_${expiryTime}`;
 };
 
+// Add helper function to generate user ID (near other helper functions)
+const generateUserId = () => {
+    // Generate 16 random bytes and convert to hex for a 32-character string
+    return crypto.randomBytes(16).toString('hex');
+};
+
 // Add new helper function to send verification email
 const sendVerificationEmail = async (email, verificationToken) => {
     const verificationLink = `${HOST}/verify?email=${encodeURIComponent(email)}&token=${verificationToken}`;
@@ -259,15 +265,17 @@ exports.handler = async (event) => {
                 };
             }
 
-            // Generate verification token
+            // Generate verification token and user ID
             const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+            const userId = generateUserId();
             
             // Hash password with salt
             const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
             const sessionToken = generateSessionToken();
 
-            // Store new user with verification status
+            // Store new user with verification status and user ID
             users[email] = {
+                userId,  // Add userId to user object
                 hashedPassword,
                 createdAt: new Date().toISOString(),
                 lastLogin: new Date().toISOString(),
