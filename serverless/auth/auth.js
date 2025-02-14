@@ -35,15 +35,93 @@ const saveFileToS3 = async (key, data) => {
     return s3Client.send(command);
 };
 
-// Generate a secure session token
+// Generate a secure session token with expiry (31 days from now)
 const generateSessionToken = () => {
-    return crypto.randomBytes(32).toString('hex');
+    const expiryTime = Math.floor(Date.now() / 1000) + (31 * 24 * 60 * 60); // 31 days from now
+    return `${crypto.randomBytes(32).toString('hex')}_${expiryTime}`;
 };
 
 exports.handler = async (event) => {
-    const { action, email, password } = JSON.parse(event.body);
+    const { action, email, password, sessionToken } = JSON.parse(event.body);
     
-    if (!email || !password || !action) {
+    if (!action) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Missing required fields',
+                time: new Date()
+            })
+        };
+    }
+
+    // Special handling for verifySessionToken action
+    if (action === 'verifySessionToken') {
+        if (!email || !sessionToken) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Missing email or session token',
+                    time: new Date()
+                })
+            };
+        }
+
+        // Get partition key from first letter of email
+        const partition = email.charAt(0).toLowerCase();
+        const userFilePath = `users/${partition}/users.json`;
+
+        try {
+            const users = await fetchFileFromS3(userFilePath);
+            const user = users[email];
+
+            if (!user || !user.sessions) {
+                return {
+                    statusCode: 401,
+                    body: JSON.stringify({
+                        message: 'Invalid session',
+                        time: new Date()
+                    })
+                };
+            }
+
+            // Check if token exists and is not expired
+            const currentTime = Math.floor(Date.now() / 1000);
+            const isValidToken = user.sessions.some(token => {
+                const [tokenValue, expiry] = token.split('_');
+                return token === sessionToken && parseInt(expiry) > currentTime;
+            });
+
+            if (!isValidToken) {
+                return {
+                    statusCode: 401,
+                    body: JSON.stringify({
+                        message: 'Invalid or expired session',
+                        time: new Date()
+                    })
+                };
+            }
+
+            return {
+                statusCode: 200,
+                body: JSON.stringify({
+                    message: 'Session valid',
+                    time: new Date()
+                })
+            };
+        } catch (error) {
+            console.error('Session verification error:', error);
+            return {
+                statusCode: 500,
+                body: JSON.stringify({
+                    message: 'Internal server error',
+                    time: new Date()
+                })
+            };
+        }
+    }
+
+    // Original email/password validation for login/signup
+    if (!email || !password) {
         return {
             statusCode: 400,
             body: JSON.stringify({
@@ -88,12 +166,12 @@ exports.handler = async (event) => {
             const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
             const sessionToken = generateSessionToken();
 
-            // Store new user
+            // Store new user with sessions array
             users[email] = {
                 hashedPassword,
                 createdAt: new Date().toISOString(),
                 lastLogin: new Date().toISOString(),
-                sessionToken
+                sessions: [sessionToken]  // Initialize as array with first token
             };
 
             await saveFileToS3(userFilePath, users);
@@ -135,7 +213,21 @@ exports.handler = async (event) => {
 
             // Generate new session token
             const sessionToken = generateSessionToken();
-            users[email].sessionToken = sessionToken;
+            
+            // Initialize sessions array if it doesn't exist (for existing users)
+            if (!users[email].sessions) {
+                users[email].sessions = [];
+            }
+            
+            // Clean up expired sessions
+            const currentTime = Math.floor(Date.now() / 1000);
+            users[email].sessions = users[email].sessions.filter(token => {
+                const [, expiry] = token.split('_');
+                return parseInt(expiry) > currentTime;
+            });
+            
+            // Add new session token
+            users[email].sessions.push(sessionToken);
             users[email].lastLogin = new Date().toISOString();
 
             await saveFileToS3(userFilePath, users);
