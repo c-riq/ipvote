@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { 
   Button, 
   Checkbox, 
@@ -103,6 +103,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [includePhoneVerifiedOnly, setIncludePhoneVerifiedOnly] = useState(false)
   const [dataLoading, setDataLoading] = useState(false)
+  const [showAdvancedMaps, setShowAdvancedMaps] = useState(false);
 
   useEffect(() => {
     setRequireCaptcha(allVotes.length > CAPTCHA_THRESHOLD)
@@ -117,15 +118,17 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     setIsOpenPoll(isOpen)
     const pollFromPath = decodeURIComponent(isOpen ? pathParts[2] : pathParts[1])
     
-    if (pollFromPath.includes('.')) {
+    // Only redirect if the poll name ends with specific file extensions
+    if (/\.(html|js|css|jpg)$/i.test(pollFromPath)) {
       navigate('/')
       return
     }
 
     if (pollFromPath) {
-      setPoll(pollFromPath)
-      if (poll !== pollFromPath) {
-        fetchResults(pollFromPath, true, isOpen)
+      const decodedPoll = decodeURIComponent(pollFromPath)
+      setPoll(decodedPoll)
+      if (poll !== decodedPoll) {
+        fetchResults(decodedPoll, true, isOpen)
       }
     }
   }, [location])
@@ -710,7 +713,9 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   return (
     <div className="content">
       <h1 style={{ wordBreak: 'break-word' }}>
-        {poll.includes('_or_') ? poll.replace(/_/g, ' ') + '?' : poll.replace(/_/g, ' ')}
+        {poll.includes('_or_') 
+          ? poll.replace(/_/g, ' ') + '?' 
+          : poll.replace(/_/g, ' ')}
       </h1>
       
       {poll === "Who should be world president?" && isOpenPoll && (
@@ -721,12 +726,12 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
               World President Election
             </a>
           </Typography>
-          {privacyAccepted && !phoneVerification?.phoneNumber && (
+          {/* {privacyAccepted && !phoneVerification?.phoneNumber && (
             <Alert severity="info" sx={{ mt: 1 }}>
               Only votes with a verified phone number will be counted in the World President Election.
               {' '}<Link to="/ui/identity">Add phone number</Link>
             </Alert>
-          )}
+          )} */}
         </Box>
       )}
 
@@ -865,26 +870,40 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                 asnData={asnData}
                 options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
               />
+
+              <Box sx={{ mt: 4, mb: 2 }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => setShowAdvancedMaps(!showAdvancedMaps)}
+                  sx={{ mb: 2 }}
+                >
+                  {showAdvancedMaps ? 'Hide' : 'Show'} IP block data
+                </Button>
+              </Box>
               
-              <IPBlockMap
-                votes={filteredVotes.map(v => ({
-                  ip: v.masked_ip,
-                  vote: isOpenPoll ? (v.custom_option || v.vote) : v.vote,
-                  country: v.country_geoip,
-                  asn_name_geoip: v.asn_name_geoip
-                }))}
-                options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
-              />
-              
-              <IPv6BlockMap
-                votes={filteredVotes.map(v => ({
-                  ip: v.masked_ip,
-                  vote: isOpenPoll ? (v.custom_option || v.vote) : v.vote,
-                  country: v.country_geoip,
-                  asn_name_geoip: v.asn_name_geoip
-                }))}
-                options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
-              />
+              {showAdvancedMaps && (
+                <>
+                  <IPBlockMap
+                    votes={filteredVotes.map(v => ({
+                      ip: v.masked_ip,
+                      vote: isOpenPoll ? (v.custom_option || v.vote) : v.vote,
+                      country: v.country_geoip,
+                      asn_name_geoip: v.asn_name_geoip
+                    }))}
+                    options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
+                  />
+                  
+                  <IPv6BlockMap
+                    votes={filteredVotes.map(v => ({
+                      ip: v.masked_ip,
+                      vote: isOpenPoll ? (v.custom_option || v.vote) : v.vote,
+                      country: v.country_geoip,
+                      asn_name_geoip: v.asn_name_geoip
+                    }))}
+                    options={isOpenPoll ? Object.keys(results) : (poll.includes('_or_') ? poll.split('_or_') : ['yes', 'no'])}
+                  />
+                </>
+              )}
               
               <Box sx={{ mt: 2, mb: 4 }}>
                 <Button

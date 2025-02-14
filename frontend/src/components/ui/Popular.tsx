@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import PollCard from './PollCard'
 import PrivacyAccept from './PrivacyAccept'
 import { IpInfoResponse, PhoneVerificationState } from '../../App'
-import { CAPTCHA_THRESHOLD, POPULAR_POLLS_HOST } from '../../constants'
+import { CAPTCHA_THRESHOLD, POPULAR_POLLS_HOST, RECENT_VOTES_FILE } from '../../constants'
 import FilterListIcon from '@mui/icons-material/FilterList'
 
 const LIMIT = 15
@@ -15,6 +15,14 @@ export interface PollData {
   isUpdating?: boolean
   isOpen?: boolean
   tags?: string[]
+}
+
+interface RecentVote {
+  poll: string
+  vote: string
+  timestamp: number
+  ip: string
+  country: string
 }
 
 interface PopularProps {
@@ -43,6 +51,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
   const [searchParams, setSearchParams] = useSearchParams()
   const [filterOpen, setFilterOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const [recentVotes, setRecentVotes] = useState<RecentVote[]>([]);
   
   // Initialize selectedTags from URL params or default values
   const [selectedTags, setSelectedTags] = useState<Set<string>>(() => {
@@ -202,8 +211,66 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
     fetchPopularPolls(false, poll)
   }
 
+  const fetchRecentVotes = async () => {
+    try {
+      const response = await fetch(RECENT_VOTES_FILE);
+      const data = await response.json();
+      setRecentVotes(data.votes);
+    } catch (error) {
+      console.error('Error fetching recent votes:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecentVotes();
+    const interval = setInterval(fetchRecentVotes, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div>
+      <h2 style={{ margin: '0 0 20px 0' }}>Let the internet vote!</h2>
+
+      <div style={{
+        backgroundColor: '#f5f5f5',
+        padding: '10px',
+        borderRadius: '8px',
+        marginBottom: '20px',
+        maxHeight: '100px',
+        overflow: 'auto'
+      }}>
+        <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>Recent Votes</h4>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {recentVotes.slice(0, 5).map((vote, index) => (
+            <div key={index} style={{ 
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px' 
+            }}>
+              <span style={{ color: '#666' }}>
+                {new Date(vote.timestamp).toLocaleTimeString()}
+              </span>
+              <span 
+                style={{ 
+                  fontWeight: 'bold', 
+                  cursor: 'pointer',
+                  color: '#1976d2',
+                  textDecoration: 'underline'
+                }}
+                onClick={(e) => handlePollClick(vote.poll, e)}
+              >
+                {vote.poll.replace(/^open_/, '')}:
+              </span>
+              <span>{vote.vote}</span>
+              <span style={{ color: '#666' }}>
+                from {vote.country}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div style={{ 
         display: 'flex', 
         flexDirection: 'row', 
@@ -211,7 +278,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
         justifyContent: 'space-between',
         marginBottom: '20px'
       }}>
-        <h2 style={{ margin: 0 }}>Let the internet vote!</h2>
+        <h3 style={{ margin: 0 }}>Popular Polls</h3>
         <Button
           ref={anchorRef}
           variant="outlined"
@@ -222,6 +289,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
           Filter by Tags
         </Button>
       </div>
+
       <Popover
         open={filterOpen}
         anchorEl={anchorRef.current}
@@ -256,6 +324,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
           </FormControl>
         </Paper>
       </Popover>
+
       <PrivacyAccept
         userIpInfo={userIpInfo}
         accepted={privacyAccepted}
@@ -264,7 +333,9 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
         captchaToken={captchaToken}
         showCaptcha={showCaptcha}
       />
+      
       <div style={{ marginTop: '20px' }} />
+      
       {loading ? (
         <div style={{
           width: '100%',

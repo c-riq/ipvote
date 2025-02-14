@@ -192,8 +192,8 @@ function App() {
                   setPhoneVerification={setPhoneVerification}
                 />} />
                 
-                {/* Routes with dots (e.g., file extensions) */}
-                <Route path="*.*" element={<MainContent 
+                {/* Routes with specific file extensions */}
+                <Route path="*.{html,js,css,jpg,png}" element={<MainContent 
                   privacyAccepted={privacyAccepted} 
                   userIpInfo={userIpInfo} 
                   onPrivacyAcceptChange={handlePrivacyAcceptChange}

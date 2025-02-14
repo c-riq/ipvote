@@ -91,7 +91,8 @@ function maskPhoneNumber(phone) {
 module.exports.handler = async (event) => {
     // Handle GET request to fetch metadata
     if (event.requestContext?.http?.method === 'GET' && event.queryStringParameters?.poll) {
-        const poll = event.queryStringParameters.poll;
+        let poll = event.queryStringParameters.poll;
+        poll = poll.replace(/,/g, '%2C');
         const metadataPath = `metadata/poll=${poll}/metadata.json`;
         const bucketName = 'ipvotes';
 
@@ -138,7 +139,8 @@ module.exports.handler = async (event) => {
     }
 
     // Get data from request body instead of query parameters
-    const poll = requestData.poll;
+    let poll = requestData.poll;
+    poll = poll.replace(/,/g, '%2C');
     const phoneNumber = requestData.phoneNumber;
     const phoneToken = requestData.phoneToken;
     const comment = sanitizeInput(requestData.comment);
