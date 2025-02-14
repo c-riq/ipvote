@@ -229,6 +229,8 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
 
   return (
     <div>
+      <h2 style={{ margin: '0 0 20px 0' }}>Let the internet vote!</h2>
+
       <div style={{
         backgroundColor: '#f5f5f5',
         padding: '10px',
@@ -268,6 +270,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
           ))}
         </div>
       </div>
+
       <div style={{ 
         display: 'flex', 
         flexDirection: 'row', 
@@ -275,7 +278,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
         justifyContent: 'space-between',
         marginBottom: '20px'
       }}>
-        <h2 style={{ margin: 0 }}>Let the internet vote!</h2>
+        <h3 style={{ margin: 0 }}>Popular Polls</h3>
         <Button
           ref={anchorRef}
           variant="outlined"
@@ -286,6 +289,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
           Filter by Tags
         </Button>
       </div>
+
       <Popover
         open={filterOpen}
         anchorEl={anchorRef.current}
@@ -320,6 +324,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
           </FormControl>
         </Paper>
       </Popover>
+
       <PrivacyAccept
         userIpInfo={userIpInfo}
         accepted={privacyAccepted}
@@ -328,7 +333,9 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
         captchaToken={captchaToken}
         showCaptcha={showCaptcha}
       />
+      
       <div style={{ marginTop: '20px' }} />
+      
       {loading ? (
         <div style={{
           width: '100%',
