@@ -77,77 +77,317 @@ const sendVerificationEmail = async (email, verificationToken) => {
     return sesClient.send(command);
 };
 
-exports.handler = async (event) => {
-    // For verification action, we'll check query parameters instead of body
-    if (event.queryStringParameters && event.queryStringParameters.email && event.queryStringParameters.token) {
-        const { email, token } = event.queryStringParameters;
+const handleVerification = async (email, token) => {
+    try {
+        const partition = email.charAt(0).toLowerCase();
+        const userFilePath = `users/${partition}/users.json`;
+
+        const users = await fetchFileFromS3(userFilePath);
+        const user = users[email];
+
+        if (!user) {
+            return {
+                statusCode: 404,
+                headers: { 'Content-Type': 'text/html' },
+                body: '<h1>User not found</h1><p>The verification link is invalid or has expired.</p>'
+            };
+        }
+
+        if (user.emailVerified) {
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'text/html' },
+                body: '<h1>Already Verified</h1><p>Your email has already been verified. You can now log in to your account.</p>'
+            };
+        }
+
+        if (user.emailVerificationToken !== token) {
+            return {
+                statusCode: 400,
+                headers: { 'Content-Type': 'text/html' },
+                body: '<h1>Invalid Token</h1><p>The verification link is invalid or has expired.</p>'
+            };
+        }
+
+        users[email].emailVerified = true;
+        users[email].emailVerificationToken = null;
+        await saveFileToS3(userFilePath, users);
+
+        return {
+            statusCode: 200,
+            headers: { 'Content-Type': 'text/html' },
+            body: '<h1>Email Verified</h1><p>Your email has been successfully verified. You can now log in to your account.</p>'
+        };
+    } catch (error) {
+        console.error('Verification error:', error);
+        return {
+            statusCode: 500,
+            headers: { 'Content-Type': 'text/html' },
+            body: '<h1>Error</h1><p>An error occurred during verification. Please try again later.</p>'
+        };
+    }
+};
+
+const handleSessionVerification = async (email, sessionToken) => {
+    const partition = email.charAt(0).toLowerCase();
+    const userFilePath = `users/${partition}/users.json`;
+
+    try {
+        const users = await fetchFileFromS3(userFilePath);
+        const user = users[email];
+
+        if (!user || !user.sessions) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({
+                    message: 'Invalid session',
+                    time: new Date()
+                })
+            };
+        }
+
+        const currentTime = Math.floor(Date.now() / 1000);
+        const isValidToken = user.sessions.some(token => {
+            const [tokenValue, expiry] = token.split('_');
+            return token === sessionToken && parseInt(expiry) > currentTime;
+        });
+
+        if (!isValidToken) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({
+                    message: 'Invalid or expired session',
+                    time: new Date()
+                })
+            };
+        }
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({
+                message: 'Session valid',
+                emailVerified: user.emailVerified,
+                settings: user.settings || { isPolitician: false },
+                time: new Date()
+            })
+        };
+    } catch (error) {
+        console.error('Session verification error:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'Internal server error',
+                time: new Date()
+            })
+        };
+    }
+};
+
+const handleLogin = async (email, password) => {
+    const partition = email.charAt(0).toLowerCase();
+    const userFilePath = `users/${partition}/users.json`;
+
+    try {
+        const users = await fetchFileFromS3(userFilePath);
+        const user = users[email];
         
+        if (!user) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({
+                    message: 'Invalid credentials',
+                    time: new Date()
+                })
+            };
+        }
+
+        if (!user.emailVerified) {
+            return {
+                statusCode: 403,
+                body: JSON.stringify({
+                    message: 'Please verify your email before logging in',
+                    time: new Date()
+                })
+            };
+        }
+
+        const passwordMatch = await bcrypt.compare(password, user.hashedPassword);
+        
+        if (!passwordMatch) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({
+                    message: 'Invalid credentials',
+                    time: new Date()
+                })
+            };
+        }
+
+        const sessionToken = generateSessionToken();
+        
+        if (!users[email].sessions) {
+            users[email].sessions = [];
+        }
+        
+        const currentTime = Math.floor(Date.now() / 1000);
+        users[email].sessions = users[email].sessions.filter(token => {
+            const [, expiry] = token.split('_');
+            return parseInt(expiry) > currentTime;
+        });
+        
+        users[email].sessions.push(sessionToken);
+        users[email].lastLogin = new Date().toISOString();
+
+        await saveFileToS3(userFilePath, users);
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({
+                message: 'Login successful',
+                sessionToken,
+                time: new Date()
+            })
+        };
+    } catch (error) {
+        console.error('Login error:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'Internal server error',
+                time: new Date()
+            })
+        };
+    }
+};
+
+const handleSignup = async (email, password) => {
+    const partition = email.charAt(0).toLowerCase();
+    const userFilePath = `users/${partition}/users.json`;
+
+    try {
+        const users = await fetchFileFromS3(userFilePath);
+
+        if (users[email]) {
+            return {
+                statusCode: 409,
+                body: JSON.stringify({
+                    message: 'Email already registered',
+                    time: new Date()
+                })
+            };
+        }
+
+        const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+        const userId = generateUserId();
+        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+        const sessionToken = generateSessionToken();
+
+        users[email] = {
+            userId,
+            hashedPassword,
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
+            sessions: [sessionToken],
+            emailVerified: false,
+            emailVerificationToken
+        };
+
         try {
-            // Get partition key from first letter of email
-            const partition = email.charAt(0).toLowerCase();
-            const userFilePath = `users/${partition}/users.json`;
-
-            const users = await fetchFileFromS3(userFilePath);
-            const user = users[email];
-
-            if (!user) {
-                return {
-                    statusCode: 404,
-                    headers: {
-                        'Content-Type': 'text/html'
-                    },
-                    body: '<h1>User not found</h1><p>The verification link is invalid or has expired.</p>'
-                };
-            }
-
-            if (user.emailVerified) {
-                return {
-                    statusCode: 200,
-                    headers: {
-                        'Content-Type': 'text/html'
-                    },
-                    body: '<h1>Already Verified</h1><p>Your email has already been verified. You can now log in to your account.</p>'
-                };
-            }
-
-            if (user.emailVerificationToken !== token) {
-                return {
-                    statusCode: 400,
-                    headers: {
-                        'Content-Type': 'text/html'
-                    },
-                    body: '<h1>Invalid Token</h1><p>The verification link is invalid or has expired.</p>'
-                };
-            }
-
-            // Update user verification status
-            users[email].emailVerified = true;
-            users[email].emailVerificationToken = null; // Clear the verification token
+            await sendVerificationEmail(email, emailVerificationToken);
             await saveFileToS3(userFilePath, users);
 
             return {
                 statusCode: 200,
-                headers: {
-                    'Content-Type': 'text/html'
-                },
-                body: '<h1>Email Verified</h1><p>Your email has been successfully verified. You can now log in to your account.</p>'
+                body: JSON.stringify({
+                    message: 'User registered successfully. Please check your email to verify your account.',
+                    sessionToken,
+                    time: new Date()
+                })
             };
-
         } catch (error) {
-            console.error('Verification error:', error);
+            console.error('Error sending verification email:', error);
             return {
                 statusCode: 500,
-                headers: {
-                    'Content-Type': 'text/html'
-                },
-                body: '<h1>Error</h1><p>An error occurred during verification. Please try again later.</p>'
+                body: JSON.stringify({
+                    message: 'Failed to send verification email. Please try signing up again.',
+                    error: error.message,
+                    time: new Date()
+                })
             };
         }
+    } catch (error) {
+        console.error('Signup error:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'Internal server error',
+                time: new Date()
+            })
+        };
+    }
+};
+
+const handleUpdateSettings = async (email, sessionToken, isPolitician) => {
+    const partition = email.charAt(0).toLowerCase();
+    const userFilePath = `users/${partition}/users.json`;
+
+    try {
+        const users = await fetchFileFromS3(userFilePath);
+        const user = users[email];
+
+        const currentTime = Math.floor(Date.now() / 1000);
+        const isValidToken = user?.sessions?.some(token => {
+            const [tokenValue, expiry] = token.split('_');
+            return token === sessionToken && parseInt(expiry) > currentTime;
+        });
+
+        if (!isValidToken) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({
+                    message: 'Invalid or expired session',
+                    time: new Date()
+                })
+            };
+        }
+
+        users[email].settings = {
+            ...users[email].settings,
+            isPolitician,
+            lastUpdated: new Date().toISOString()
+        };
+
+        await saveFileToS3(userFilePath, users);
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({
+                message: 'Settings updated successfully',
+                settings: users[email].settings,
+                time: new Date()
+            })
+        };
+    } catch (error) {
+        console.error('Settings update error:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'Internal server error',
+                time: new Date()
+            })
+        };
+    }
+};
+
+exports.handler = async (event) => {
+    // Handle email verification via query parameters
+    if (event.queryStringParameters?.email && event.queryStringParameters?.token) {
+        return handleVerification(event.queryStringParameters.email, event.queryStringParameters.token);
     }
 
-    // Existing body parsing for other actions
-    const { action, email, password, sessionToken } = JSON.parse(event.body || '{}');
-    
+    // Parse request body for other actions
+    const { action, email, password, sessionToken, isPolitician } = JSON.parse(event.body || '{}');
+
     if (!action) {
         return {
             statusCode: 400,
@@ -158,89 +398,10 @@ exports.handler = async (event) => {
         };
     }
 
-    // Special handling for verifySessionToken and updateSettings actions
-    if (action === 'verifySessionToken' || action === 'updateSettings') {
-        if (!email || !sessionToken) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({
-                    message: 'Missing email or session token',
-                    time: new Date()
-                })
-            };
-        }
-
-        // Get partition key from first letter of email
-        const partition = email.charAt(0).toLowerCase();
-        const userFilePath = `users/${partition}/users.json`;
-
-        try {
-            const users = await fetchFileFromS3(userFilePath);
-            const user = users[email];
-
-            if (!user || !user.sessions) {
-                return {
-                    statusCode: 401,
-                    body: JSON.stringify({
-                        message: 'Invalid session',
-                        time: new Date()
-                    })
-                };
-            }
-
-            // Check if token exists and is not expired
-            const currentTime = Math.floor(Date.now() / 1000);
-            const isValidToken = user.sessions.some(token => {
-                const [tokenValue, expiry] = token.split('_');
-                return token === sessionToken && parseInt(expiry) > currentTime;
-            });
-
-            if (!isValidToken) {
-                return {
-                    statusCode: 401,
-                    body: JSON.stringify({
-                        message: 'Invalid or expired session',
-                        time: new Date()
-                    })
-                };
-            }
-
-            return {
-                statusCode: 200,
-                body: JSON.stringify({
-                    message: 'Session valid',
-                    emailVerified: user.emailVerified,
-                    settings: user.settings || { isPolitician: false },
-                    time: new Date()
-                })
-            };
-        } catch (error) {
-            console.error('Session verification error:', error);
-            return {
-                statusCode: 500,
-                body: JSON.stringify({
-                    message: 'Internal server error',
-                    time: new Date()
-                })
-            };
-        }
-    }
-
-    // Original email/password validation for login/signup
-    if (action === 'login' || action === 'signup') {
-        if (!email || !password) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({
-                    message: 'Missing required fields',
-                    time: new Date()
-                })
-            };
-        }
-
-        // Validate email format
+    // Email format validation for actions that require it
+    if (['login', 'signup', 'verifySessionToken', 'updateSettings'].includes(action)) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
+        if (!email || !emailRegex.test(email)) {
             return {
                 statusCode: 400,
                 body: JSON.stringify({
@@ -249,140 +410,59 @@ exports.handler = async (event) => {
                 })
             };
         }
+    }
 
-        // Get partition key from first letter of email
-        const partition = email.charAt(0).toLowerCase();
-        const userFilePath = `users/${partition}/users.json`;
-
-        try {
-            const users = await fetchFileFromS3(userFilePath);
-
-            if (action === 'signup') {
-                // Check if user already exists
-                if (users[email]) {
-                    return {
-                        statusCode: 409,
-                        body: JSON.stringify({
-                            message: 'Email already registered',
-                            time: new Date()
-                        })
-                    };
-                }
-
-                // Generate verification token and user ID
-                const emailVerificationToken = crypto.randomBytes(32).toString('hex');
-                const userId = generateUserId();
-                
-                // Hash password with salt
-                const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-                const sessionToken = generateSessionToken();
-
-                // Store new user with verification status and user ID
-                users[email] = {
-                    userId,
-                    hashedPassword,
-                    createdAt: new Date().toISOString(),
-                    lastLogin: new Date().toISOString(),
-                    sessions: [sessionToken],
-                    emailVerified: false,
-                    emailVerificationToken
-                };
-
-                try {
-                    // First try to send the verification email
-                    await sendVerificationEmail(email, emailVerificationToken);
-                    
-                    // Only save the user to S3 if email sends successfully
-                    await saveFileToS3(userFilePath, users);
-
-                    return {
-                        statusCode: 200,
-                        body: JSON.stringify({
-                            message: 'User registered successfully. Please check your email to verify your account.',
-                            sessionToken,
-                            time: new Date()
-                        })
-                    };
-                } catch (error) {
-                    console.error('Error sending verification email:', error);
-                    return {
-                        statusCode: 500,
-                        body: JSON.stringify({
-                            message: 'Failed to send verification email. Please try signing up again.',
-                            error: error.message,
-                            time: new Date()
-                        })
-                    };
-                }
-
-            } else if (action === 'login') {
-                const user = users[email];
-                
-                if (!user) {
-                    return {
-                        statusCode: 401,
-                        body: JSON.stringify({
-                            message: 'Invalid credentials',
-                            time: new Date()
-                        })
-                    };
-                }
-
-                // Check if email is verified
-                if (!user.emailVerified) {
-                    return {
-                        statusCode: 403,
-                        body: JSON.stringify({
-                            message: 'Please verify your email before logging in',
-                            time: new Date()
-                        })
-                    };
-                }
-
-                // Verify password
-                const passwordMatch = await bcrypt.compare(password, user.hashedPassword);
-                
-                if (!passwordMatch) {
-                    return {
-                        statusCode: 401,
-                        body: JSON.stringify({
-                            message: 'Invalid credentials',
-                            time: new Date()
-                        })
-                    };
-                }
-
-                // Generate new session token
-                const sessionToken = generateSessionToken();
-                
-                // Initialize sessions array if it doesn't exist (for existing users)
-                if (!users[email].sessions) {
-                    users[email].sessions = [];
-                }
-                
-                // Clean up expired sessions
-                const currentTime = Math.floor(Date.now() / 1000);
-                users[email].sessions = users[email].sessions.filter(token => {
-                    const [, expiry] = token.split('_');
-                    return parseInt(expiry) > currentTime;
-                });
-                
-                // Add new session token
-                users[email].sessions.push(sessionToken);
-                users[email].lastLogin = new Date().toISOString();
-
-                await saveFileToS3(userFilePath, users);
-
+    // Handle different actions
+    switch (action) {
+        case 'verifySessionToken':
+            if (!email || !sessionToken) {
                 return {
-                    statusCode: 200,
+                    statusCode: 400,
                     body: JSON.stringify({
-                        message: 'Login successful',
-                        sessionToken,
+                        message: 'Missing email or session token',
                         time: new Date()
                     })
                 };
             }
+            return handleSessionVerification(email, sessionToken);
 
+        case 'login':
+            if (!email || !password) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: 'Missing required fields',
+                        time: new Date()
+                    })
+                };
+            }
+            return handleLogin(email, password);
+
+        case 'signup':
+            if (!email || !password) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: 'Missing required fields',
+                        time: new Date()
+                    })
+                };
+            }
+            return handleSignup(email, password);
+
+        case 'updateSettings':
+            if (!email || !sessionToken || typeof isPolitician !== 'boolean') {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: 'Missing required fields or invalid settings format',
+                        time: new Date()
+                    })
+                };
+            }
+            return handleUpdateSettings(email, sessionToken, isPolitician);
+
+        default:
             return {
                 statusCode: 400,
                 body: JSON.stringify({
@@ -390,101 +470,5 @@ exports.handler = async (event) => {
                     time: new Date()
                 })
             };
-
-        } catch (error) {
-            console.error('Authentication error:', error);
-            return {
-                statusCode: 500,
-                body: JSON.stringify({
-                    message: 'Internal server error',
-                    time: new Date()
-                })
-            };
-        }
     }
-
-    // Add new action handler for updating user settings
-    if (action === 'updateSettings') {
-        if (!email || !sessionToken) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({
-                    message: 'Missing email or session token',
-                    time: new Date()
-                })
-            };
-        }
-
-        const partition = email.charAt(0).toLowerCase();
-        const userFilePath = `users/${partition}/users.json`;
-
-        try {
-            const users = await fetchFileFromS3(userFilePath);
-            const user = users[email];
-
-            // Verify session token
-            const currentTime = Math.floor(Date.now() / 1000);
-            const isValidToken = user?.sessions?.some(token => {
-                const [tokenValue, expiry] = token.split('_');
-                return token === sessionToken && parseInt(expiry) > currentTime;
-            });
-
-            if (!isValidToken) {
-                return {
-                    statusCode: 401,
-                    body: JSON.stringify({
-                        message: 'Invalid or expired session',
-                        time: new Date()
-                    })
-                };
-            }
-
-            // Update user settings
-            const { isPolitician } = JSON.parse(event.body);
-            if (typeof isPolitician !== 'boolean') {
-                return {
-                    statusCode: 400,
-                    body: JSON.stringify({
-                        message: 'Invalid settings format',
-                        time: new Date()
-                    })
-                };
-            }
-
-            // Initialize or update settings
-            users[email].settings = {
-                ...users[email].settings,
-                isPolitician,
-                lastUpdated: new Date().toISOString()
-            };
-
-            await saveFileToS3(userFilePath, users);
-
-            return {
-                statusCode: 200,
-                body: JSON.stringify({
-                    message: 'Settings updated successfully',
-                    settings: users[email].settings,
-                    time: new Date()
-                })
-            };
-        } catch (error) {
-            console.error('Settings update error:', error);
-            return {
-                statusCode: 500,
-                body: JSON.stringify({
-                    message: 'Internal server error',
-                    time: new Date()
-                })
-            };
-        }
-    }
-
-    return {
-        statusCode: 400,
-        body: JSON.stringify({
-            message: 'Invalid action',
-            time: new Date()
-        })
-    };
 }; 
