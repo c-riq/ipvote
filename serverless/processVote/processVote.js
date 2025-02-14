@@ -2,6 +2,7 @@
 const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getIPInfo } = require('./from_ipInfos/ipCountryLookup');
 const https = require('https');
+const { Lambda } = require('@aws-sdk/client-lambda');
 
 /* schema of csv file:
 time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number
@@ -14,6 +15,7 @@ const { Readable } = require('stream');
 const pollsToRequireCaptcha = []
 
 const s3Client = new S3Client(); 
+const lambda = new Lambda();
 
 const fetchFileFromS3 = async (bucketName, key) => {
     const getObjectParams = {
@@ -405,6 +407,25 @@ module.exports.handler = async (event) => {
     // Send the upload command to S3
     const command = new PutObjectCommand(putParams);
     const response = await s3Client.send(command);
+
+    // After vote verification and before returning success
+    try {
+        // Call the recentVotes lambda function
+        lambda.invoke({
+            FunctionName: 'recentVotes',
+            InvocationType: 'Event', // Asynchronous invocation
+            Payload: JSON.stringify({
+                poll: poll,
+                vote: vote,
+                timestamp: timestamp,
+                ip: requestIp,
+                country: countryGeoip
+            })
+        });
+    } catch (error) {
+        console.error('Failed to update recent votes:', error);
+        // Continue execution even if recent votes update fails
+    }
 
     // validate that vote was not overwritten
     // TODO: fix architecture
