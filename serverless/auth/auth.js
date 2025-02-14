@@ -9,6 +9,7 @@ const BUCKET_NAME = 'ipvote-auth';
 const SALT_ROUNDS = 12;
 
 const HOST = 'https://4muvzwnbeezy7vgogyx2z75uaq0lctto.lambda-url.us-east-1.on.aws'
+const SES_SENDER = 'info@rixdata.net'
 
 // Helper function to fetch file from S3
 const fetchFileFromS3 = async (key) => {
@@ -69,7 +70,7 @@ const sendVerificationEmail = async (email, verificationToken) => {
                 Data: "Verify your email address"
             }
         },
-        Source: "noreply@yourdomain.com" // Replace with your verified SES sender
+        Source: SES_SENDER
     };
 
     const command = new SendEmailCommand(params);
@@ -208,6 +209,7 @@ exports.handler = async (event) => {
                 statusCode: 200,
                 body: JSON.stringify({
                     message: 'Session valid',
+                    emailVerified: user.emailVerified,
                     time: new Date()
                 })
             };
@@ -275,7 +277,7 @@ exports.handler = async (event) => {
 
             // Store new user with verification status and user ID
             users[email] = {
-                userId,  // Add userId to user object
+                userId,
                 hashedPassword,
                 createdAt: new Date().toISOString(),
                 lastLogin: new Date().toISOString(),
@@ -284,24 +286,32 @@ exports.handler = async (event) => {
                 emailVerificationToken
             };
 
-            await saveFileToS3(userFilePath, users);
-            
-            // Send verification email
             try {
+                // First try to send the verification email
                 await sendVerificationEmail(email, emailVerificationToken);
+                
+                // Only save the user to S3 if email sends successfully
+                await saveFileToS3(userFilePath, users);
+
+                return {
+                    statusCode: 200,
+                    body: JSON.stringify({
+                        message: 'User registered successfully. Please check your email to verify your account.',
+                        sessionToken,
+                        time: new Date()
+                    })
+                };
             } catch (error) {
                 console.error('Error sending verification email:', error);
-                // Continue with signup process even if email fails
+                return {
+                    statusCode: 500,
+                    body: JSON.stringify({
+                        message: 'Failed to send verification email. Please try signing up again.',
+                        error: error.message,
+                        time: new Date()
+                    })
+                };
             }
-
-            return {
-                statusCode: 200,
-                body: JSON.stringify({
-                    message: 'User registered successfully. Please check your email to verify your account.',
-                    sessionToken,
-                    time: new Date()
-                })
-            };
 
         } else if (action === 'login') {
             const user = users[email];

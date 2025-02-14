@@ -16,5 +16,7 @@ export const ADD_METADATA_HOST = 'https://3ky5zgrkk5x6tqai2z5viqeury0ymdxg.lambd
 
 export const RECENT_VOTES_FILE = 'https://ipvotes.s3.us-east-1.amazonaws.com/recent_votes/all_polls.json'
 
+export const AUTH_HOST = 'https://4muvzwnbeezy7vgogyx2z75uaq0lctto.lambda-url.us-east-1.on.aws'
+
 export const CAPTCHA_THRESHOLD = 10000
 

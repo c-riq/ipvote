@@ -3,7 +3,7 @@ import { Typography, Paper, Box, Button, Stepper, Step, StepLabel,
     Alert, TextField, CircularProgress, Tooltip } from '@mui/material';
 import { loadStripe } from '@stripe/stripe-js';
 import { IpInfoResponse, PhoneVerificationState } from '../../App';
-import { CREATE_STRIPE_SESSION_HOST, SEND_SMS_CHALLENGE_HOST, 
+import { AUTH_HOST, CREATE_STRIPE_SESSION_HOST, SEND_SMS_CHALLENGE_HOST, 
     VALIDATE_STRIPE_SESSION_HOST, VERIFY_SMS_CHALLENGE_HOST } from '../../constants';
 import PrivacyAccept from './PrivacyAccept';
 
@@ -37,6 +37,15 @@ function MyIdentity({
   const [verificationCode, setVerificationCode] = useState('');
   const [showVerificationInput, setShowVerificationInput] = useState(false);
   const [verificationTime, setVerificationTime] = useState<string | null>(null);
+
+  // Add new state for authentication
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   // Update local state when phoneVerification prop changes
   useEffect(() => {
@@ -229,6 +238,157 @@ function MyIdentity({
     }
   };
 
+  const validateEmail = (email: string) => {
+    if (!email) {
+      setEmailError('Email is required');
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError('Invalid email format');
+      return false;
+    }
+    setEmailError(null);
+    return true;
+  };
+
+  const validatePassword = (password: string) => {
+    if (!password) {
+      setPasswordError('Password is required');
+      return false;
+    }
+    if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters');
+      return false;
+    }
+    setPasswordError(null);
+    return true;
+  };
+
+  const handleSignup = async () => {
+    if (!validateEmail(email) || !validatePassword(password)) {
+      return;
+    }
+
+    setIsAuthLoading(true);
+    setAuthError(null);
+
+    try {
+      const response = await fetch(AUTH_HOST, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'signup',
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Signup failed');
+      }
+
+      localStorage.setItem('sessionToken', data.sessionToken);
+      localStorage.setItem('userEmail', email);  // Save email
+      setIsLoggedIn(true);
+      setAuthError(null);
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'An error occurred during signup');
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!validateEmail(email) || !validatePassword(password)) {
+      return;
+    }
+
+    setIsAuthLoading(true);
+    setAuthError(null);
+
+    try {
+      const response = await fetch(AUTH_HOST, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'login',
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      localStorage.setItem('sessionToken', data.sessionToken);
+      localStorage.setItem('userEmail', email);  // Save email
+      setIsLoggedIn(true);
+      setAuthError(null);
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'An error occurred during login');
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('sessionToken');
+    localStorage.removeItem('userEmail');  // Remove email
+    setIsLoggedIn(false);
+    setEmail('');
+    setPassword('');
+  };
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const sessionToken = localStorage.getItem('sessionToken');
+      const storedEmail = localStorage.getItem('userEmail');
+      if (!sessionToken || !storedEmail) {
+        localStorage.removeItem('sessionToken');  // Clean up if incomplete
+        localStorage.removeItem('userEmail');
+        return;
+      }
+
+      try {
+        const response = await fetch(AUTH_HOST, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'verifySessionToken',
+            sessionToken,
+            email: storedEmail  // Include email in verification
+          }),
+        });
+
+        if (response.ok) {
+          setIsLoggedIn(true);
+          setEmail(storedEmail);  // Set email in state
+        } else {
+          localStorage.removeItem('sessionToken');
+          localStorage.removeItem('userEmail');
+        }
+      } catch (err) {
+        console.error('Session verification failed:', err);
+        localStorage.removeItem('sessionToken');
+        localStorage.removeItem('userEmail');
+      }
+    };
+
+    checkSession();
+  }, []);
+
   return (
     <Paper sx={{ p: 3, maxWidth: 800, margin: '0 auto' }}>
       <Typography variant="h4" gutterBottom>
@@ -404,6 +564,86 @@ function MyIdentity({
               </Alert>
             )}
           </>
+        )}
+      </Box>
+
+      <Box sx={{ my: 4, pt: 4, borderTop: '1px solid #ddd' }}>
+        <Typography variant="h6" gutterBottom>
+          Account Management
+        </Typography>
+        
+        {!isLoggedIn ? (
+          <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={!!emailError}
+              helperText={emailError}
+            />
+            <TextField
+              fullWidth
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              error={!!passwordError}
+              helperText={passwordError}
+            />
+            
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Button
+                variant="contained"
+                onClick={handleSignup}
+                disabled={isAuthLoading}
+              >
+                {isAuthLoading ? (
+                  <>
+                    <CircularProgress size={20} sx={{ mr: 1 }} />
+                    Signing up...
+                  </>
+                ) : (
+                  'Sign Up'
+                )}
+              </Button>
+              
+              <Button
+                variant="outlined"
+                onClick={handleLogin}
+                disabled={isAuthLoading}
+              >
+                {isAuthLoading ? (
+                  <>
+                    <CircularProgress size={20} sx={{ mr: 1 }} />
+                    Logging in...
+                  </>
+                ) : (
+                  'Login'
+                )}
+              </Button>
+            </Box>
+            
+            {authError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {authError}
+              </Alert>
+            )}
+          </Box>
+        ) : (
+          <Box>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              Logged in as: {email}
+            </Typography>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={handleLogout}
+            >
+              Logout
+            </Button>
+          </Box>
         )}
       </Box>
     </Paper>
