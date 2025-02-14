@@ -56,6 +56,9 @@ function MyIdentity({
   const [userSettings, setUserSettings] = useState<UserSettings>({ isPolitician: false });
   const [isSettingsLoading, setIsSettingsLoading] = useState(false);
 
+  // Add new state for session loading
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
+
   // Update local state when phoneVerification prop changes
   useEffect(() => {
     if (phoneVerification) {
@@ -357,14 +360,16 @@ function MyIdentity({
     setPassword('');
   };
 
-  // Check session on mount
+  // Update the session check useEffect
   useEffect(() => {
     const checkSession = async () => {
+      setIsSessionLoading(true);
       const sessionToken = localStorage.getItem('sessionToken');
       const storedEmail = localStorage.getItem('userEmail');
       if (!sessionToken || !storedEmail) {
-        localStorage.removeItem('sessionToken');  // Clean up if incomplete
+        localStorage.removeItem('sessionToken');
         localStorage.removeItem('userEmail');
+        setIsSessionLoading(false);
         return;
       }
 
@@ -385,8 +390,8 @@ function MyIdentity({
         
         if (response.ok) {
           setIsLoggedIn(true);
-          setEmail(storedEmail);  // Set email in state
-          setUserSettings(data.settings); // Set the user settings
+          setEmail(storedEmail);
+          setUserSettings(data.settings);
         } else {
           localStorage.removeItem('sessionToken');
           localStorage.removeItem('userEmail');
@@ -395,6 +400,8 @@ function MyIdentity({
         console.error('Session verification failed:', err);
         localStorage.removeItem('sessionToken');
         localStorage.removeItem('userEmail');
+      } finally {
+        setIsSessionLoading(false);
       }
     };
 
@@ -624,7 +631,11 @@ function MyIdentity({
           Account Management
         </Typography>
         
-        {!isLoggedIn ? (
+        {isSessionLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+            <CircularProgress />
+          </Box>
+        ) : !isLoggedIn ? (
           <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
             <TextField
               fullWidth
