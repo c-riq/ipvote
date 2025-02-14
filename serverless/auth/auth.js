@@ -1,10 +1,14 @@
 const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
 const s3Client = new S3Client();
+const sesClient = new SESClient();
 const BUCKET_NAME = 'ipvote-auth';
 const SALT_ROUNDS = 12;
+
+const HOST = 'https://4muvzwnbeezy7vgogyx2z75uaq0lctto.lambda-url.us-east-1.on.aws'
 
 // Helper function to fetch file from S3
 const fetchFileFromS3 = async (key) => {
@@ -41,8 +45,101 @@ const generateSessionToken = () => {
     return `${crypto.randomBytes(32).toString('hex')}_${expiryTime}`;
 };
 
+// Add new helper function to send verification email
+const sendVerificationEmail = async (email, verificationToken) => {
+    const verificationLink = `${HOST}/verify?email=${encodeURIComponent(email)}&token=${verificationToken}`;
+    
+    const params = {
+        Destination: {
+            ToAddresses: [email]
+        },
+        Message: {
+            Body: {
+                Text: {
+                    Data: `Please verify your email by clicking this link: ${verificationLink}`
+                }
+            },
+            Subject: {
+                Data: "Verify your email address"
+            }
+        },
+        Source: "noreply@yourdomain.com" // Replace with your verified SES sender
+    };
+
+    const command = new SendEmailCommand(params);
+    return sesClient.send(command);
+};
+
 exports.handler = async (event) => {
-    const { action, email, password, sessionToken } = JSON.parse(event.body);
+    // For verification action, we'll check query parameters instead of body
+    if (event.queryStringParameters && event.queryStringParameters.email && event.queryStringParameters.token) {
+        const { email, token } = event.queryStringParameters;
+        
+        try {
+            // Get partition key from first letter of email
+            const partition = email.charAt(0).toLowerCase();
+            const userFilePath = `users/${partition}/users.json`;
+
+            const users = await fetchFileFromS3(userFilePath);
+            const user = users[email];
+
+            if (!user) {
+                return {
+                    statusCode: 404,
+                    headers: {
+                        'Content-Type': 'text/html'
+                    },
+                    body: '<h1>User not found</h1><p>The verification link is invalid or has expired.</p>'
+                };
+            }
+
+            if (user.emailVerified) {
+                return {
+                    statusCode: 200,
+                    headers: {
+                        'Content-Type': 'text/html'
+                    },
+                    body: '<h1>Already Verified</h1><p>Your email has already been verified. You can now log in to your account.</p>'
+                };
+            }
+
+            if (user.emailVerificationToken !== token) {
+                return {
+                    statusCode: 400,
+                    headers: {
+                        'Content-Type': 'text/html'
+                    },
+                    body: '<h1>Invalid Token</h1><p>The verification link is invalid or has expired.</p>'
+                };
+            }
+
+            // Update user verification status
+            users[email].emailVerified = true;
+            users[email].emailVerificationToken = null; // Clear the verification token
+            await saveFileToS3(userFilePath, users);
+
+            return {
+                statusCode: 200,
+                headers: {
+                    'Content-Type': 'text/html'
+                },
+                body: '<h1>Email Verified</h1><p>Your email has been successfully verified. You can now log in to your account.</p>'
+            };
+
+        } catch (error) {
+            console.error('Verification error:', error);
+            return {
+                statusCode: 500,
+                headers: {
+                    'Content-Type': 'text/html'
+                },
+                body: '<h1>Error</h1><p>An error occurred during verification. Please try again later.</p>'
+            };
+        }
+    }
+
+    // Existing body parsing for other actions
+    const { action, email, password, sessionToken } = JSON.parse(event.body || '{}');
     
     if (!action) {
         return {
@@ -162,24 +259,37 @@ exports.handler = async (event) => {
                 };
             }
 
+            // Generate verification token
+            const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+            
             // Hash password with salt
             const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
             const sessionToken = generateSessionToken();
 
-            // Store new user with sessions array
+            // Store new user with verification status
             users[email] = {
                 hashedPassword,
                 createdAt: new Date().toISOString(),
                 lastLogin: new Date().toISOString(),
-                sessions: [sessionToken]  // Initialize as array with first token
+                sessions: [sessionToken],
+                emailVerified: false,
+                emailVerificationToken
             };
 
             await saveFileToS3(userFilePath, users);
+            
+            // Send verification email
+            try {
+                await sendVerificationEmail(email, emailVerificationToken);
+            } catch (error) {
+                console.error('Error sending verification email:', error);
+                // Continue with signup process even if email fails
+            }
 
             return {
                 statusCode: 200,
                 body: JSON.stringify({
-                    message: 'User registered successfully',
+                    message: 'User registered successfully. Please check your email to verify your account.',
                     sessionToken,
                     time: new Date()
                 })
@@ -193,6 +303,17 @@ exports.handler = async (event) => {
                     statusCode: 401,
                     body: JSON.stringify({
                         message: 'Invalid credentials',
+                        time: new Date()
+                    })
+                };
+            }
+
+            // Check if email is verified
+            if (!user.emailVerified) {
+                return {
+                    statusCode: 403,
+                    body: JSON.stringify({
+                        message: 'Please verify your email before logging in',
                         time: new Date()
                     })
                 };
