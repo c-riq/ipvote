@@ -158,8 +158,8 @@ exports.handler = async (event) => {
         };
     }
 
-    // Special handling for verifySessionToken action
-    if (action === 'verifySessionToken') {
+    // Special handling for verifySessionToken and updateSettings actions
+    if (action === 'verifySessionToken' || action === 'updateSettings') {
         if (!email || !sessionToken) {
             return {
                 statusCode: 400,
@@ -227,254 +227,264 @@ exports.handler = async (event) => {
     }
 
     // Original email/password validation for login/signup
-    if (!email || !password) {
-        return {
-            statusCode: 400,
-            body: JSON.stringify({
-                message: 'Missing required fields',
-                time: new Date()
-            })
-        };
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        return {
-            statusCode: 400,
-            body: JSON.stringify({
-                message: 'Invalid email format',
-                time: new Date()
-            })
-        };
-    }
-
-    // Get partition key from first letter of email
-    const partition = email.charAt(0).toLowerCase();
-    const userFilePath = `users/${partition}/users.json`;
-
-    try {
-        const users = await fetchFileFromS3(userFilePath);
-
-        if (action === 'signup') {
-            // Check if user already exists
-            if (users[email]) {
-                return {
-                    statusCode: 409,
-                    body: JSON.stringify({
-                        message: 'Email already registered',
-                        time: new Date()
-                    })
-                };
-            }
-
-            // Generate verification token and user ID
-            const emailVerificationToken = crypto.randomBytes(32).toString('hex');
-            const userId = generateUserId();
-            
-            // Hash password with salt
-            const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-            const sessionToken = generateSessionToken();
-
-            // Store new user with verification status and user ID
-            users[email] = {
-                userId,
-                hashedPassword,
-                createdAt: new Date().toISOString(),
-                lastLogin: new Date().toISOString(),
-                sessions: [sessionToken],
-                emailVerified: false,
-                emailVerificationToken
+    if (action === 'login' || action === 'signup') {
+        if (!email || !password) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Missing required fields',
+                    time: new Date()
+                })
             };
+        }
 
-            try {
-                // First try to send the verification email
-                await sendVerificationEmail(email, emailVerificationToken);
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Invalid email format',
+                    time: new Date()
+                })
+            };
+        }
+
+        // Get partition key from first letter of email
+        const partition = email.charAt(0).toLowerCase();
+        const userFilePath = `users/${partition}/users.json`;
+
+        try {
+            const users = await fetchFileFromS3(userFilePath);
+
+            if (action === 'signup') {
+                // Check if user already exists
+                if (users[email]) {
+                    return {
+                        statusCode: 409,
+                        body: JSON.stringify({
+                            message: 'Email already registered',
+                            time: new Date()
+                        })
+                    };
+                }
+
+                // Generate verification token and user ID
+                const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+                const userId = generateUserId();
                 
-                // Only save the user to S3 if email sends successfully
+                // Hash password with salt
+                const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+                const sessionToken = generateSessionToken();
+
+                // Store new user with verification status and user ID
+                users[email] = {
+                    userId,
+                    hashedPassword,
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString(),
+                    sessions: [sessionToken],
+                    emailVerified: false,
+                    emailVerificationToken
+                };
+
+                try {
+                    // First try to send the verification email
+                    await sendVerificationEmail(email, emailVerificationToken);
+                    
+                    // Only save the user to S3 if email sends successfully
+                    await saveFileToS3(userFilePath, users);
+
+                    return {
+                        statusCode: 200,
+                        body: JSON.stringify({
+                            message: 'User registered successfully. Please check your email to verify your account.',
+                            sessionToken,
+                            time: new Date()
+                        })
+                    };
+                } catch (error) {
+                    console.error('Error sending verification email:', error);
+                    return {
+                        statusCode: 500,
+                        body: JSON.stringify({
+                            message: 'Failed to send verification email. Please try signing up again.',
+                            error: error.message,
+                            time: new Date()
+                        })
+                    };
+                }
+
+            } else if (action === 'login') {
+                const user = users[email];
+                
+                if (!user) {
+                    return {
+                        statusCode: 401,
+                        body: JSON.stringify({
+                            message: 'Invalid credentials',
+                            time: new Date()
+                        })
+                    };
+                }
+
+                // Check if email is verified
+                if (!user.emailVerified) {
+                    return {
+                        statusCode: 403,
+                        body: JSON.stringify({
+                            message: 'Please verify your email before logging in',
+                            time: new Date()
+                        })
+                    };
+                }
+
+                // Verify password
+                const passwordMatch = await bcrypt.compare(password, user.hashedPassword);
+                
+                if (!passwordMatch) {
+                    return {
+                        statusCode: 401,
+                        body: JSON.stringify({
+                            message: 'Invalid credentials',
+                            time: new Date()
+                        })
+                    };
+                }
+
+                // Generate new session token
+                const sessionToken = generateSessionToken();
+                
+                // Initialize sessions array if it doesn't exist (for existing users)
+                if (!users[email].sessions) {
+                    users[email].sessions = [];
+                }
+                
+                // Clean up expired sessions
+                const currentTime = Math.floor(Date.now() / 1000);
+                users[email].sessions = users[email].sessions.filter(token => {
+                    const [, expiry] = token.split('_');
+                    return parseInt(expiry) > currentTime;
+                });
+                
+                // Add new session token
+                users[email].sessions.push(sessionToken);
+                users[email].lastLogin = new Date().toISOString();
+
                 await saveFileToS3(userFilePath, users);
 
                 return {
                     statusCode: 200,
                     body: JSON.stringify({
-                        message: 'User registered successfully. Please check your email to verify your account.',
+                        message: 'Login successful',
                         sessionToken,
                         time: new Date()
                     })
                 };
-            } catch (error) {
-                console.error('Error sending verification email:', error);
-                return {
-                    statusCode: 500,
-                    body: JSON.stringify({
-                        message: 'Failed to send verification email. Please try signing up again.',
-                        error: error.message,
-                        time: new Date()
-                    })
-                };
             }
 
-        } else if (action === 'login') {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Invalid action',
+                    time: new Date()
+                })
+            };
+
+        } catch (error) {
+            console.error('Authentication error:', error);
+            return {
+                statusCode: 500,
+                body: JSON.stringify({
+                    message: 'Internal server error',
+                    time: new Date()
+                })
+            };
+        }
+    }
+
+    // Add new action handler for updating user settings
+    if (action === 'updateSettings') {
+        if (!email || !sessionToken) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Missing email or session token',
+                    time: new Date()
+                })
+            };
+        }
+
+        const partition = email.charAt(0).toLowerCase();
+        const userFilePath = `users/${partition}/users.json`;
+
+        try {
+            const users = await fetchFileFromS3(userFilePath);
             const user = users[email];
-            
-            if (!user) {
-                return {
-                    statusCode: 401,
-                    body: JSON.stringify({
-                        message: 'Invalid credentials',
-                        time: new Date()
-                    })
-                };
-            }
 
-            // Check if email is verified
-            if (!user.emailVerified) {
-                return {
-                    statusCode: 403,
-                    body: JSON.stringify({
-                        message: 'Please verify your email before logging in',
-                        time: new Date()
-                    })
-                };
-            }
-
-            // Verify password
-            const passwordMatch = await bcrypt.compare(password, user.hashedPassword);
-            
-            if (!passwordMatch) {
-                return {
-                    statusCode: 401,
-                    body: JSON.stringify({
-                        message: 'Invalid credentials',
-                        time: new Date()
-                    })
-                };
-            }
-
-            // Generate new session token
-            const sessionToken = generateSessionToken();
-            
-            // Initialize sessions array if it doesn't exist (for existing users)
-            if (!users[email].sessions) {
-                users[email].sessions = [];
-            }
-            
-            // Clean up expired sessions
+            // Verify session token
             const currentTime = Math.floor(Date.now() / 1000);
-            users[email].sessions = users[email].sessions.filter(token => {
-                const [, expiry] = token.split('_');
-                return parseInt(expiry) > currentTime;
+            const isValidToken = user?.sessions?.some(token => {
+                const [tokenValue, expiry] = token.split('_');
+                return token === sessionToken && parseInt(expiry) > currentTime;
             });
-            
-            // Add new session token
-            users[email].sessions.push(sessionToken);
-            users[email].lastLogin = new Date().toISOString();
+
+            if (!isValidToken) {
+                return {
+                    statusCode: 401,
+                    body: JSON.stringify({
+                        message: 'Invalid or expired session',
+                        time: new Date()
+                    })
+                };
+            }
+
+            // Update user settings
+            const { isPolitician } = JSON.parse(event.body);
+            if (typeof isPolitician !== 'boolean') {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: 'Invalid settings format',
+                        time: new Date()
+                    })
+                };
+            }
+
+            // Initialize or update settings
+            users[email].settings = {
+                ...users[email].settings,
+                isPolitician,
+                lastUpdated: new Date().toISOString()
+            };
 
             await saveFileToS3(userFilePath, users);
 
             return {
                 statusCode: 200,
                 body: JSON.stringify({
-                    message: 'Login successful',
-                    sessionToken,
+                    message: 'Settings updated successfully',
+                    settings: users[email].settings,
+                    time: new Date()
+                })
+            };
+        } catch (error) {
+            console.error('Settings update error:', error);
+            return {
+                statusCode: 500,
+                body: JSON.stringify({
+                    message: 'Internal server error',
                     time: new Date()
                 })
             };
         }
-
-        // Add new action handler for updating user settings
-        if (action === 'updateSettings') {
-            if (!email || !sessionToken) {
-                return {
-                    statusCode: 400,
-                    body: JSON.stringify({
-                        message: 'Missing email or session token',
-                        time: new Date()
-                    })
-                };
-            }
-
-            const partition = email.charAt(0).toLowerCase();
-            const userFilePath = `users/${partition}/users.json`;
-
-            try {
-                const users = await fetchFileFromS3(userFilePath);
-                const user = users[email];
-
-                // Verify session token
-                const currentTime = Math.floor(Date.now() / 1000);
-                const isValidToken = user?.sessions?.some(token => {
-                    const [tokenValue, expiry] = token.split('_');
-                    return token === sessionToken && parseInt(expiry) > currentTime;
-                });
-
-                if (!isValidToken) {
-                    return {
-                        statusCode: 401,
-                        body: JSON.stringify({
-                            message: 'Invalid or expired session',
-                            time: new Date()
-                        })
-                    };
-                }
-
-                // Update user settings
-                const { isPolitician } = JSON.parse(event.body);
-                if (typeof isPolitician !== 'boolean') {
-                    return {
-                        statusCode: 400,
-                        body: JSON.stringify({
-                            message: 'Invalid settings format',
-                            time: new Date()
-                        })
-                    };
-                }
-
-                // Initialize or update settings
-                users[email].settings = {
-                    ...users[email].settings,
-                    isPolitician,
-                    lastUpdated: new Date().toISOString()
-                };
-
-                await saveFileToS3(userFilePath, users);
-
-                return {
-                    statusCode: 200,
-                    body: JSON.stringify({
-                        message: 'Settings updated successfully',
-                        settings: users[email].settings,
-                        time: new Date()
-                    })
-                };
-            } catch (error) {
-                console.error('Settings update error:', error);
-                return {
-                    statusCode: 500,
-                    body: JSON.stringify({
-                        message: 'Internal server error',
-                        time: new Date()
-                    })
-                };
-            }
-        }
-
-        return {
-            statusCode: 400,
-            body: JSON.stringify({
-                message: 'Invalid action',
-                time: new Date()
-            })
-        };
-
-    } catch (error) {
-        console.error('Authentication error:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({
-                message: 'Internal server error',
-                time: new Date()
-            })
-        };
     }
+
+    return {
+        statusCode: 400,
+        body: JSON.stringify({
+            message: 'Invalid action',
+            time: new Date()
+        })
+    };
 }; 
