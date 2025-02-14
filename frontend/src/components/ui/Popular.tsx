@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { CircularProgress, Button, Popover, Paper, FormControl, FormLabel, FormGroup, FormControlLabel, Checkbox, Tooltip } from '@mui/material'
+import { CircularProgress, Button, Popover, Paper, FormControl, FormLabel, FormGroup, FormControlLabel, Checkbox } from '@mui/material'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import PollCard from './PollCard'
 import PrivacyAccept from './PrivacyAccept'
