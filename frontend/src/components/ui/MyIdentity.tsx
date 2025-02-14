@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Typography, Paper, Box, Button, Stepper, Step, StepLabel, 
-    Alert, TextField, CircularProgress, Tooltip } from '@mui/material';
+    Alert, TextField, CircularProgress, Tooltip, FormControlLabel, Switch } from '@mui/material';
 import { loadStripe } from '@stripe/stripe-js';
 import { IpInfoResponse, PhoneVerificationState } from '../../App';
 import { AUTH_HOST, CREATE_STRIPE_SESSION_HOST, SEND_SMS_CHALLENGE_HOST, 
@@ -18,6 +18,11 @@ interface MyIdentityProps {
   setCaptchaToken: (token: string) => void;
   phoneVerification: PhoneVerificationState | null;
   setPhoneVerification: (phoneVerification: PhoneVerificationState | null) => void;
+}
+
+interface UserSettings {
+  isPolitician: boolean;
+  lastUpdated?: string;
 }
 
 function MyIdentity({ 
@@ -46,6 +51,10 @@ function MyIdentity({
   const [authError, setAuthError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  // Add new state for user settings
+  const [userSettings, setUserSettings] = useState<UserSettings>({ isPolitician: false });
+  const [isSettingsLoading, setIsSettingsLoading] = useState(false);
 
   // Update local state when phoneVerification prop changes
   useEffect(() => {
@@ -372,9 +381,12 @@ function MyIdentity({
           }),
         });
 
+        const data = await response.json();
+        
         if (response.ok) {
           setIsLoggedIn(true);
           setEmail(storedEmail);  // Set email in state
+          setUserSettings(data.settings); // Set the user settings
         } else {
           localStorage.removeItem('sessionToken');
           localStorage.removeItem('userEmail');
@@ -388,6 +400,46 @@ function MyIdentity({
 
     checkSession();
   }, []);
+
+  // Add settings update handler
+  const handlePoliticianModeChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    setIsSettingsLoading(true);
+    const newIsPolitician = event.target.checked;
+
+    try {
+      const sessionToken = localStorage.getItem('sessionToken');
+      const userEmail = localStorage.getItem('userEmail');
+
+      if (!sessionToken || !userEmail) {
+        throw new Error('No valid session');
+      }
+
+      const response = await fetch(AUTH_HOST, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'updateSettings',
+          email: userEmail,
+          sessionToken,
+          isPolitician: newIsPolitician
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update settings');
+      }
+
+      setUserSettings(data.settings);
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'Failed to update settings');
+    } finally {
+      setIsSettingsLoading(false);
+    }
+  };
 
   return (
     <Paper sx={{ p: 3, maxWidth: 800, margin: '0 auto' }}>
@@ -646,6 +698,36 @@ function MyIdentity({
           </Box>
         )}
       </Box>
+
+      {isLoggedIn && (
+        <Box sx={{ mt: 4, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom>
+            User Settings
+          </Typography>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={userSettings.isPolitician}
+                onChange={handlePoliticianModeChange}
+                disabled={isSettingsLoading}
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body1">Politician Mode</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Enable to make your votes public and allow other users to delegate their votes to you
+                </Typography>
+              </Box>
+            }
+          />
+          {userSettings.lastUpdated && (
+            <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
+              Last updated: {new Date(userSettings.lastUpdated).toLocaleString()}
+            </Typography>
+          )}
+        </Box>
+      )}
     </Paper>
   );
 }

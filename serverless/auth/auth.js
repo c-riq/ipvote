@@ -210,6 +210,7 @@ exports.handler = async (event) => {
                 body: JSON.stringify({
                     message: 'Session valid',
                     emailVerified: user.emailVerified,
+                    settings: user.settings || { isPolitician: false },
                     time: new Date()
                 })
             };
@@ -379,6 +380,83 @@ exports.handler = async (event) => {
                     time: new Date()
                 })
             };
+        }
+
+        // Add new action handler for updating user settings
+        if (action === 'updateSettings') {
+            if (!email || !sessionToken) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: 'Missing email or session token',
+                        time: new Date()
+                    })
+                };
+            }
+
+            const partition = email.charAt(0).toLowerCase();
+            const userFilePath = `users/${partition}/users.json`;
+
+            try {
+                const users = await fetchFileFromS3(userFilePath);
+                const user = users[email];
+
+                // Verify session token
+                const currentTime = Math.floor(Date.now() / 1000);
+                const isValidToken = user?.sessions?.some(token => {
+                    const [tokenValue, expiry] = token.split('_');
+                    return token === sessionToken && parseInt(expiry) > currentTime;
+                });
+
+                if (!isValidToken) {
+                    return {
+                        statusCode: 401,
+                        body: JSON.stringify({
+                            message: 'Invalid or expired session',
+                            time: new Date()
+                        })
+                    };
+                }
+
+                // Update user settings
+                const { isPolitician } = JSON.parse(event.body);
+                if (typeof isPolitician !== 'boolean') {
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({
+                            message: 'Invalid settings format',
+                            time: new Date()
+                        })
+                    };
+                }
+
+                // Initialize or update settings
+                users[email].settings = {
+                    ...users[email].settings,
+                    isPolitician,
+                    lastUpdated: new Date().toISOString()
+                };
+
+                await saveFileToS3(userFilePath, users);
+
+                return {
+                    statusCode: 200,
+                    body: JSON.stringify({
+                        message: 'Settings updated successfully',
+                        settings: users[email].settings,
+                        time: new Date()
+                    })
+                };
+            } catch (error) {
+                console.error('Settings update error:', error);
+                return {
+                    statusCode: 500,
+                    body: JSON.stringify({
+                        message: 'Internal server error',
+                        time: new Date()
+                    })
+                };
+            }
         }
 
         return {
