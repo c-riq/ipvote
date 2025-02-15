@@ -367,6 +367,92 @@ function MyIdentity({
     }
   };
 
+  // Add helper function to sync phone verification
+  const syncPhoneVerification = async (email: string, sessionToken: string) => {
+    const storedVerification = localStorage.getItem('phoneVerification');
+    if (!storedVerification) return;
+
+    try {
+      const verificationData = JSON.parse(storedVerification);
+      const authResponse = await fetch(AUTH_HOST, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'updatePhoneVerification',
+          email,
+          sessionToken,
+          phoneData: verificationData
+        }),
+      });
+
+      if (!authResponse.ok) {
+        console.error('Failed to sync phone verification with auth server');
+      }
+    } catch (error) {
+      console.error('Error syncing phone verification:', error);
+    }
+  };
+
+  // Update the session check useEffect
+  useEffect(() => {
+    const checkSession = async () => {
+      setIsSessionLoading(true);
+      const sessionToken = localStorage.getItem('sessionToken');
+      const storedEmail = localStorage.getItem('userEmail');
+      if (!sessionToken || !storedEmail) {
+        localStorage.removeItem('sessionToken');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userId');
+        setIsSessionLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(AUTH_HOST, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'verifySessionToken',
+            sessionToken,
+            email: storedEmail
+          }),
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+          setIsLoggedIn(true);
+          setEmail(storedEmail);
+          setUserSettings(data.settings);
+          localStorage.setItem('userId', data.userId);
+
+          // If no phone verification in response but exists in localStorage, sync it
+          if (!data.phoneVerification && localStorage.getItem('phoneVerification')) {
+            await syncPhoneVerification(storedEmail, sessionToken);
+          }
+        } else {
+          localStorage.removeItem('sessionToken');
+          localStorage.removeItem('userEmail');
+          localStorage.removeItem('userId');
+        }
+      } catch (err) {
+        console.error('Session verification failed:', err);
+        localStorage.removeItem('sessionToken');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userId');
+      } finally {
+        setIsSessionLoading(false);
+      }
+    };
+
+    checkSession();
+  }, []);
+
+  // Update the handleLogin function
   const handleLogin = async () => {
     if (!validateEmail(email) || !validatePassword(password)) {
       return;
@@ -395,9 +481,14 @@ function MyIdentity({
       }
 
       localStorage.setItem('sessionToken', data.sessionToken);
-      localStorage.setItem('userEmail', email);  // Save email
+      localStorage.setItem('userEmail', email);
       setIsLoggedIn(true);
       setAuthError(null);
+
+      // If no phone verification in response but exists in localStorage, sync it
+      if (!data.phoneVerification && localStorage.getItem('phoneVerification')) {
+        await syncPhoneVerification(email, data.sessionToken);
+      }
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'An error occurred during login');
     } finally {
@@ -413,58 +504,6 @@ function MyIdentity({
     setEmail('');
     setPassword('');
   };
-
-  // Update the session check useEffect
-  useEffect(() => {
-    const checkSession = async () => {
-      setIsSessionLoading(true);
-      const sessionToken = localStorage.getItem('sessionToken');
-      const storedEmail = localStorage.getItem('userEmail');
-      if (!sessionToken || !storedEmail) {
-        localStorage.removeItem('sessionToken');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userId');  // Also remove userId when session is invalid
-        setIsSessionLoading(false);
-        return;
-      }
-
-      try {
-        const response = await fetch(AUTH_HOST, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'verifySessionToken',
-            sessionToken,
-            email: storedEmail
-          }),
-        });
-
-        const data = await response.json();
-        
-        if (response.ok) {
-          setIsLoggedIn(true);
-          setEmail(storedEmail);
-          setUserSettings(data.settings);
-          localStorage.setItem('userId', data.userId);  // Save userId to localStorage
-        } else {
-          localStorage.removeItem('sessionToken');
-          localStorage.removeItem('userEmail');
-          localStorage.removeItem('userId');  // Remove userId on failed verification
-        }
-      } catch (err) {
-        console.error('Session verification failed:', err);
-        localStorage.removeItem('sessionToken');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userId');  // Remove userId on error
-      } finally {
-        setIsSessionLoading(false);
-      }
-    };
-
-    checkSession();
-  }, []);
 
   // Update the settings update handler to handle batch updates
   const handleSettingsUpdate = async (newSettings: Partial<UserSettings>) => {

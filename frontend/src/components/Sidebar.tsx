@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import TrendingUp from '@mui/icons-material/Home';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import VerifiedIcon from '@mui/icons-material/Verified';
+import PersonIcon from '@mui/icons-material/Person';
 import Lightbulb from '@mui/icons-material/Lightbulb';
 import PublicIcon from '@mui/icons-material/Public';
 import GitHubIcon from '@mui/icons-material/GitHub';
@@ -37,7 +37,7 @@ function Sidebar({ isOpen }: SidebarProps) {
           </li>
           <li>
             <a href="/ui/identity" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <VerifiedIcon sx={{ fontSize: 20 }} />
+              <PersonIcon sx={{ fontSize: 20 }} />
               My identity
             </a>
           </li>
