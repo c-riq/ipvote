@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Typography, Paper, Box, Button, Stepper, Step, StepLabel, 
-    Alert, TextField, CircularProgress, Tooltip, FormControlLabel, Switch } from '@mui/material';
+    Alert, TextField, CircularProgress, Tooltip, FormControlLabel, Switch, Divider } from '@mui/material';
 import { loadStripe } from '@stripe/stripe-js';
 import { IpInfoResponse, PhoneVerificationState } from '../../App';
 import { AUTH_HOST, CREATE_STRIPE_SESSION_HOST, SEND_SMS_CHALLENGE_HOST, 
     VALIDATE_STRIPE_SESSION_HOST, VERIFY_SMS_CHALLENGE_HOST } from '../../constants';
 import PrivacyAccept from './PrivacyAccept';
 import AccountManagement from './AccountManagement';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 
 // Initialize Stripe
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
@@ -72,6 +74,9 @@ function MyIdentity({
   // Add state for tracking form changes
   const [pendingSettings, setPendingSettings] = useState<UserSettings | null>(null);
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   // Update local state when phoneVerification prop changes
   useEffect(() => {
     if (phoneVerification) {
@@ -130,9 +135,19 @@ function MyIdentity({
       completed: !!userIpInfo && privacyAccepted
     },
     {
+      label: 'Account',
+      description: '',
+      completed: isLoggedIn
+    },
+    {
       label: 'Phone number',
       description: '',
       completed: !!validatedPhoneNumber && privacyAccepted
+    },
+    {
+      label: 'Public Profile',
+      description: '',
+      completed: isLoggedIn && userSettings.isPolitician
     }
   ];
 
@@ -497,14 +512,31 @@ function MyIdentity({
       </Typography>
 
       <Box sx={{ my: 4 }}>
-        <Stepper activeStep={validatedPhoneNumber ? 2 : userIpInfo ? 1 : 0}>
+        <Stepper 
+          activeStep={
+            validatedPhoneNumber ? 3 : 
+            isLoggedIn ? 2 : 
+            userIpInfo ? 1 : 0
+          }
+          orientation={isMobile ? 'vertical' : 'horizontal'}
+          sx={{ 
+            '& .MuiStepLabel-label': {
+              typography: 'body2',
+            },
+            '& .MuiStepLabel-iconContainer': {
+              pr: { xs: 1, sm: 2 }
+            }
+          }}
+        >
           {steps.map((step, index) => (
             <Step key={index} completed={step.completed}>
               <StepLabel>
-                <Typography variant="body2">{step.label}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {step.description}
-                </Typography>
+                {step.label}
+                {step.description && (
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {step.description}
+                  </Typography>
+                )}
               </StepLabel>
             </Step>
           ))}
@@ -513,267 +545,295 @@ function MyIdentity({
 
       {userIpInfo && (
         <>
-          <PrivacyAccept
-            userIpInfo={userIpInfo}
-            accepted={privacyAccepted}
-            onAcceptChange={onPrivacyAcceptChange}
-            setCaptchaToken={setCaptchaToken}
-            captchaToken={captchaToken}
-            showCaptcha={false}
-            showPrivacy={true}
-          />
+          <Divider sx={{ my: 4 }}>
+            <Typography variant="h6" color="text.secondary">Level 1: IP Address Information</Typography>
+          </Divider>
 
-          {privacyAccepted && (
-            <>
-                <Typography variant="h6" gutterBottom>
-                    Level 1: IP Address Information
-                </Typography>
-                <Box sx={{ my: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+          <Box sx={{ my: 3 }}>
+            <PrivacyAccept
+              userIpInfo={userIpInfo}
+              accepted={privacyAccepted}
+              onAcceptChange={onPrivacyAcceptChange}
+              setCaptchaToken={setCaptchaToken}
+              captchaToken={captchaToken}
+              showCaptcha={false}
+              showPrivacy={true}
+            />
+
+            {privacyAccepted && (
+              <Box sx={{ mt: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
                 <Typography variant="body2">
-                    IP Address: {userIpInfo.ip}
-                    <br />
-                    Country: {userIpInfo.geo.country_name}
-                    <br />
-                    Network: {userIpInfo.geo.as_name}
+                  IP Address: {userIpInfo.ip}
+                  <br />
+                  Country: {userIpInfo.geo.country_name}
+                  <br />
+                  Network: {userIpInfo.geo.as_name}
                 </Typography>
+              </Box>
+            )}
+          </Box>
+
+          <Divider sx={{ my: 4 }}>
+            <Typography variant="h6" color="text.secondary">Level 2: Account</Typography>
+          </Divider>
+
+          <Box sx={{ my: 3 }}>
+            {!privacyAccepted ? (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                Please accept the privacy policy to proceed with account creation or login.
+              </Alert>
+            ) : (
+              <AccountManagement
+                isSessionLoading={isSessionLoading}
+                isLoggedIn={isLoggedIn}
+                email={email}
+                setEmail={setEmail}
+                setIsLoggedIn={setIsLoggedIn}
+              />
+            )}
+          </Box>
+
+          <Divider sx={{ my: 4 }}>
+            <Typography variant="h6" color="text.secondary">Level 3: Phone Verification</Typography>
+          </Divider>
+
+          <Box sx={{ my: 3 }}>
+            {!isLoggedIn ? (
+              <Alert severity="info">
+                Please create an account or log in to verify your phone number.
+              </Alert>
+            ) : !privacyAccepted ? (
+              <Alert severity="info">
+                Please accept the privacy policy first to proceed with phone verification.
+              </Alert>
+            ) : validatedPhoneNumber ? (
+              <Box sx={{ mt: 2 }}>
+                <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                  <Typography variant="body2">
+                    Verified Phone: {validatedPhoneNumber}
+                    <br />
+                    Verified on: {verificationTime && new Date(verificationTime).toLocaleString()}
+                  </Typography>
                 </Box>
-            </>
-          )}
+              </Box>
+            ) : showPhoneInput ? (
+              <>
+                <Box sx={{ mt: 2 }}>
+                  <TextField
+                    fullWidth
+                    label="Phone Number"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="+1234567890"
+                    required
+                    sx={{ mb: 2 }}
+                    disabled={showVerificationInput || isLoading}
+                    helperText="Include country code (e.g., +1 for USA)"
+                  />
+                  {!showVerificationInput ? (
+                    <Tooltip 
+                      title={!isValidPhoneNumber(phoneNumber) ? "Please include country code (e.g., +1 for USA)" : ""}
+                      arrow
+                    >
+                      <span>
+                        <Button
+                          variant="contained"
+                          onClick={handlePhoneSubmit}
+                          disabled={isLoading || !phoneNumber || !isValidPhoneNumber(phoneNumber)}
+                        >
+                          {isLoading ? (
+                            <>
+                              <CircularProgress size={20} sx={{ mr: 1 }} />
+                              Sending...
+                            </>
+                          ) : (
+                            'Send Verification Code'
+                          )}
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  ) : (
+                    <>
+                      <TextField
+                        fullWidth
+                        label="Verification Code"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="Enter 6-digit code"
+                        required
+                        sx={{ mb: 2 }}
+                        disabled={isLoading}
+                        helperText="Enter the 6-digit code sent to your phone"
+                      />
+                      <Tooltip 
+                        title={verificationCode.length !== 6 ? "Please enter all 6 digits of the verification code" : ""}
+                        arrow
+                      >
+                        <span>
+                          <Button
+                            variant="contained"
+                            onClick={handleVerificationSubmit}
+                            disabled={isLoading || verificationCode.length !== 6}
+                          >
+                            {isLoading ? (
+                              <>
+                                <CircularProgress size={20} sx={{ mr: 1 }} />
+                                Verifying...
+                              </>
+                            ) : (
+                              'Verify Code'
+                            )}
+                          </Button>
+                        </span>
+                      </Tooltip>
+                    </>
+                  )}
+                </Box>
+                {error && (
+                  <Alert severity="error" sx={{ mt: 2 }}>
+                    {error}
+                  </Alert>
+                )}
+              </>
+            ) : (
+              <>
+                <Typography variant="body2" paragraph>
+                  Verify your phone number for 1€ to increase the credibility of your votes for 1 month.
+                  <br /> With a verified phone number, you can also add tags to polls.
+                </Typography>
+                <Button
+                  variant="contained"
+                  onClick={handlePaymentStarted}
+                  disabled={isLoading || !userIpInfo}
+                >
+                  {isLoading ? (
+                    <>
+                      <CircularProgress size={20} sx={{ mr: 1 }} />
+                      Processing...
+                    </>
+                  ) : (
+                    'Verify Phone Number (1€)'
+                  )}
+                </Button>
+              </>
+            )}
+          </Box>
+
+          <Divider sx={{ my: 4 }}>
+            <Typography variant="h6" color="text.secondary">Level 4: Public Profile</Typography>
+          </Divider>
+
+          <Box sx={{ my: 3 }}>
+            {!isLoggedIn ? (
+              <Alert severity="info">
+                Please create an account or log in to set up your public profile.
+              </Alert>
+            ) : !validatedPhoneNumber ? (
+              <Alert severity="info">
+                Please verify your phone number to enable public profile features.
+              </Alert>
+            ) : (
+              <Box sx={{ mt: 4, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                {/* Politician Mode Switch */}
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={pendingSettings?.isPolitician ?? userSettings.isPolitician}
+                      onChange={handlePoliticianModeChange}
+                      disabled={isSettingsLoading}
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body1">Enable Public Profile</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Make your votes public and allow other users to delegate their votes to you
+                      </Typography>
+                    </Box>
+                  }
+                />
+
+                {/* Show profile fields only when public profile is enabled */}
+                {(pendingSettings?.isPolitician || userSettings.isPolitician) && (
+                  <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField
+                      label="First Name"
+                      value={pendingSettings?.firstName ?? userSettings.firstName ?? ''}
+                      onChange={(e) => handleInputChange('firstName', e.target.value)}
+                      disabled={isSettingsLoading}
+                      required
+                    />
+                    
+                    <TextField
+                      label="Last Name"
+                      value={pendingSettings?.lastName ?? userSettings.lastName ?? ''}
+                      onChange={(e) => handleInputChange('lastName', e.target.value)}
+                      disabled={isSettingsLoading}
+                      required
+                    />
+                    
+                    <TextField
+                      label="Country"
+                      value={pendingSettings?.country ?? userSettings.country ?? ''}
+                      onChange={(e) => handleInputChange('country', e.target.value)}
+                      disabled={isSettingsLoading}
+                      required
+                    />
+                    
+                    <TextField
+                      label="X (Twitter) Username"
+                      value={pendingSettings?.xUsername ?? userSettings.xUsername ?? ''}
+                      onChange={(e) => handleInputChange('xUsername', e.target.value)}
+                      disabled={isSettingsLoading}
+                      helperText="Without the @ symbol"
+                    />
+                    
+                    <TextField
+                      label="LinkedIn URL"
+                      value={pendingSettings?.linkedinUrl ?? userSettings.linkedinUrl ?? ''}
+                      onChange={(e) => handleInputChange('linkedinUrl', e.target.value)}
+                      disabled={isSettingsLoading}
+                      helperText="Full LinkedIn profile URL"
+                    />
+                    
+                    <TextField
+                      label="Website URL"
+                      value={pendingSettings?.websiteUrl ?? userSettings.websiteUrl ?? ''}
+                      onChange={(e) => handleInputChange('websiteUrl', e.target.value)}
+                      disabled={isSettingsLoading}
+                      helperText="Your personal or professional website"
+                    />
+
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                      <Button
+                        variant="contained"
+                        onClick={handleSaveChanges}
+                        disabled={isSettingsLoading || !pendingSettings}
+                        startIcon={isSettingsLoading ? <CircularProgress size={20} /> : null}
+                      >
+                        {isSettingsLoading ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+
+                {settingsError && (
+                  <Alert severity="error" sx={{ mt: 2 }}>
+                    {settingsError}
+                  </Alert>
+                )}
+                
+                {userSettings.lastUpdated && (
+                  <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
+                    Last updated: {new Date(userSettings.lastUpdated).toLocaleString()}
+                  </Typography>
+                )}
+              </Box>
+            )}
+          </Box>
         </>
       )}
 
-      <Box sx={{ my: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Level 2: Phone Verification
-        </Typography>
-        {!privacyAccepted ? (
-          <Alert severity="info">
-            Please accept the privacy policy first to proceed with phone verification.
-          </Alert>
-        ) : validatedPhoneNumber ? (
-          <Box sx={{ mt: 2 }}>
-            <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-              <Typography variant="body2">
-                Verified Phone: {validatedPhoneNumber}
-                <br />
-                Verified on: {verificationTime && new Date(verificationTime).toLocaleString()}
-              </Typography>
-            </Box>
-          </Box>
-        ) : showPhoneInput ? (
-          <>
-            <Box sx={{ mt: 2 }}>
-              <TextField
-                fullWidth
-                label="Phone Number"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="+1234567890"
-                required
-                sx={{ mb: 2 }}
-                disabled={showVerificationInput || isLoading}
-                helperText="Include country code (e.g., +1 for USA)"
-              />
-              {!showVerificationInput ? (
-                <Tooltip 
-                  title={!isValidPhoneNumber(phoneNumber) ? "Please include country code (e.g., +1 for USA)" : ""}
-                  arrow
-                >
-                  <span>
-                    <Button
-                      variant="contained"
-                      onClick={handlePhoneSubmit}
-                      disabled={isLoading || !phoneNumber || !isValidPhoneNumber(phoneNumber)}
-                    >
-                      {isLoading ? (
-                        <>
-                          <CircularProgress size={20} sx={{ mr: 1 }} />
-                          Sending...
-                        </>
-                      ) : (
-                        'Send Verification Code'
-                      )}
-                    </Button>
-                  </span>
-                </Tooltip>
-              ) : (
-                <>
-                  <TextField
-                    fullWidth
-                    label="Verification Code"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="Enter 6-digit code"
-                    required
-                    sx={{ mb: 2 }}
-                    disabled={isLoading}
-                    helperText="Enter the 6-digit code sent to your phone"
-                  />
-                  <Tooltip 
-                    title={verificationCode.length !== 6 ? "Please enter all 6 digits of the verification code" : ""}
-                    arrow
-                  >
-                    <span>
-                      <Button
-                        variant="contained"
-                        onClick={handleVerificationSubmit}
-                        disabled={isLoading || verificationCode.length !== 6}
-                      >
-                        {isLoading ? (
-                          <>
-                            <CircularProgress size={20} sx={{ mr: 1 }} />
-                            Verifying...
-                          </>
-                        ) : (
-                          'Verify Code'
-                        )}
-                      </Button>
-                    </span>
-                  </Tooltip>
-                </>
-              )}
-            </Box>
-            {error && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                {error}
-              </Alert>
-            )}
-          </>
-        ) : (
-          <>
-            <Typography variant="body2" paragraph>
-              Verify your phone number for 1€ to increase the credibility of your votes for 1 month.
-              <br /> With a verified phone number, you can also add tags to polls.
-            </Typography>
-            <Button
-              variant="contained"
-              onClick={handlePaymentStarted}
-              disabled={isLoading || !userIpInfo}
-            >
-              {isLoading ? (
-                <>
-                  <CircularProgress size={20} sx={{ mr: 1 }} />
-                  Processing...
-                </>
-              ) : (
-                'Verify Phone Number (1€)'
-              )}
-            </Button>
-            {error && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                {error}
-              </Alert>
-            )}
-          </>
-        )}
-      </Box>
-
-      <AccountManagement
-        isSessionLoading={isSessionLoading}
-        isLoggedIn={isLoggedIn}
-        email={email}
-        setEmail={setEmail}
-        setIsLoggedIn={setIsLoggedIn}
-      />
-
-      {isLoggedIn && (
-        <Box sx={{ mt: 4, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-          <Typography variant="h6" gutterBottom>
-            User Settings
-          </Typography>
-          
-          {/* Politician Mode Switch */}
-          <FormControlLabel
-            control={
-              <Switch
-                checked={pendingSettings?.isPolitician ?? userSettings.isPolitician}
-                onChange={(e) => handlePoliticianModeChange(e)}
-                disabled={isSettingsLoading}
-              />
-            }
-            label={
-              <Box>
-                <Typography variant="body1">Public Profile</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Enable to make your votes public and allow other users to delegate their votes to you
-                </Typography>
-              </Box>
-            }
-          />
-
-          {/* Profile Fields */}
-          <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              label="First Name"
-              value={pendingSettings?.firstName ?? userSettings.firstName ?? ''}
-              onChange={(e) => handleInputChange('firstName', e.target.value)}
-              disabled={isSettingsLoading}
-            />
-            
-            <TextField
-              label="Last Name"
-              value={pendingSettings?.lastName ?? userSettings.lastName ?? ''}
-              onChange={(e) => handleInputChange('lastName', e.target.value)}
-              disabled={isSettingsLoading}
-            />
-            
-            <TextField
-              label="Country"
-              value={pendingSettings?.country ?? userSettings.country ?? ''}
-              onChange={(e) => handleInputChange('country', e.target.value)}
-              disabled={isSettingsLoading}
-            />
-            
-            <TextField
-              label="X (Twitter) Username"
-              value={pendingSettings?.xUsername ?? userSettings.xUsername ?? ''}
-              onChange={(e) => handleInputChange('xUsername', e.target.value)}
-              disabled={isSettingsLoading}
-              helperText="Without the @ symbol"
-            />
-            
-            <TextField
-              label="LinkedIn URL"
-              value={pendingSettings?.linkedinUrl ?? userSettings.linkedinUrl ?? ''}
-              onChange={(e) => handleInputChange('linkedinUrl', e.target.value)}
-              disabled={isSettingsLoading}
-              helperText="Full LinkedIn profile URL"
-            />
-            
-            <TextField
-              label="Website URL"
-              value={pendingSettings?.websiteUrl ?? userSettings.websiteUrl ?? ''}
-              onChange={(e) => handleInputChange('websiteUrl', e.target.value)}
-              disabled={isSettingsLoading}
-              helperText="Your personal or professional website"
-            />
-
-            {/* Add Save Changes button */}
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-              <Button
-                variant="contained"
-                onClick={handleSaveChanges}
-                disabled={isSettingsLoading || !pendingSettings}
-                startIcon={isSettingsLoading ? <CircularProgress size={20} /> : null}
-              >
-                {isSettingsLoading ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </Box>
-          </Box>
-
-          {settingsError && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {settingsError}
-            </Alert>
-          )}
-          
-          {userSettings.lastUpdated && (
-            <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
-              Last updated: {new Date(userSettings.lastUpdated).toLocaleString()}
-            </Typography>
-          )}
-        </Box>
-      )}
     </Paper>
   );
 }
