@@ -86,7 +86,7 @@ exports.handler = async (event) => {
     const { action, email, sessionToken, target, category, source } = JSON.parse(event.body || '{}');
 
     // Validate input
-    if (!email || !sessionToken || !action) {
+    if (!action) {
         return {
             statusCode: 400,
             body: JSON.stringify({
@@ -96,16 +96,42 @@ exports.handler = async (event) => {
         };
     }
 
-    // Verify session
-    const sourceUser = await verifySession(email, sessionToken);
-    if (!sourceUser) {
-        return {
-            statusCode: 401,
-            body: JSON.stringify({
-                message: 'Invalid session',
-                time: new Date()
-            })
-        };
+    let sourceUser = null;  // Declare sourceUser variable
+
+    // For list action, only source is required
+    if (action === 'list') {
+        if (!source) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Missing source',
+                    time: new Date()
+                })
+            };
+        }
+    } else {
+        // For other actions, require full authentication
+        if (!email || !sessionToken || !action) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Missing required fields',
+                    time: new Date()
+                })
+            };
+        }
+
+        // Verify session for non-list actions
+        sourceUser = await verifySession(email, sessionToken);
+        if (!sourceUser) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({
+                    message: 'Invalid session',
+                    time: new Date()
+                })
+            };
+        }
     }
 
     // Get delegation file path

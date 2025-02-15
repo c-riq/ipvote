@@ -1,21 +1,26 @@
 import { useState } from 'react';
 import { Typography, Box, Button, TextField, Alert, CircularProgress } from '@mui/material';
 import { AUTH_HOST } from '../../constants';
+import WarningIcon from '@mui/icons-material/Warning';
 
 interface AccountManagementProps {
   isSessionLoading: boolean;
   isLoggedIn: boolean;
   email: string;
+  emailVerified: boolean;
   setEmail: (email: string) => void;
   setIsLoggedIn: (isLoggedIn: boolean) => void;
+  onLogout: () => void;
 }
 
 function AccountManagement({ 
   isSessionLoading, 
   isLoggedIn, 
   email, 
+  emailVerified,
   setEmail,
-  setIsLoggedIn 
+  setIsLoggedIn,
+  onLogout
 }: AccountManagementProps) {
   const [password, setPassword] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
@@ -132,10 +137,14 @@ function AccountManagement({
     setIsLoggedIn(false);
     setEmail('');
     setPassword('');
+    onLogout();
   };
 
   return (
     <Box sx={{ my: 2, pt: 2 }}>
+      <Typography variant="h6">
+        Account Management
+      </Typography>
       
       {isSessionLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
@@ -205,10 +214,22 @@ function AccountManagement({
           <Typography variant="body1" sx={{ mb: 2 }}>
             Logged in as: {email}
           </Typography>
+
+          {!emailVerified && (
+            <Alert 
+              severity="warning" 
+              icon={<WarningIcon />}
+              sx={{ mt: 2, mb: 2 }}
+            >
+              Please verify your email address to enable all features. Check your inbox for the verification link.
+            </Alert>
+          )}
+
           <Button
             variant="outlined"
             color="secondary"
             onClick={handleLogout}
+            sx={{ mt: 2 }}
           >
             Logout
           </Button>

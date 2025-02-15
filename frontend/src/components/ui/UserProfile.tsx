@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { 
   Typography, 
   Paper, 
@@ -11,10 +11,16 @@ import {
   Divider,
   List,
   ListItem,
-  ListItemText
+  ListItemText,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow
 } from '@mui/material';
 import { IpInfoResponse } from '../../App';
-import { DELEGATION_HOST, PUBLIC_PROFILES_HOST } from '../../constants';
+import { DELEGATION_HOST, PUBLIC_PROFILES_HOST, VALID_TAGS } from '../../constants';
 import PrivacyAccept from './PrivacyAccept';
 
 interface UserProfileProps {
@@ -45,12 +51,27 @@ interface UserData {
   delegatedTags: string[];
 }
 
+interface Delegation {
+  target: string;
+  category: string;
+  timestamp: number;
+}
+
+interface DelegationStatus {
+  myDelegations: Delegation[];
+  theirDelegations: Delegation[];
+}
+
 function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo }: UserProfileProps) {
   const { userId } = useParams();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDelegating, setIsDelegating] = useState(false);
+  const [delegationStatus, setDelegationStatus] = useState<DelegationStatus>({
+    myDelegations: [],
+    theirDelegations: []
+  });
 
   useEffect(() => {
     fetchUserProfile();
@@ -76,7 +97,65 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo }: Use
     }
   };
 
-  const handleDelegateVotes = async () => {
+  const fetchDelegationStatus = async () => {
+    const sessionToken = localStorage.getItem('sessionToken');
+    const sourceUserId = localStorage.getItem('userId');
+    const sourceEmail = localStorage.getItem('userEmail');
+    
+    if (!sessionToken || !sourceUserId || !sourceEmail) return;
+
+    try {
+      // Fetch my delegations
+      const myResponse = await fetch(`${DELEGATION_HOST}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'list',
+          source: sourceUserId,
+          email: sourceEmail,
+          sessionToken
+        }),
+      });
+
+      // Fetch their delegations
+      const theirResponse = await fetch(`${DELEGATION_HOST}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'list',
+          source: userId,
+          email: sourceEmail,
+          sessionToken
+        }),
+      });
+
+      if (!myResponse.ok || !theirResponse.ok) {
+        throw new Error('Failed to fetch delegation status');
+      }
+
+      const myData = await myResponse.json();
+      const theirData = await theirResponse.json();
+
+      setDelegationStatus({
+        myDelegations: myData.delegations || [],
+        theirDelegations: theirData.delegations || []
+      });
+    } catch (error) {
+      console.error('Error fetching delegation status:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (userData) {
+      fetchDelegationStatus();
+    }
+  }, [userData]);
+
+  const handleDelegateVotes = async (category: string) => {
     if (!privacyAccepted) {
       setError('Please accept the privacy policy first');
       return;
@@ -93,30 +172,34 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo }: Use
         throw new Error('Please log in to delegate votes');
       }
 
+      const action = delegationStatus.myDelegations.find(d => d.category === category) ? 'revoke' : 'delegate';
+
       const response = await fetch(`${DELEGATION_HOST}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'delegate',
+          action,
           source: sourceUserId,
           email: sourceEmail,
           sessionToken,
           target: userId,
-          category: 'all'
+          category
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delegate votes');
+        throw new Error(errorData.message || 'Failed to update delegation');
       }
 
-      // Refresh user profile to show updated delegation count
-      await fetchUserProfile();
+      await Promise.all([
+        fetchDelegationStatus(),
+        fetchUserProfile()
+      ]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delegate votes');
+      setError(err instanceof Error ? err.message : 'Failed to update delegation');
     } finally {
       setIsDelegating(false);
     }
@@ -249,6 +332,111 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo }: Use
 
       <Box sx={{ my: 3 }}>
         <Typography variant="h6" gutterBottom>
+          Vote Delegations
+        </Typography>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Category</TableCell>
+                <TableCell>Your Delegation</TableCell>
+                <TableCell>Their Delegation</TableCell>
+                <TableCell>Action</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {VALID_TAGS.map((tag) => {
+                const myDelegation = delegationStatus.myDelegations.find(d => d.category === tag);
+                const theirDelegation = delegationStatus.theirDelegations.find(d => d.category === tag);
+                const isDelegatedToUser = myDelegation?.target === userId;
+
+                return (
+                  <TableRow key={tag}>
+                    <TableCell>{tag}</TableCell>
+                    <TableCell>
+                      {isDelegatedToUser ? (
+                        <Typography variant="body2" color="primary">
+                          Delegated to this user
+                        </Typography>
+                      ) : myDelegation ? (
+                        <Typography variant="body2" color="text.secondary">
+                          Delegated to{' '}
+                          <Link 
+                            to={`/ui/user/${myDelegation.target}`}
+                            style={{ textDecoration: 'none', color: 'inherit' }}
+                          >
+                            <Button
+                              size="small"
+                              variant="text"
+                              color="primary"
+                            >
+                              {myDelegation.target}
+                            </Button>
+                          </Link>
+                        </Typography>
+                      ) : (
+                        'Not delegated'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {theirDelegation ? (
+                        <Typography variant="body2" color="primary">
+                          Delegated to{' '}
+                          <Link 
+                            to={`/ui/user/${theirDelegation.target}`}
+                            style={{ textDecoration: 'none', color: 'inherit' }}
+                          >
+                            <Button
+                              size="small"
+                              variant="text"
+                              color="primary"
+                            >
+                              {theirDelegation.target}
+                            </Button>
+                          </Link>
+                        </Typography>
+                      ) : (
+                        'Not delegated'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="small"
+                        variant={isDelegatedToUser ? "outlined" : "contained"}
+                        color={isDelegatedToUser ? "secondary" : "primary"}
+                        onClick={() => handleDelegateVotes(tag)}
+                        disabled={isDelegating || !privacyAccepted || (myDelegation && !isDelegatedToUser)}
+                      >
+                        {isDelegating ? (
+                          <>
+                            <CircularProgress size={20} sx={{ mr: 1 }} />
+                            Updating...
+                          </>
+                        ) : isDelegatedToUser ? (
+                          'Revoke'
+                        ) : myDelegation ? (
+                          'Delegated Elsewhere'
+                        ) : (
+                          'Delegate'
+                        )}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {!privacyAccepted && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Please accept the privacy policy to delegate votes.
+          </Alert>
+        )}
+      </Box>
+
+      <Box sx={{ my: 3 }}>
+        <Typography variant="h6" gutterBottom>
           Recent Public Votes
         </Typography>
         <List>
@@ -266,26 +454,6 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo }: Use
           )}
         </List>
       </Box>
-
-      {userData.settings.isPolitician && (
-        <Box sx={{ mt: 4 }}>
-          <Button
-            variant="contained"
-            onClick={handleDelegateVotes}
-            disabled={isDelegating || !privacyAccepted}
-            fullWidth
-          >
-            {isDelegating ? (
-              <>
-                <CircularProgress size={20} sx={{ mr: 1 }} />
-                Delegating...
-              </>
-            ) : (
-              'Delegate My Votes to This User'
-            )}
-          </Button>
-        </Box>
-      )}
     </Paper>
   );
 }

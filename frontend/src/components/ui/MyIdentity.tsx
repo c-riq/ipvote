@@ -74,6 +74,8 @@ function MyIdentity({
   // Add state for tracking form changes
   const [pendingSettings, setPendingSettings] = useState<UserSettings | null>(null);
 
+  const [emailVerified, setEmailVerified] = useState<boolean>(false);
+
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -428,6 +430,7 @@ function MyIdentity({
           setIsLoggedIn(true);
           setEmail(storedEmail);
           setUserSettings(data.settings);
+          setEmailVerified(data.emailVerified);
           localStorage.setItem('userId', data.userId);
 
           // If no phone verification in response but exists in localStorage, sync it
@@ -651,8 +654,10 @@ function MyIdentity({
                 isSessionLoading={isSessionLoading}
                 isLoggedIn={isLoggedIn}
                 email={email}
+                emailVerified={emailVerified}
                 setEmail={setEmail}
                 setIsLoggedIn={setIsLoggedIn}
+                onLogout={handleLogout}
               />
             )}
           </Box>
