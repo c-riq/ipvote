@@ -6,6 +6,8 @@ import Lightbulb from '@mui/icons-material/Lightbulb';
 import PublicIcon from '@mui/icons-material/Public';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import XIcon from '@mui/icons-material/X';
+import Forward from '@mui/icons-material/Forward';
+import HowToReg from '@mui/icons-material/HowToReg';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -37,6 +39,18 @@ function Sidebar({ isOpen }: SidebarProps) {
             <a href="/ui/identity" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <VerifiedIcon sx={{ fontSize: 20 }} />
               My identity
+            </a>
+          </li>
+          <li>
+            <a href="/ui/delegate" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Forward sx={{ fontSize: 20 }} />
+              Delegate voting
+            </a>
+          </li>
+          <li>
+            <a href="/ui/verify" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <HowToReg sx={{ fontSize: 20 }} />
+              Verify users
             </a>
           </li>
           <hr style={{ margin: '1rem 0', border: 'none', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }} />

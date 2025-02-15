@@ -11,6 +11,9 @@ const SALT_ROUNDS = 12;
 const HOST = 'https://4muvzwnbeezy7vgogyx2z75uaq0lctto.lambda-url.us-east-1.on.aws'
 const SES_SENDER = 'info@rixdata.net'
 
+// Add new constant for the public profiles bucket
+const PROFILES_BUCKET = 'ipvotes';
+
 // Helper function to fetch file from S3
 const fetchFileFromS3 = async (key) => {
     try {
@@ -75,6 +78,45 @@ const sendVerificationEmail = async (email, verificationToken) => {
 
     const command = new SendEmailCommand(params);
     return sesClient.send(command);
+};
+
+// Add helper function to manage public profiles
+const savePublicProfile = async (userId, settings) => {
+    const command = new PutObjectCommand({
+        Bucket: PROFILES_BUCKET,
+        Key: `public_profiles/${userId}.json`,
+        Body: JSON.stringify({
+            settings: {
+                isPolitician: false,
+                firstName: '',
+                lastName: '',
+                country: '',
+                xUsername: '',
+                linkedinUrl: '',
+                websiteUrl: '',
+                ...settings
+            }
+        }, null, 2),
+        ContentType: 'application/json'
+    });
+    return s3Client.send(command);
+};
+
+const getPublicProfile = async (userId) => {
+    try {
+        const command = new GetObjectCommand({
+            Bucket: PROFILES_BUCKET,
+            Key: `public_profiles/${userId}.json`,
+        });
+        const response = await s3Client.send(command);
+        const data = await response.Body.transformToString();
+        return JSON.parse(data);
+    } catch (error) {
+        if (error.name === 'NoSuchKey') {
+            return { settings: {} };
+        }
+        throw error;
+    }
 };
 
 const handleVerification = async (email, token) => {
@@ -162,12 +204,15 @@ const handleSessionVerification = async (email, sessionToken) => {
             };
         }
 
+        // Fetch settings from public profile
+        const publicProfile = await getPublicProfile(user.userId);
+
         return {
             statusCode: 200,
             body: JSON.stringify({
                 message: 'Session valid',
                 emailVerified: user.emailVerified,
-                settings: user.settings || { isPolitician: false },
+                settings: publicProfile.settings || { isPolitician: false },
                 time: new Date()
             })
         };
@@ -240,11 +285,15 @@ const handleLogin = async (email, password) => {
 
         await saveFileToS3(userFilePath, users);
 
+        // Fetch user settings from public profile
+        const publicProfile = await getPublicProfile(user.userId);
+
         return {
             statusCode: 200,
             body: JSON.stringify({
                 message: 'Login successful',
                 sessionToken,
+                settings: publicProfile.settings || { isPolitician: false },
                 time: new Date()
             })
         };
@@ -327,7 +376,7 @@ const handleSignup = async (email, password) => {
     }
 };
 
-const handleUpdateSettings = async (email, sessionToken, isPolitician) => {
+const handleUpdateSettings = async (email, sessionToken, settings) => {
     const partition = email.charAt(0).toLowerCase();
     const userFilePath = `users/${partition}/users.json`;
 
@@ -351,19 +400,35 @@ const handleUpdateSettings = async (email, sessionToken, isPolitician) => {
             };
         }
 
-        users[email].settings = {
-            ...users[email].settings,
-            isPolitician,
+        // Validate the settings
+        if (typeof settings.isPolitician !== 'boolean') {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Invalid settings format: isPolitician must be a boolean',
+                    time: new Date()
+                })
+            };
+        }
+
+        // Get existing public profile
+        const publicProfile = await getPublicProfile(user.userId);
+        
+        // Update settings with new fields and timestamp
+        const updatedSettings = {
+            ...publicProfile.settings,
+            ...settings,
             lastUpdated: new Date().toISOString()
         };
 
-        await saveFileToS3(userFilePath, users);
+        // Save to public profile
+        await savePublicProfile(user.userId, updatedSettings);
 
         return {
             statusCode: 200,
             body: JSON.stringify({
                 message: 'Settings updated successfully',
-                settings: users[email].settings,
+                settings: updatedSettings,
                 time: new Date()
             })
         };
@@ -386,7 +451,7 @@ exports.handler = async (event) => {
     }
 
     // Parse request body for other actions
-    const { action, email, password, sessionToken, isPolitician } = JSON.parse(event.body || '{}');
+    const { action, email, password, sessionToken, settings } = JSON.parse(event.body || '{}');
 
     if (!action) {
         return {
@@ -451,7 +516,7 @@ exports.handler = async (event) => {
             return handleSignup(email, password);
 
         case 'updateSettings':
-            if (!email || !sessionToken || typeof isPolitician !== 'boolean') {
+            if (!email || !sessionToken || !settings || typeof settings.isPolitician !== 'boolean') {
                 return {
                     statusCode: 400,
                     body: JSON.stringify({
@@ -460,7 +525,7 @@ exports.handler = async (event) => {
                     })
                 };
             }
-            return handleUpdateSettings(email, sessionToken, isPolitician);
+            return handleUpdateSettings(email, sessionToken, settings);
 
         default:
             return {

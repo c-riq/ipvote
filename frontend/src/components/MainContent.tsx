@@ -9,6 +9,8 @@ import { IpInfoResponse, PhoneVerificationState } from '../App'
 // Lazy load components
 const Geolocation = lazy(() => import('./ui/Geolocation'))
 const MyIdentity = lazy(() => import('./ui/MyIdentity'))
+const DelegateVoting = lazy(() => import('./ui/DelegateVoting'))
+const UserProfile = lazy(() => import('./ui/UserProfile'))
 
 interface MainContentProps {
   privacyAccepted: boolean
@@ -68,6 +70,35 @@ function MainContent({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
               onPrivacyAcceptChange={onPrivacyAcceptChange}
               captchaToken={captchaToken}
               setCaptchaToken={setCaptchaToken}
+            />
+          </Suspense>
+        } />
+        <Route path="delegate" element={
+          <Suspense fallback={
+            <div className="loading-container">
+              <div className="loading-spinner"></div>
+              <div>Loading delegate settings...</div>
+            </div>
+          }>
+            <DelegateVoting 
+              privacyAccepted={privacyAccepted}
+              onPrivacyAcceptChange={onPrivacyAcceptChange}
+              userIpInfo={userIpInfo}
+              phoneVerification={phoneVerification}
+            />
+          </Suspense>
+        } />
+        <Route path="user/:userId" element={
+          <Suspense fallback={
+            <div className="loading-container">
+              <div className="loading-spinner"></div>
+              <div>Loading user profile...</div>
+            </div>
+          }>
+            <UserProfile 
+              privacyAccepted={privacyAccepted}
+              onPrivacyAcceptChange={onPrivacyAcceptChange}
+              userIpInfo={userIpInfo}
             />
           </Suspense>
         } />

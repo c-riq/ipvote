@@ -22,6 +22,12 @@ interface MyIdentityProps {
 
 interface UserSettings {
   isPolitician: boolean;
+  firstName?: string;
+  lastName?: string;
+  country?: string;
+  xUsername?: string;
+  linkedinUrl?: string;
+  websiteUrl?: string;
   lastUpdated?: string;
 }
 
@@ -58,6 +64,12 @@ function MyIdentity({
 
   // Add new state for session loading
   const [isSessionLoading, setIsSessionLoading] = useState(true);
+
+  // Add state for form validation
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+
+  // Add state for tracking form changes
+  const [pendingSettings, setPendingSettings] = useState<UserSettings | null>(null);
 
   // Update local state when phoneVerification prop changes
   useEffect(() => {
@@ -408,10 +420,10 @@ function MyIdentity({
     checkSession();
   }, []);
 
-  // Add settings update handler
-  const handlePoliticianModeChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Update the settings update handler to handle batch updates
+  const handleSettingsUpdate = async (newSettings: Partial<UserSettings>) => {
     setIsSettingsLoading(true);
-    const newIsPolitician = event.target.checked;
+    setSettingsError(null);
 
     try {
       const sessionToken = localStorage.getItem('sessionToken');
@@ -430,7 +442,7 @@ function MyIdentity({
           action: 'updateSettings',
           email: userEmail,
           sessionToken,
-          isPolitician: newIsPolitician
+          settings: newSettings
         }),
       });
 
@@ -441,10 +453,34 @@ function MyIdentity({
       }
 
       setUserSettings(data.settings);
+      setPendingSettings(null); // Clear pending changes after successful update
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : 'Failed to update settings');
+      setSettingsError(err instanceof Error ? err.message : 'Failed to update settings');
     } finally {
       setIsSettingsLoading(false);
+    }
+  };
+
+  // Update the politician mode change handler to update immediately
+  const handlePoliticianModeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    handleSettingsUpdate({ 
+      ...(pendingSettings || userSettings),
+      isPolitician: event.target.checked 
+    });
+  };
+
+  // Add handler for input changes
+  const handleInputChange = (field: keyof UserSettings, value: string) => {
+    setPendingSettings(prev => ({
+      ...(prev || userSettings),
+      [field]: value
+    }));
+  };
+
+  // Add handler for save button
+  const handleSaveChanges = () => {
+    if (pendingSettings) {
+      handleSettingsUpdate(pendingSettings);
     }
   };
 
@@ -715,11 +751,13 @@ function MyIdentity({
           <Typography variant="h6" gutterBottom>
             User Settings
           </Typography>
+          
+          {/* Politician Mode Switch */}
           <FormControlLabel
             control={
               <Switch
-                checked={userSettings.isPolitician}
-                onChange={handlePoliticianModeChange}
+                checked={pendingSettings?.isPolitician ?? userSettings.isPolitician}
+                onChange={(e) => handlePoliticianModeChange(e)}
                 disabled={isSettingsLoading}
               />
             }
@@ -732,6 +770,73 @@ function MyIdentity({
               </Box>
             }
           />
+
+          {/* Profile Fields */}
+          <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="First Name"
+              value={pendingSettings?.firstName ?? userSettings.firstName ?? ''}
+              onChange={(e) => handleInputChange('firstName', e.target.value)}
+              disabled={isSettingsLoading}
+            />
+            
+            <TextField
+              label="Last Name"
+              value={pendingSettings?.lastName ?? userSettings.lastName ?? ''}
+              onChange={(e) => handleInputChange('lastName', e.target.value)}
+              disabled={isSettingsLoading}
+            />
+            
+            <TextField
+              label="Country"
+              value={pendingSettings?.country ?? userSettings.country ?? ''}
+              onChange={(e) => handleInputChange('country', e.target.value)}
+              disabled={isSettingsLoading}
+            />
+            
+            <TextField
+              label="X (Twitter) Username"
+              value={pendingSettings?.xUsername ?? userSettings.xUsername ?? ''}
+              onChange={(e) => handleInputChange('xUsername', e.target.value)}
+              disabled={isSettingsLoading}
+              helperText="Without the @ symbol"
+            />
+            
+            <TextField
+              label="LinkedIn URL"
+              value={pendingSettings?.linkedinUrl ?? userSettings.linkedinUrl ?? ''}
+              onChange={(e) => handleInputChange('linkedinUrl', e.target.value)}
+              disabled={isSettingsLoading}
+              helperText="Full LinkedIn profile URL"
+            />
+            
+            <TextField
+              label="Website URL"
+              value={pendingSettings?.websiteUrl ?? userSettings.websiteUrl ?? ''}
+              onChange={(e) => handleInputChange('websiteUrl', e.target.value)}
+              disabled={isSettingsLoading}
+              helperText="Your personal or professional website"
+            />
+
+            {/* Add Save Changes button */}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+              <Button
+                variant="contained"
+                onClick={handleSaveChanges}
+                disabled={isSettingsLoading || !pendingSettings}
+                startIcon={isSettingsLoading ? <CircularProgress size={20} /> : null}
+              >
+                {isSettingsLoading ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </Box>
+          </Box>
+
+          {settingsError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {settingsError}
+            </Alert>
+          )}
+          
           {userSettings.lastUpdated && (
             <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
               Last updated: {new Date(userSettings.lastUpdated).toLocaleString()}

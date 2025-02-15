@@ -15,8 +15,12 @@ export const VERIFY_SMS_CHALLENGE_HOST = 'https://acnd2kwmzq774ec53s4q6i7sfq0huo
 export const ADD_METADATA_HOST = 'https://3ky5zgrkk5x6tqai2z5viqeury0ymdxg.lambda-url.us-east-1.on.aws'
 
 export const RECENT_VOTES_FILE = 'https://ipvotes.s3.us-east-1.amazonaws.com/recent_votes/all_polls.json'
+export const IPVOTES_S3_BUCKET_HOST = 'https://ipvotes.s3.us-east-1.amazonaws.com/'
 
 export const AUTH_HOST = 'https://4muvzwnbeezy7vgogyx2z75uaq0lctto.lambda-url.us-east-1.on.aws'
 
 export const CAPTCHA_THRESHOLD = 10000
 
+export const VALID_TAGS = ['all', 'global', 'approval rating', 'national', 'other']
+
+export const PUBLIC_PROFILES_HOST = `${IPVOTES_S3_BUCKET_HOST}public_profiles/`
