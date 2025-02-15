@@ -6,6 +6,7 @@ import { IpInfoResponse, PhoneVerificationState } from '../../App';
 import { AUTH_HOST, CREATE_STRIPE_SESSION_HOST, SEND_SMS_CHALLENGE_HOST, 
     VALIDATE_STRIPE_SESSION_HOST, VERIFY_SMS_CHALLENGE_HOST } from '../../constants';
 import PrivacyAccept from './PrivacyAccept';
+import AccountManagement from './AccountManagement';
 
 // Initialize Stripe
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
@@ -667,89 +668,13 @@ function MyIdentity({
         )}
       </Box>
 
-      <Box sx={{ my: 4, pt: 4, borderTop: '1px solid #ddd' }}>
-        <Typography variant="h6" gutterBottom>
-          Account Management
-        </Typography>
-        
-        {isSessionLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
-            <CircularProgress />
-          </Box>
-        ) : !isLoggedIn ? (
-          <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
-            <TextField
-              fullWidth
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={!!emailError}
-              helperText={emailError}
-            />
-            <TextField
-              fullWidth
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={!!passwordError}
-              helperText={passwordError}
-            />
-            
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button
-                variant="contained"
-                onClick={handleSignup}
-                disabled={isAuthLoading}
-              >
-                {isAuthLoading ? (
-                  <>
-                    <CircularProgress size={20} sx={{ mr: 1 }} />
-                    Signing up...
-                  </>
-                ) : (
-                  'Sign Up'
-                )}
-              </Button>
-              
-              <Button
-                variant="outlined"
-                onClick={handleLogin}
-                disabled={isAuthLoading}
-              >
-                {isAuthLoading ? (
-                  <>
-                    <CircularProgress size={20} sx={{ mr: 1 }} />
-                    Logging in...
-                  </>
-                ) : (
-                  'Login'
-                )}
-              </Button>
-            </Box>
-            
-            {authError && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                {authError}
-              </Alert>
-            )}
-          </Box>
-        ) : (
-          <Box>
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              Logged in as: {email}
-            </Typography>
-            <Button
-              variant="outlined"
-              color="secondary"
-              onClick={handleLogout}
-            >
-              Logout
-            </Button>
-          </Box>
-        )}
-      </Box>
+      <AccountManagement
+        isSessionLoading={isSessionLoading}
+        isLoggedIn={isLoggedIn}
+        email={email}
+        setEmail={setEmail}
+        setIsLoggedIn={setIsLoggedIn}
+      />
 
       {isLoggedIn && (
         <Box sx={{ mt: 4, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
@@ -768,7 +693,7 @@ function MyIdentity({
             }
             label={
               <Box>
-                <Typography variant="body1">Politician Mode</Typography>
+                <Typography variant="body1">Public Profile</Typography>
                 <Typography variant="caption" color="text.secondary">
                   Enable to make your votes public and allow other users to delegate their votes to you
                 </Typography>
