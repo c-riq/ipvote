@@ -266,6 +266,31 @@ function MyIdentity({
         timestamp: new Date().toISOString()
       };
       localStorage.setItem('phoneVerification', JSON.stringify(verificationData));
+
+
+      // Update auth server with phone verification
+      const sessionToken = localStorage.getItem('sessionToken');
+      const userEmail = localStorage.getItem('userEmail');
+      
+      if (sessionToken && userEmail) {
+        const authResponse = await fetch(AUTH_HOST, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'updatePhoneVerification',
+            email: userEmail,
+            sessionToken,
+            phoneData: verificationData
+          }),
+        });
+
+        if (!authResponse.ok) {
+          throw new Error('Failed to update auth server with phone verification');
+        }
+      }
+      
       setPhoneVerification(verificationData);  // Update the parent state
       
       setShowVerificationInput(false);

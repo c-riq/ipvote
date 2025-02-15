@@ -214,6 +214,7 @@ const handleSessionVerification = async (email, sessionToken) => {
                 emailVerified: user.emailVerified,
                 settings: publicProfile.settings || { isPolitician: false },
                 userId: user.userId,
+                phoneVerification: user.phoneVerification || null,
                 time: new Date()
             })
         };
@@ -445,6 +446,104 @@ const handleUpdateSettings = async (email, sessionToken, settings) => {
     }
 };
 
+// Add helper function to validate phone token
+const validatePhoneToken = async (phoneNumber, token) => {
+    try {
+        const command = new GetObjectCommand({
+            Bucket: 'ipvotes',
+            Key: 'phone_number/verification.csv'
+        });
+        const response = await s3Client.send(command);
+        const data = await response.Body.transformToString();
+        const lines = data.split('\n');
+        const monthInMs = 31 * 24 * 60 * 60 * 1000; // One month in milliseconds
+        
+        for (let i = 1; i < lines.length; i++) { // Skip header
+            const [timestamp, storedPhone, storedToken] = lines[i].split(',');
+            if (!storedPhone || !storedToken || !timestamp) continue;
+            
+            // Check if this verification is for the same phone and token
+            if (storedPhone === phoneNumber && storedToken === token) {
+                const verificationTime = parseInt(timestamp);
+                const now = Date.now();
+                // Verify that the token is not older than one month
+                if (now - verificationTime < monthInMs) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    } catch (error) {
+        console.error('Error validating phone token:', error);
+        return false;
+    }
+};
+
+const handlePhoneVerification = async (email, sessionToken, phoneData) => {
+    const partition = email.charAt(0).toLowerCase();
+    const userFilePath = `users/${partition}/users.json`;
+
+    try {
+        const users = await fetchFileFromS3(userFilePath);
+        const user = users[email];
+
+        const currentTime = Math.floor(Date.now() / 1000);
+        const isValidToken = user?.sessions?.some(token => {
+            const [tokenValue, expiry] = token.split('_');
+            return token === sessionToken && parseInt(expiry) > currentTime;
+        });
+
+        if (!isValidToken) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({
+                    message: 'Invalid or expired session',
+                    time: new Date()
+                })
+            };
+        }
+
+        // Validate the phone token
+        const isValidPhoneToken = await validatePhoneToken(phoneData.phoneNumber, phoneData.token);
+        if (!isValidPhoneToken) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Invalid or expired phone verification',
+                    time: new Date()
+                })
+            };
+        }
+
+        // Update user's phone verification data
+        users[email].phoneVerification = {
+            phoneNumber: phoneData.phoneNumber,
+            token: phoneData.token,
+            timestamp: phoneData.timestamp
+        };
+
+        await saveFileToS3(userFilePath, users);
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({
+                message: 'Phone verification updated successfully',
+                phoneVerification: users[email].phoneVerification,
+                time: new Date()
+            })
+        };
+    } catch (error) {
+        console.error('Phone verification update error:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'Internal server error',
+                time: new Date()
+            })
+        };
+    }
+};
+
 exports.handler = async (event) => {
     // Handle email verification via query parameters
     if (event.queryStringParameters?.email && event.queryStringParameters?.token) {
@@ -452,7 +551,7 @@ exports.handler = async (event) => {
     }
 
     // Parse request body for other actions
-    const { action, email, password, sessionToken, settings } = JSON.parse(event.body || '{}');
+    const { action, email, password, sessionToken, settings, phoneData } = JSON.parse(event.body || '{}');
 
     if (!action) {
         return {
@@ -465,7 +564,7 @@ exports.handler = async (event) => {
     }
 
     // Email format validation for actions that require it
-    if (['login', 'signup', 'verifySessionToken', 'updateSettings'].includes(action)) {
+    if (['login', 'signup', 'verifySessionToken', 'updateSettings', 'updatePhoneVerification'].includes(action)) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!email || !emailRegex.test(email)) {
             return {
@@ -527,6 +626,18 @@ exports.handler = async (event) => {
                 };
             }
             return handleUpdateSettings(email, sessionToken, settings);
+
+        case 'updatePhoneVerification':
+            if (!email || !sessionToken || !phoneData) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: 'Missing required fields',
+                        time: new Date()
+                    })
+                };
+            }
+            return handlePhoneVerification(email, sessionToken, phoneData);
 
         default:
             return {
