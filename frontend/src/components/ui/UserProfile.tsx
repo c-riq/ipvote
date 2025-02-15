@@ -14,7 +14,7 @@ import {
   ListItemText
 } from '@mui/material';
 import { IpInfoResponse } from '../../App';
-import { AUTH_HOST, PUBLIC_PROFILES_HOST } from '../../constants';
+import { DELEGATION_HOST, PUBLIC_PROFILES_HOST } from '../../constants';
 import PrivacyAccept from './PrivacyAccept';
 
 interface UserProfileProps {
@@ -87,23 +87,30 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo }: Use
 
     try {
       const sessionToken = localStorage.getItem('sessionToken');
-      if (!sessionToken) {
+      const sourceUserId = localStorage.getItem('userId');
+      const sourceEmail = localStorage.getItem('userEmail');
+      if (!sessionToken || !sourceUserId) {
         throw new Error('Please log in to delegate votes');
       }
 
-      const response = await fetch(`${AUTH_HOST}/delegate`, {
+      const response = await fetch(`${DELEGATION_HOST}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          delegateId: userId,
+          action: 'delegate',
+          source: sourceUserId,
+          email: sourceEmail,
           sessionToken,
+          target: userId,
+          category: 'all'
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delegate votes');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delegate votes');
       }
 
       // Refresh user profile to show updated delegation count

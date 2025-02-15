@@ -366,7 +366,8 @@ function MyIdentity({
 
   const handleLogout = () => {
     localStorage.removeItem('sessionToken');
-    localStorage.removeItem('userEmail');  // Remove email
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userId');  // Also remove userId on logout
     setIsLoggedIn(false);
     setEmail('');
     setPassword('');
@@ -381,6 +382,7 @@ function MyIdentity({
       if (!sessionToken || !storedEmail) {
         localStorage.removeItem('sessionToken');
         localStorage.removeItem('userEmail');
+        localStorage.removeItem('userId');  // Also remove userId when session is invalid
         setIsSessionLoading(false);
         return;
       }
@@ -394,7 +396,7 @@ function MyIdentity({
           body: JSON.stringify({
             action: 'verifySessionToken',
             sessionToken,
-            email: storedEmail  // Include email in verification
+            email: storedEmail
           }),
         });
 
@@ -404,14 +406,17 @@ function MyIdentity({
           setIsLoggedIn(true);
           setEmail(storedEmail);
           setUserSettings(data.settings);
+          localStorage.setItem('userId', data.userId);  // Save userId to localStorage
         } else {
           localStorage.removeItem('sessionToken');
           localStorage.removeItem('userEmail');
+          localStorage.removeItem('userId');  // Remove userId on failed verification
         }
       } catch (err) {
         console.error('Session verification failed:', err);
         localStorage.removeItem('sessionToken');
         localStorage.removeItem('userEmail');
+        localStorage.removeItem('userId');  // Remove userId on error
       } finally {
         setIsSessionLoading(false);
       }

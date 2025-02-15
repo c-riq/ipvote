@@ -213,6 +213,7 @@ const handleSessionVerification = async (email, sessionToken) => {
                 message: 'Session valid',
                 emailVerified: user.emailVerified,
                 settings: publicProfile.settings || { isPolitician: false },
+                userId: user.userId,
                 time: new Date()
             })
         };
