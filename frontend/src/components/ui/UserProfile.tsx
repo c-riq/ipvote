@@ -27,6 +27,8 @@ interface UserProfileProps {
   privacyAccepted: boolean;
   onPrivacyAcceptChange: (accepted: boolean) => void;
   userIpInfo: IpInfoResponse | null;
+  captchaToken?: string;
+  setCaptchaToken?: (token: string) => void;
 }
 
 interface UserData {
@@ -61,7 +63,7 @@ interface DelegationStatus {
   theirDelegations: Delegation[];
 }
 
-function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo }: UserProfileProps) {
+function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captchaToken, setCaptchaToken }: UserProfileProps) {
   const { userId } = useParams();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -242,6 +244,8 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo }: Use
         userIpInfo={userIpInfo}
         accepted={privacyAccepted}
         onAcceptChange={onPrivacyAcceptChange}
+        captchaToken={captchaToken}
+        setCaptchaToken={setCaptchaToken || (() => {})}
       />
 
       <Box sx={{ my: 4 }}>

@@ -85,6 +85,8 @@ function MainContent({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
               onPrivacyAcceptChange={onPrivacyAcceptChange}
               userIpInfo={userIpInfo}
               phoneVerification={phoneVerification}
+              captchaToken={captchaToken}
+              setCaptchaToken={setCaptchaToken}
             />
           </Suspense>
         } />
@@ -99,6 +101,8 @@ function MainContent({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
               privacyAccepted={privacyAccepted}
               onPrivacyAcceptChange={onPrivacyAcceptChange}
               userIpInfo={userIpInfo}
+              captchaToken={captchaToken}
+              setCaptchaToken={setCaptchaToken}
             />
           </Suspense>
         } />

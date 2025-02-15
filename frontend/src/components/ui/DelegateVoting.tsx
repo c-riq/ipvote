@@ -11,10 +11,11 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Button,
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import PrivacyAccept from './PrivacyAccept';
-import { IpInfoResponse } from '../../App';
+import { IpInfoResponse, PhoneVerificationState } from '../../App';
 import { DELEGATION_HOST, PUBLIC_PROFILES_HOST } from '../../constants';
 import Plot from 'react-plotly.js';
 
@@ -22,6 +23,9 @@ interface DelegateVotingProps {
   privacyAccepted: boolean;
   onPrivacyAcceptChange: (accepted: boolean) => void;
   userIpInfo: IpInfoResponse | null;
+  phoneVerification: PhoneVerificationState | null;
+  captchaToken?: string;
+  setCaptchaToken?: (token: string) => void;
 }
 
 interface Delegation {
@@ -45,6 +49,9 @@ function DelegateVoting({
   privacyAccepted, 
   onPrivacyAcceptChange, 
   userIpInfo,
+  phoneVerification,
+  captchaToken,
+  setCaptchaToken,
 }: DelegateVotingProps) {
   const [delegations, setDelegations] = useState<Delegation[]>([]);
   const [publicProfiles, setPublicProfiles] = useState<Record<string, PublicProfile>>({});
@@ -183,6 +190,7 @@ function DelegateVoting({
         </Typography>
         <Box sx={{ height: '400px' }}>
           <Plot
+            // @ts-ignore
             data={data}
             layout={{
               showlegend: false,
@@ -217,6 +225,13 @@ function DelegateVoting({
     );
   };
 
+  // Helper function to check if phone is verified (less than 31 days old)
+  const isPhoneVerified = (verification: PhoneVerificationState | null): boolean => {
+    if (!verification) return false;
+    const thirtyOneDays = 31 * 24 * 60 * 60 * 1000;
+    return Date.now() - new Date(verification.timestamp).getTime() < thirtyOneDays;
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
@@ -235,11 +250,19 @@ function DelegateVoting({
         userIpInfo={userIpInfo}
         accepted={privacyAccepted}
         onAcceptChange={onPrivacyAcceptChange}
+        setCaptchaToken={setCaptchaToken || (() => {})}
+        captchaToken={captchaToken}
       />
 
       {error && (
         <Alert severity="error" sx={{ mt: 2 }}>
           {error}
+        </Alert>
+      )}
+
+      {!isPhoneVerified(phoneVerification) && (
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          Please verify your phone number to delegate votes.
         </Alert>
       )}
 
@@ -304,6 +327,7 @@ function DelegateVoting({
                 <TableCell>Country</TableCell>
                 <TableCell>Delegated Votes</TableCell>
                 <TableCell>Type</TableCell>
+                <TableCell>Action</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -323,6 +347,17 @@ function DelegateVoting({
                   <TableCell>{profile.delegatedVotes}</TableCell>
                   <TableCell>
                     {profile.settings.isPolitician ? 'Politician' : 'Voter'}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      component={Link}
+                      to={`/ui/user/${userId}`}
+                      disabled={!isPhoneVerified(phoneVerification)}
+                    >
+                      View Profile
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

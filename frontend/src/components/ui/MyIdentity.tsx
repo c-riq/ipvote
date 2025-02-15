@@ -54,13 +54,7 @@ function MyIdentity({
 
   // Add new state for authentication
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAuthLoading, setIsAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-
   // Add new state for user settings
   const [userSettings, setUserSettings] = useState<UserSettings>({ isPolitician: false });
   const [isSettingsLoading, setIsSettingsLoading] = useState(false);
@@ -305,70 +299,6 @@ function MyIdentity({
     }
   };
 
-  const validateEmail = (email: string) => {
-    if (!email) {
-      setEmailError('Email is required');
-      return false;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setEmailError('Invalid email format');
-      return false;
-    }
-    setEmailError(null);
-    return true;
-  };
-
-  const validatePassword = (password: string) => {
-    if (!password) {
-      setPasswordError('Password is required');
-      return false;
-    }
-    if (password.length < 8) {
-      setPasswordError('Password must be at least 8 characters');
-      return false;
-    }
-    setPasswordError(null);
-    return true;
-  };
-
-  const handleSignup = async () => {
-    if (!validateEmail(email) || !validatePassword(password)) {
-      return;
-    }
-
-    setIsAuthLoading(true);
-    setAuthError(null);
-
-    try {
-      const response = await fetch(AUTH_HOST, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'signup',
-          email,
-          password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Signup failed');
-      }
-
-      localStorage.setItem('sessionToken', data.sessionToken);
-      localStorage.setItem('userEmail', email);  // Save email
-      setIsLoggedIn(true);
-      setAuthError(null);
-    } catch (err) {
-      setAuthError(err instanceof Error ? err.message : 'An error occurred during signup');
-    } finally {
-      setIsAuthLoading(false);
-    }
-  };
-
   // Add helper function to sync phone verification
   const syncPhoneVerification = async (email: string, sessionToken: string) => {
     const storedVerification = localStorage.getItem('phoneVerification');
@@ -455,49 +385,6 @@ function MyIdentity({
     checkSession();
   }, []);
 
-  // Update the handleLogin function
-  const handleLogin = async () => {
-    if (!validateEmail(email) || !validatePassword(password)) {
-      return;
-    }
-
-    setIsAuthLoading(true);
-    setAuthError(null);
-
-    try {
-      const response = await fetch(AUTH_HOST, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'login',
-          email,
-          password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
-      localStorage.setItem('sessionToken', data.sessionToken);
-      localStorage.setItem('userEmail', email);
-      setIsLoggedIn(true);
-      setAuthError(null);
-
-      // If no phone verification in response but exists in localStorage, sync it
-      if (!data.phoneVerification && localStorage.getItem('phoneVerification')) {
-        await syncPhoneVerification(email, data.sessionToken);
-      }
-    } catch (err) {
-      setAuthError(err instanceof Error ? err.message : 'An error occurred during login');
-    } finally {
-      setIsAuthLoading(false);
-    }
-  };
 
   const handleLogout = () => {
     localStorage.removeItem('sessionToken');
@@ -505,7 +392,6 @@ function MyIdentity({
     localStorage.removeItem('userId');  // Also remove userId on logout
     setIsLoggedIn(false);
     setEmail('');
-    setPassword('');
   };
 
   // Update the settings update handler to handle batch updates
