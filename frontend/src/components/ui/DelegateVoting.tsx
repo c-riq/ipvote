@@ -16,6 +16,7 @@ import { Link } from 'react-router-dom';
 import PrivacyAccept from './PrivacyAccept';
 import { IpInfoResponse } from '../../App';
 import { DELEGATION_HOST, PUBLIC_PROFILES_HOST } from '../../constants';
+import Plot from 'react-plotly.js';
 
 interface DelegateVotingProps {
   privacyAccepted: boolean;
@@ -106,6 +107,114 @@ function DelegateVoting({
       console.error('Error fetching public profiles:', error);
       setError('Failed to load public profiles');
     }
+  };
+
+  const renderDelegationGraph = () => {
+    if (delegations.length === 0) return null;
+
+    const sourceUserId = localStorage.getItem('userId');
+    if (!sourceUserId) return null;
+
+    // Prepare data for the graph
+    const nodes = new Set([sourceUserId]);
+    delegations.forEach(d => {
+      nodes.add(d.target);
+    });
+
+    const nodesList = Array.from(nodes);
+    
+    // Create x and y coordinates in a circular layout
+    const radius = 1;
+    const angleStep = (2 * Math.PI) / nodesList.length;
+    const coordinates = nodesList.reduce((acc, _, index) => {
+      acc.x.push(radius * Math.cos(index * angleStep));
+      acc.y.push(radius * Math.sin(index * angleStep));
+      return acc;
+    }, { x: [] as number[], y: [] as number[] });
+
+    const data = [
+      // Nodes only
+      {
+        type: 'scatter' as const,
+        x: coordinates.x,
+        y: coordinates.y,
+        mode: 'markers+text',
+        marker: {
+          size: 20,
+          color: nodesList.map(id => id === sourceUserId ? '#4169E1' : '#ff6969'),
+        },
+        text: nodesList.map(id => {
+          const profile = publicProfiles[id];
+          return profile?.settings.firstName 
+            ? `${profile.settings.firstName} ${profile.settings.lastName}`
+            : id;
+        }),
+        textposition: 'bottom center' as const,
+        hoverinfo: 'text',
+      },
+    ];
+
+    // Create annotations for arrows
+    const annotations = delegations.map(d => {
+      const sourceIndex = nodesList.indexOf(sourceUserId);
+      const targetIndex = nodesList.indexOf(d.target);
+      
+      return {
+        x: coordinates.x[targetIndex],
+        y: coordinates.y[targetIndex],
+        xref: 'x' as const,
+        yref: 'y' as const,
+        ax: coordinates.x[sourceIndex],
+        ay: coordinates.y[sourceIndex],
+        axref: 'x' as const,
+        ayref: 'y' as const,
+        showarrow: true,
+        arrowhead: 2,
+        arrowsize: 1,
+        arrowwidth: 2,
+        arrowcolor: '#888'
+      };
+    });
+
+    return (
+      <Paper sx={{ p: 3, mt: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Delegation Graph
+        </Typography>
+        <Box sx={{ height: '400px' }}>
+          <Plot
+            data={data}
+            layout={{
+              showlegend: false,
+              hovermode: 'closest',
+              autosize: true,
+              margin: { t: 40, r: 40, b: 80, l: 40 },
+              xaxis: {
+                showgrid: false,
+                zeroline: false,
+                showticklabels: false,
+                range: [-1.5, 1.5],
+              },
+              yaxis: {
+                showgrid: false,
+                zeroline: false,
+                showticklabels: false,
+                range: [-1.5, 1.5],
+              },
+              paper_bgcolor: 'transparent',
+              plot_bgcolor: 'transparent',
+              annotations: annotations,
+            }}
+            config={{
+              displayModeBar: false,
+              responsive: true,
+            }}
+            useResizeHandler={true}
+            style={{ width: '100%', height: '100%' }}
+          />
+        </Box>
+      </Paper>
+    );
   };
 
   if (loading) {
@@ -221,6 +330,8 @@ function DelegateVoting({
           </Table>
         </TableContainer>
       </Paper>
+
+      {renderDelegationGraph()}
     </div>
   );
 }
