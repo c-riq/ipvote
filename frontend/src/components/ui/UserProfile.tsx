@@ -235,7 +235,7 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo }: Use
   return (
     <Paper sx={{ p: 3, maxWidth: 800, margin: '0 auto' }}>
       <Typography variant="h4" gutterBottom>
-        User Profile
+        Public Profile
       </Typography>
 
       <PrivacyAccept
