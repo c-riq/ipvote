@@ -42,7 +42,6 @@ interface UserData {
   };
   email: string;
   joinedDate: string;
-  delegatedVotes: number;
   recentVotes: {
     pollName: string;
     vote: string;
@@ -72,6 +71,7 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo }: Use
     myDelegations: [],
     theirDelegations: []
   });
+  const [isDelegationsLoading, setIsDelegationsLoading] = useState(true);
 
   useEffect(() => {
     fetchUserProfile();
@@ -98,6 +98,7 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo }: Use
   };
 
   const fetchDelegationStatus = async () => {
+    setIsDelegationsLoading(true);
     const sessionToken = localStorage.getItem('sessionToken');
     const sourceUserId = localStorage.getItem('userId');
     const sourceEmail = localStorage.getItem('userEmail');
@@ -146,6 +147,8 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo }: Use
       });
     } catch (error) {
       console.error('Error fetching delegation status:', error);
+    } finally {
+      setIsDelegationsLoading(false);
     }
   };
 
@@ -299,18 +302,6 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo }: Use
             </Button>
           )}
         </Box>
-
-        <Box sx={{ mt: 2 }}>
-          <Chip 
-            label={`${userData.delegatedVotes} delegated votes`} 
-            color="primary" 
-            variant="outlined" 
-            sx={{ mr: 1 }}
-          />
-          {userData.settings.isPolitician && (
-            <Chip label="Politician" color="secondary" sx={{ mr: 1 }} />
-          )}
-        </Box>
       </Box>
 
       <Divider sx={{ my: 3 }} />
@@ -345,85 +336,94 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo }: Use
               </TableRow>
             </TableHead>
             <TableBody>
-              {VALID_TAGS.map((tag) => {
-                const myDelegation = delegationStatus.myDelegations.find(d => d.category === tag);
-                const theirDelegation = delegationStatus.theirDelegations.find(d => d.category === tag);
-                const isDelegatedToUser = myDelegation?.target === userId;
+              {isDelegationsLoading ? (
+                <TableRow>
+                  <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
+                    <CircularProgress size={24} sx={{ mr: 2 }} />
+                    Loading delegation data...
+                  </TableCell>
+                </TableRow>
+              ) : (
+                VALID_TAGS.map((tag) => {
+                  const myDelegation = delegationStatus.myDelegations.find(d => d.category === tag);
+                  const theirDelegation = delegationStatus.theirDelegations.find(d => d.category === tag);
+                  const isDelegatedToUser = myDelegation?.target === userId;
 
-                return (
-                  <TableRow key={tag}>
-                    <TableCell>{tag}</TableCell>
-                    <TableCell>
-                      {isDelegatedToUser ? (
-                        <Typography variant="body2" color="primary">
-                          Delegated to this user
-                        </Typography>
-                      ) : myDelegation ? (
-                        <Typography variant="body2" color="text.secondary">
-                          Delegated to{' '}
-                          <Link 
-                            to={`/ui/user/${myDelegation.target}`}
-                            style={{ textDecoration: 'none', color: 'inherit' }}
-                          >
-                            <Button
-                              size="small"
-                              variant="text"
-                              color="primary"
-                            >
-                              {myDelegation.target}
-                            </Button>
-                          </Link>
-                        </Typography>
-                      ) : (
-                        'Not delegated'
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {theirDelegation ? (
-                        <Typography variant="body2" color="primary">
-                          Delegated to{' '}
-                          <Link 
-                            to={`/ui/user/${theirDelegation.target}`}
-                            style={{ textDecoration: 'none', color: 'inherit' }}
-                          >
-                            <Button
-                              size="small"
-                              variant="text"
-                              color="primary"
-                            >
-                              {theirDelegation.target}
-                            </Button>
-                          </Link>
-                        </Typography>
-                      ) : (
-                        'Not delegated'
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="small"
-                        variant={isDelegatedToUser ? "outlined" : "contained"}
-                        color={isDelegatedToUser ? "secondary" : "primary"}
-                        onClick={() => handleDelegateVotes(tag)}
-                        disabled={isDelegating || !privacyAccepted || (myDelegation && !isDelegatedToUser)}
-                      >
-                        {isDelegating ? (
-                          <>
-                            <CircularProgress size={20} sx={{ mr: 1 }} />
-                            Updating...
-                          </>
-                        ) : isDelegatedToUser ? (
-                          'Revoke'
+                  return (
+                    <TableRow key={tag}>
+                      <TableCell>{tag}</TableCell>
+                      <TableCell>
+                        {isDelegatedToUser ? (
+                          <Typography variant="body2" color="primary">
+                            Delegated to this user
+                          </Typography>
                         ) : myDelegation ? (
-                          'Delegated Elsewhere'
+                          <Typography variant="body2" color="text.secondary">
+                            Delegated to{' '}
+                            <Link 
+                              to={`/profile/${myDelegation.target}`}
+                              style={{ textDecoration: 'none', color: 'inherit' }}
+                            >
+                              <Button
+                                size="small"
+                                variant="text"
+                                color="primary"
+                              >
+                                {myDelegation.target}
+                              </Button>
+                            </Link>
+                          </Typography>
                         ) : (
-                          'Delegate'
+                          'Not delegated'
                         )}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                      </TableCell>
+                      <TableCell>
+                        {theirDelegation ? (
+                          <Typography variant="body2" color="primary">
+                            Delegated to{' '}
+                            <Link 
+                              to={`/profile/${theirDelegation.target}`}
+                              style={{ textDecoration: 'none', color: 'inherit' }}
+                            >
+                              <Button
+                                size="small"
+                                variant="text"
+                                color="primary"
+                              >
+                                {theirDelegation.target}
+                              </Button>
+                            </Link>
+                          </Typography>
+                        ) : (
+                          'Not delegated'
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="small"
+                          variant={isDelegatedToUser ? "outlined" : "contained"}
+                          color={isDelegatedToUser ? "secondary" : "primary"}
+                          onClick={() => handleDelegateVotes(tag)}
+                          disabled={isDelegating || !privacyAccepted || (myDelegation && !isDelegatedToUser)}
+                        >
+                          {isDelegating ? (
+                            <>
+                              <CircularProgress size={20} sx={{ mr: 1 }} />
+                              Updating...
+                            </>
+                          ) : isDelegatedToUser ? (
+                            'Revoke'
+                          ) : myDelegation ? (
+                            'Delegated Elsewhere'
+                          ) : (
+                            'Delegate'
+                          )}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
         </TableContainer>

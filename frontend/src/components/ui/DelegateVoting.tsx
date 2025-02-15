@@ -2,119 +2,124 @@ import { useState, useEffect } from 'react';
 import { 
   Paper, 
   Typography, 
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem, 
-  Button,
   Alert,
-  TextField,
-  Box
+  Box,
+  CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
+import { Link } from 'react-router-dom';
 import PrivacyAccept from './PrivacyAccept';
-import { IpInfoResponse, PhoneVerificationState } from '../../App';
-import { VALID_TAGS } from '../../constants';
+import { IpInfoResponse } from '../../App';
+import { DELEGATION_HOST, PUBLIC_PROFILES_HOST } from '../../constants';
 
 interface DelegateVotingProps {
   privacyAccepted: boolean;
   onPrivacyAcceptChange: (accepted: boolean) => void;
   userIpInfo: IpInfoResponse | null;
-  phoneVerification: PhoneVerificationState | null;
 }
 
 interface Delegation {
-  tag: string;
-  delegateId: string;
+  target: string;
+  category: string;
+  timestamp: number;
+}
+
+interface PublicProfile {
+  email: string;
+  settings: {
+    isPolitician: boolean;
+    firstName?: string;
+    lastName?: string;
+    country?: string;
+  };
+  delegatedVotes: number;
 }
 
 function DelegateVoting({ 
   privacyAccepted, 
   onPrivacyAcceptChange, 
   userIpInfo,
-  phoneVerification 
 }: DelegateVotingProps) {
   const [delegations, setDelegations] = useState<Delegation[]>([]);
-  const [newDelegateId, setNewDelegateId] = useState('');
-  const [selectedTag, setSelectedTag] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [publicProfiles, setPublicProfiles] = useState<Record<string, PublicProfile>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadDelegations();
+    fetchDelegations();
+    fetchPublicProfiles();
   }, []);
 
-  const loadDelegations = async () => {
-    try {
-      const response = await fetch('/api/delegations');
-      if (response.ok) {
-        const data = await response.json();
-        setDelegations(data);
-      }
-    } catch (error) {
-      console.error('Error loading delegations:', error);
-      setError('Failed to load delegations');
-    }
-  };
-
-  const handleAddDelegation = async () => {
-    if (!phoneVerification?.verified) {
-      setError('Phone verification required to delegate votes');
-      return;
-    }
-
-    if (!newDelegateId || !selectedTag) {
-      setError('Please fill in all fields');
+  const fetchDelegations = async () => {
+    const sessionToken = localStorage.getItem('sessionToken');
+    const sourceUserId = localStorage.getItem('userId');
+    const sourceEmail = localStorage.getItem('userEmail');
+    
+    if (!sessionToken || !sourceUserId || !sourceEmail) {
+      setError('Please log in to view delegations');
+      setLoading(false);
       return;
     }
 
     try {
-      const response = await fetch('/api/delegations', {
+      const response = await fetch(`${DELEGATION_HOST}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          delegateId: newDelegateId,
-          tag: selectedTag,
+          action: 'list',
+          source: sourceUserId,
+          email: sourceEmail,
+          sessionToken
         }),
       });
 
-      if (response.ok) {
-        setSuccess('Delegation added successfully');
-        setNewDelegateId('');
-        setSelectedTag('');
-        loadDelegations();
-      } else {
-        setError('Failed to add delegation');
+      if (!response.ok) {
+        throw new Error('Failed to fetch delegations');
       }
+
+      const data = await response.json();
+      setDelegations(data.delegations || []);
     } catch (error) {
-      console.error('Error adding delegation:', error);
-      setError('Failed to add delegation');
+      console.error('Error fetching delegations:', error);
+      setError('Failed to load delegations');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRemoveDelegation = async (tag: string) => {
+  const fetchPublicProfiles = async () => {
     try {
-      const response = await fetch(`/api/delegations/${tag}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        setSuccess('Delegation removed successfully');
-        loadDelegations();
-      } else {
-        setError('Failed to remove delegation');
+      const response = await fetch(`${PUBLIC_PROFILES_HOST}index.json`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch public profiles');
       }
+      const data = await response.json();
+      setPublicProfiles(data);
     } catch (error) {
-      console.error('Error removing delegation:', error);
-      setError('Failed to remove delegation');
+      console.error('Error fetching public profiles:', error);
+      setError('Failed to load public profiles');
     }
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <div>
       <Typography variant="h4" gutterBottom>
-        Delegate Voting
+        Vote Delegation
       </Typography>
 
       <PrivacyAccept
@@ -123,93 +128,98 @@ function DelegateVoting({
         onAcceptChange={onPrivacyAcceptChange}
       />
 
-      {!phoneVerification?.verified && (
-        <Alert severity="warning" sx={{ mt: 2 }}>
-          Phone verification is required to delegate votes. Please verify your phone number in the Identity section.
-        </Alert>
-      )}
-
       {error && (
-        <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError('')}>
+        <Alert severity="error" sx={{ mt: 2 }}>
           {error}
         </Alert>
       )}
 
-      {success && (
-        <Alert severity="success" sx={{ mt: 2 }} onClose={() => setSuccess('')}>
-          {success}
-        </Alert>
-      )}
-
       <Paper sx={{ p: 3, mt: 3 }}>
         <Typography variant="h6" gutterBottom>
-          Current Delegations
+          Your Current Delegations
         </Typography>
         
-        {delegations.length === 0 ? (
-          <Typography color="textSecondary">
-            No active delegations
-          </Typography>
-        ) : (
-          delegations.map((delegation) => (
-            <Box key={delegation.tag} sx={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              mb: 2 
-            }}>
-              <Typography>
-                {delegation.tag}: delegated to {delegation.delegateId}
-              </Typography>
-              <Button 
-                variant="outlined" 
-                color="error" 
-                size="small"
-                onClick={() => handleRemoveDelegation(delegation.tag)}
-              >
-                Remove
-              </Button>
-            </Box>
-          ))
-        )}
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Category</TableCell>
+                <TableCell>Delegated To</TableCell>
+                <TableCell>Since</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {delegations.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3}>
+                    <Typography color="textSecondary">
+                      No active delegations
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                delegations.map((delegation) => (
+                  <TableRow key={delegation.category}>
+                    <TableCell>{delegation.category}</TableCell>
+                    <TableCell>
+                      <Link 
+                        to={`/ui/user/${delegation.target}`}
+                        style={{ textDecoration: 'none' }}
+                      >
+                        {publicProfiles[delegation.target]?.settings.firstName
+                          ? `${publicProfiles[delegation.target].settings.firstName} ${publicProfiles[delegation.target].settings.lastName}`
+                          : delegation.target}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      {new Date(delegation.timestamp).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
 
       <Paper sx={{ p: 3, mt: 3 }}>
         <Typography variant="h6" gutterBottom>
-          Add New Delegation
+          Public Profiles
         </Typography>
-
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>Tag</InputLabel>
-          <Select
-            value={selectedTag}
-            label="Tag"
-            onChange={(e) => setSelectedTag(e.target.value)}
-          >
-            {VALID_TAGS.map((tag) => (
-              <MenuItem key={tag} value={tag}>
-                {tag.charAt(0).toUpperCase() + tag.slice(1)}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <TextField
-          fullWidth
-          label="Delegate ID"
-          value={newDelegateId}
-          onChange={(e) => setNewDelegateId(e.target.value)}
-          sx={{ mb: 2 }}
-          helperText="Enter the user ID of the person you want to delegate to"
-        />
-
-        <Button 
-          variant="contained" 
-          onClick={handleAddDelegation}
-          disabled={!phoneVerification?.verified}
-        >
-          Add Delegation
-        </Button>
+        
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Name</TableCell>
+                <TableCell>Country</TableCell>
+                <TableCell>Delegated Votes</TableCell>
+                <TableCell>Type</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {Object.entries(publicProfiles).map(([userId, profile]) => (
+                <TableRow key={userId}>
+                  <TableCell>
+                    <Link 
+                      to={`/ui/user/${userId}`}
+                      style={{ textDecoration: 'none' }}
+                    >
+                      {profile.settings.firstName
+                        ? `${profile.settings.firstName} ${profile.settings.lastName}`
+                        : profile.email}
+                    </Link>
+                  </TableCell>
+                  <TableCell>{profile.settings.country || '-'}</TableCell>
+                  <TableCell>{profile.delegatedVotes}</TableCell>
+                  <TableCell>
+                    {profile.settings.isPolitician ? 'Politician' : 'Voter'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
     </div>
   );

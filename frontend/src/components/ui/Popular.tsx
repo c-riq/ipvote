@@ -239,33 +239,49 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
       }}>
         <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>Recent Votes</h4>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {recentVotes.slice(0, 5).map((vote, index) => (
-            <div key={index} style={{ 
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px' 
-            }}>
-              <span style={{ color: '#666' }}>
-                {new Date(vote.timestamp).toLocaleTimeString()}
-              </span>
-              <span 
-                style={{ 
-                  fontWeight: 'bold', 
-                  cursor: 'pointer',
-                  color: '#1976d2',
-                  textDecoration: 'underline'
-                }}
-                onClick={(e) => handlePollClick(vote.poll, e)}
-              >
-                {vote.poll.replace(/^open_/, '')}:
-              </span>
-              <span>{vote.vote}</span>
-              <span style={{ color: '#666' }}>
-                from {vote.country}
-              </span>
-            </div>
-          ))}
+          {recentVotes.slice(0, 5).map((vote, index) => {
+            const voteDate = new Date(vote.timestamp);
+            const today = new Date();
+            let timeDisplay;
+            
+            if (voteDate.toDateString() === today.toDateString()) {
+              timeDisplay = voteDate.toLocaleTimeString();
+            } else if (
+              voteDate.toDateString() === new Date(today.setDate(today.getDate() - 1)).toDateString()
+            ) {
+              timeDisplay = `Yesterday ${voteDate.toLocaleTimeString()}`;
+            } else {
+              timeDisplay = voteDate.toLocaleDateString() + ' ' + voteDate.toLocaleTimeString();
+            }
+            
+            return (
+              <div key={index} style={{ 
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px' 
+              }}>
+                <span style={{ color: '#666' }}>
+                  {timeDisplay}
+                </span>
+                <span 
+                  style={{ 
+                    fontWeight: 'bold', 
+                    cursor: 'pointer',
+                    color: '#1976d2',
+                    textDecoration: 'underline'
+                  }}
+                  onClick={(e) => handlePollClick(vote.poll, e)}
+                >
+                  {vote.poll.replace(/^open_/, '')}:
+                </span>
+                <span>{vote.vote}</span>
+                <span style={{ color: '#666' }}>
+                  from {vote.country}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 

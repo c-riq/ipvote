@@ -142,9 +142,6 @@ function AccountManagement({
 
   return (
     <Box sx={{ my: 2, pt: 2 }}>
-      <Typography variant="h6">
-        Account Management
-      </Typography>
       
       {isSessionLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
