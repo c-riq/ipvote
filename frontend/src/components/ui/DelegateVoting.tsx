@@ -243,7 +243,7 @@ function DelegateVoting({
   return (
     <div>
       <Alert severity="warning" sx={{ mb: 2 }}>
-        This feature is currently in beta. Use with caution.
+        This feature is currently in beta.
       </Alert>
 
       <Typography variant="h4" gutterBottom>

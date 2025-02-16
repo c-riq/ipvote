@@ -259,7 +259,8 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
                 fontSize: '12px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px' 
+                gap: '8px',
+                maxWidth: '500px'
               }}>
                 <span style={{ color: '#666' }}>
                   {timeDisplay}
