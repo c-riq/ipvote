@@ -298,6 +298,9 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
       const votePayload = isOpenPoll && showCustomInput ? customOption : vote
       const phoneNumber = phoneVerification?.phoneNumber
       const phoneToken = phoneVerification?.token
+      const email = localStorage.getItem('userEmail')
+      const sessionToken = localStorage.getItem('sessionToken')
+      
       const params = new URLSearchParams({
         poll: poll,
         vote: votePayload,
@@ -314,6 +317,12 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
       
       if (phoneToken) {
         params.append('phoneToken', phoneToken);
+      }
+
+      // Add email and sessionToken if available
+      if (email && sessionToken) {
+        params.append('email', email);
+        params.append('sessionToken', sessionToken);
       }
 
       const response = await fetch(`${SUBMIT_VOTE_HOST}/?${params.toString()}`);

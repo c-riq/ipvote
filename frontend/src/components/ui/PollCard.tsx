@@ -47,6 +47,8 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
     setLoading(true)
     try {
       const {phoneNumber, token: phoneToken} = phoneVerification || {}
+      const email = localStorage.getItem('userEmail')
+      const sessionToken = localStorage.getItem('sessionToken')
       
       const params = new URLSearchParams({
         poll: poll,
@@ -60,6 +62,11 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
       
       if (phoneToken) {
         params.append('phoneToken', phoneToken);
+      }
+
+      if (email && sessionToken) {
+        params.append('email', email);
+        params.append('sessionToken', sessionToken);
       }
 
       const response = await fetch(`${SUBMIT_VOTE_HOST}/?${params.toString()}`)
