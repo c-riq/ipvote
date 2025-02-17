@@ -8,9 +8,11 @@ interface AccountManagementProps {
   isLoggedIn: boolean;
   email: string;
   emailVerified: boolean;
+  setEmailVerified: (verified: boolean) => void;
   setEmail: (email: string) => void;
-  setIsLoggedIn: (isLoggedIn: boolean) => void;
+  setIsLoggedIn: (loggedIn: boolean) => void;
   onLogout: () => void;
+  setUserSettings: (settings: any) => void;
 }
 
 function AccountManagement({ 
@@ -18,9 +20,11 @@ function AccountManagement({
   isLoggedIn, 
   email, 
   emailVerified,
+  setEmailVerified,
   setEmail,
   setIsLoggedIn,
-  onLogout
+  onLogout,
+  setUserSettings
 }: AccountManagementProps) {
   const [password, setPassword] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
@@ -122,6 +126,12 @@ function AccountManagement({
       localStorage.setItem('sessionToken', data.sessionToken);
       localStorage.setItem('userEmail', email);
       setIsLoggedIn(true);
+      if (data.emailVerified !== undefined) {
+        setEmailVerified(data.emailVerified);
+      }
+      if (data.settings) {
+        setUserSettings(data.settings);
+      }
       setAuthError(null);
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'An error occurred during login');

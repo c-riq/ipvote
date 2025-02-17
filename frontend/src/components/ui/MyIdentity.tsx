@@ -9,6 +9,7 @@ import PrivacyAccept from './PrivacyAccept';
 import AccountManagement from './AccountManagement';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import { countries } from '../../utils/countries';
 
 // Initialize Stripe
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
@@ -541,9 +542,11 @@ function MyIdentity({
                 isLoggedIn={isLoggedIn}
                 email={email}
                 emailVerified={emailVerified}
+                setEmailVerified={setEmailVerified}
                 setEmail={setEmail}
                 setIsLoggedIn={setIsLoggedIn}
                 onLogout={handleLogout}
+                setUserSettings={setUserSettings}
               />
             )}
           </Box>
@@ -728,12 +731,23 @@ function MyIdentity({
                     />
                     
                     <TextField
+                      select
                       label="Country"
                       value={pendingSettings?.country ?? userSettings.country ?? ''}
                       onChange={(e) => handleInputChange('country', e.target.value)}
                       disabled={isSettingsLoading}
                       required
-                    />
+                      SelectProps={{
+                        native: true,
+                      }}
+                    >
+                      <option value="">Select a country</option>
+                      {countries.map((country) => (
+                        <option key={country.code} value={country.code}>
+                          {country.name}
+                        </option>
+                      ))}
+                    </TextField>
                     
                     <TextField
                       label="X (Twitter) Username"

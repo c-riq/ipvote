@@ -295,7 +295,10 @@ const handleLogin = async (email, password) => {
             body: JSON.stringify({
                 message: 'Login successful',
                 sessionToken,
+                emailVerified: user.emailVerified,
                 settings: publicProfile.settings || { isPolitician: false },
+                userId: user.userId,
+                phoneVerification: user.phoneVerification || null,
                 time: new Date()
             })
         };
