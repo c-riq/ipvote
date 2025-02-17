@@ -233,6 +233,16 @@ const VoteMap: React.FC<VoteMapProps> = ({ votesByCountry, options }) => {
     }
 
     const opacity = opacityScale(Object.values(votes).reduce((sum, count) => sum + count, 0));
+    
+    // Check for ties by finding the maximum vote count and counting how many options have that count
+    const maxVoteCount = Math.max(...Object.values(votes));
+    const optionsWithMaxVotes = Object.entries(votes).filter(([_, count]) => count === maxVoteCount);
+    
+    // If there's a tie (more than one option with max votes), return pale purple
+    if (optionsWithMaxVotes.length > 1) {
+      return `rgba(194, 120, 255, ${opacity})`;
+    }
+
     const winningOption = Object.entries(votes).reduce((max, [option, count]) => 
       count > (votes[max] || 0) ? option : max
     , options[0]);
@@ -408,6 +418,9 @@ const VoteMap: React.FC<VoteMapProps> = ({ votesByCountry, options }) => {
             {option} majority
           </Typography>
         ))}
+        <Typography variant="caption" sx={{ color: 'rgb(194, 120, 255)' }}>
+          Tie
+        </Typography>
         <Typography variant="caption" sx={{ color: 'rgb(128, 128, 128)' }}>
           No data
         </Typography>
