@@ -14,6 +14,17 @@ const removeForbiddenStrings = (str) => {
 exports.handler = async (event) => {
     const bucket = 'ipvotes';
     let poll = event?.queryStringParameters?.poll;
+    
+    if (!poll) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Missing poll parameter',
+                time: new Date()
+            }),
+        };
+    }
+
     poll = poll.replace(/,/g, '%2C');
     const isOpen = event?.queryStringParameters?.isOpen === 'true';
     const forceRefresh = event?.queryStringParameters?.refresh === 'true';
@@ -147,6 +158,13 @@ async function aggregateCSVFiles(bucket, files) {
         if (!files || files.length === 0) {
             throw new Error('No files found to aggregate');
         }
+
+        // Fetch delegation graph
+        const delegationGraphResponse = await s3Client.send(new GetObjectCommand({
+            Bucket: bucket,
+            Key: 'delegationGraph/latest/full.json'
+        }));
+        const delegationGraph = JSON.parse(await delegationGraphResponse.Body.transformToString());
         
         const promises = files.map(async (file) => {
             try {
@@ -190,14 +208,16 @@ async function aggregateCSVFiles(bucket, files) {
         });
         
         const results = await Promise.all(promises);
-        if (!results.length || !results[0].header) {
+        if (!results.length) {
             throw new Error('No valid data found in files');
         }
-        
+
         // Keep the header as is, just replace poll_ with poll and ip with masked_ip
-        const header = results[0].header.replace('poll_', 'poll').replace('ip', 'masked_ip') + '\n';
+        const header = results[0].header.replace('poll_', 'poll').replace('ip', 'masked_ip') + ',delegated_votes,delegated_votes_from_verified_phone_numbers' +'\n';
         
-        // Combine all rows, convert timestamp, and sort by time
+        // Process all rows and track who has voted
+        const votersByPhone = new Map();
+        const votersByUserId = new Map();
         const allRows = results.flatMap(result => result.rows)
             .sort((a, b) => {
                 const timeA = parseInt(a.split(',')[0]);
@@ -208,8 +228,50 @@ async function aggregateCSVFiles(bucket, files) {
                 const columns = row.split(',');
                 // Convert timestamp to ISO string
                 columns[0] = new Date(parseInt(columns[0])).toISOString();
+                
+                // Track voters by phone number (assuming phone is in column 13)
+                if (columns[13]) {
+                    votersByPhone.set(columns[13], true);
+                }
+                // Track voters by userId (assuming userId is in column 12)
+                if (columns[12]) {
+                    votersByUserId.set(columns[12], true);
+                }
+                
+                // Initialize delegation counts
+                columns.push('0'); // delegated_votes
+                columns.push('0'); // delegated_votes_from_verified_phone_numbers
                 return columns.join(',');
             });
+
+        // Process delegations
+        for (const [voterId, voterInfo] of Object.entries(delegationGraph)) {
+            // Skip if the delegator has already voted
+            if (votersByUserId.has(voterId)) continue;
+
+            const delegation = voterInfo.delegations?.all;
+            if (!delegation?.target) continue;
+
+            // Find all rows where the target has voted
+            allRows.forEach((row, index) => {
+                const columns = row.split(',');
+                const rowVoterId = columns[12];
+                
+                if (rowVoterId === delegation.target) {
+                    // Increment delegated votes
+                    const currentDelegatedVotes = parseInt(columns[columns.length - 2]) || 0;
+                    columns[columns.length - 2] = (currentDelegatedVotes + 1).toString();
+                    
+                    // Increment verified phone delegated votes if delegator has phone
+                    if (voterInfo.phoneNumber) {
+                        const currentVerifiedDelegatedVotes = parseInt(columns[columns.length - 1]) || 0;
+                        columns[columns.length - 1] = (currentVerifiedDelegatedVotes + 1).toString();
+                    }
+                    
+                    allRows[index] = columns.join(',');
+                }
+            });
+        }
 
         const aggregatedData = header + allRows.join('\n');
         return aggregatedData;

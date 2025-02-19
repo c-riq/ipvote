@@ -335,9 +335,6 @@ function MyIdentity({
       const sessionToken = localStorage.getItem('sessionToken');
       const storedEmail = localStorage.getItem('userEmail');
       if (!sessionToken || !storedEmail) {
-        localStorage.removeItem('sessionToken');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userId');
         setIsSessionLoading(false);
         return;
       }
@@ -368,16 +365,15 @@ function MyIdentity({
           if (!data.phoneVerification && localStorage.getItem('phoneVerification')) {
             await syncPhoneVerification(storedEmail, sessionToken);
           }
-        } else {
+        } else if (response.status === 401) {
+          // Only clear auth data on explicit unauthorized response
           localStorage.removeItem('sessionToken');
           localStorage.removeItem('userEmail');
           localStorage.removeItem('userId');
         }
       } catch (err) {
+        // Don't clear auth data on network errors
         console.error('Session verification failed:', err);
-        localStorage.removeItem('sessionToken');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userId');
       } finally {
         setIsSessionLoading(false);
       }

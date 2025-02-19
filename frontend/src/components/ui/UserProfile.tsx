@@ -349,6 +349,9 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
                 </TableRow>
               ) : (
                 VALID_TAGS.map((tag) => {
+                  if (tag !== 'all') {
+                    return null;
+                  }
                   const myDelegation = delegationStatus.myDelegations.find(d => d.category === tag);
                   const theirDelegation = delegationStatus.theirDelegations.find(d => d.category === tag);
                   const isDelegatedToUser = myDelegation?.target === userId;

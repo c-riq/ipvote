@@ -49,7 +49,6 @@ function DelegateVoting({
   privacyAccepted, 
   onPrivacyAcceptChange, 
   userIpInfo,
-  phoneVerification,
   captchaToken,
   setCaptchaToken,
 }: DelegateVotingProps) {
@@ -225,12 +224,6 @@ function DelegateVoting({
     );
   };
 
-  // Helper function to check if phone is verified (less than 31 days old)
-  const isPhoneVerified = (verification: PhoneVerificationState | null): boolean => {
-    if (!verification) return false;
-    const thirtyOneDays = 31 * 24 * 60 * 60 * 1000;
-    return Date.now() - new Date(verification.timestamp).getTime() < thirtyOneDays;
-  };
 
   if (loading) {
     return (
@@ -261,12 +254,6 @@ function DelegateVoting({
       {error && (
         <Alert severity="error" sx={{ mt: 2 }}>
           {error}
-        </Alert>
-      )}
-
-      {!isPhoneVerified(phoneVerification) && (
-        <Alert severity="warning" sx={{ mt: 2 }}>
-          Please verify your phone number to delegate votes.
         </Alert>
       )}
 
@@ -330,7 +317,6 @@ function DelegateVoting({
                 <TableCell>Name</TableCell>
                 <TableCell>Country</TableCell>
                 <TableCell>Delegated Votes</TableCell>
-                <TableCell>Type</TableCell>
                 <TableCell>Action</TableCell>
               </TableRow>
             </TableHead>
@@ -350,15 +336,11 @@ function DelegateVoting({
                   <TableCell>{profile.settings.country || '-'}</TableCell>
                   <TableCell>{profile.delegatedVotes}</TableCell>
                   <TableCell>
-                    {profile.settings.isPolitician ? 'Politician' : 'Voter'}
-                  </TableCell>
-                  <TableCell>
                     <Button
                       variant="contained"
                       size="small"
                       component={Link}
                       to={`/ui/user/${userId}`}
-                      disabled={!isPhoneVerified(phoneVerification)}
                     >
                       View Profile
                     </Button>
