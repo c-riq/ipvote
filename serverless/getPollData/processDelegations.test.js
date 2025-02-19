@@ -1,8 +1,8 @@
 const { processDelegations } = require('./processDelegations');
 
 describe('processDelegations', () => {
-    const standardHeader = 'timestamp,poll,option,comment,lang,nonce,country,asn_name,field1,field2,field3,ip,voter_id';
-    const realExampleHeader = 'timestamp,masked_ip,poll,vote,country,asn_name,field1,field2,field3,field4,field5,field6,field7,phone,voter_id,field8,field9';
+    const standardHeader = 'timestamp,poll,option,comment,lang,nonce,country,asn_name,field1,field2,field3,ip,user_id';
+    const realExampleHeader = 'time,masked_ip,poll,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number,user_id,delegated_votes,delegated_votes_from_verified_phone_numbers';
 
     test('should correctly count delegated votes and verified phone delegations', () => {
         // Arrange
@@ -227,25 +227,47 @@ describe('processDelegations', () => {
     });
     
     test('real example', () => {
-        const rows = ["2025-02-19T13:13:35.565Z,X.XXX,a_or_t,t,NL,_,0,0,,,,,0,+4915234XXXXXX,4e47d8456fd684e27a78d2d513e037fc,0,0"]
+        const rows = [
+            "2025-02-16T14:09:21.914Z,X.XXX,a_or_t,t,FR,Datacamp Limited,0,1,,,,,0,+49152334,,0,0",
+            "2025-02-19T13:13:35.565Z,X.XXX,a_or_t,t,NL,_,0,0,,,,,0,+4915234XXXXXX,4e47d8456fd684e27a78d2d513e037fc,0,0"
+        ]
         const delegationGraph = {
+            "4e47d8456fd684e27a78d2d513e037fc": {
+              "delegations": {
+                "all": {
+                  "target": "b4b681c44f0de6a93eb768bb73ab50e2",
+                  "targetPhone": "+447445686051"
+                }
+              },
+              "phoneNumber": "+4915234037009"
+            },
             "b4b681c44f0de6a93eb768bb73ab50e2": {
-                "delegations": {
-                    "all": {
-                        "target": "4e47d8456fd684e27a78d2d513e037fc",
-                        "targetPhone": "+4915234037009"
-                    }
-                },
-                "phoneNumber": "+447445686051"
+              "delegations": {
+                "all": {
+                  "target": "4e47d8456fd684e27a78d2d513e037fc",
+                  "targetPhone": "+4915234037009"
+                }
+              },
+              "phoneNumber": "+447445686051"
+            },
+            "bd6c860242ed342cb866bc99c93ac0b8": {
+              "delegations": {
+                "all": {
+                  "target": "4e47d8456fd684e27a78d2d513e037fc",
+                  "targetPhone": "+4915234037009"
+                }
+              },
+              "phoneNumber": "+4915234037009"
             }
-        }
+          }
+          
 
         const result = processDelegations(rows, delegationGraph, realExampleHeader);
 
         // Assert
         const processedRows = result.map(row => row.split(','));
-        const [total, unique_phone_numbers] = processedRows[0].slice(-2);
-        expect(total).toEqual('1');
+        const [total, unique_phone_numbers] = processedRows[1].slice(-2);
+        expect(total).toEqual('2');
         expect(unique_phone_numbers).toEqual('1');
     });
 }); 

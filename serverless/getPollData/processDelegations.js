@@ -8,14 +8,19 @@
 function processDelegations(rows, delegationGraph, header) {
     // Parse header to find column indices
     const headers = header.split(',');
-    const voterIdIndex = headers.findIndex(h => h === 'voter_id');
+    const voterIdIndex = headers.findIndex(h => h === 'user_id');
     
+    // Handle both standard and real example cases where user_id might be in a different position
     if (voterIdIndex === -1) {
-        throw new Error('Required column "voter_id" not found in CSV header');
+        throw new Error('Required column "user_id" not found in CSV header');
     }
 
     // Track who has already voted to prevent counting their delegations
-    const hasVoted = new Set(rows.map(row => row.split(',')[voterIdIndex]));
+    const hasVoted = new Set(rows.map(row => {
+        const cols = row.split(',');
+        // Handle empty user_id fields
+        return cols[voterIdIndex] || '';
+    }).filter(id => id)); // Filter out empty IDs
 
     // Build delegation tree for account IDs
     const delegationTree = {};
@@ -50,8 +55,13 @@ function processDelegations(rows, delegationGraph, header) {
     // Process each row and count delegations
     return rows.map(row => {
         const columns = row.split(',');
-        const voterId = columns[voterIdIndex];
+        const voterId = columns[voterIdIndex] || '';
         
+        // Skip processing if no valid voter ID
+        if (!voterId) {
+            return `${row},0,0`;
+        }
+
         // Count delegations
         const delegators = new Set();
         const delegatorsWithVerifiedPhone = new Set();
