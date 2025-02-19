@@ -11,14 +11,14 @@ ZIP_FILE="function.zip"
 ROLE_ARN="arn:aws:iam::152769399840:role/service-role/getPollData-role-vrm06ovv"
 
 # Check if required files exist
-if [ ! -f "getPollData.js" ]; then
-    echo "Error: getPollData.js not found in current directory ($(pwd))"
+if [ ! -f "getPollData.js" ] || [ ! -f "processDelegations.js" ]; then
+    echo "Error: Required files (getPollData.js and/or processDelegations.js) not found in current directory ($(pwd))"
     exit 1
 fi
 
 # Create deployment package
 rm -f $ZIP_FILE  # Remove any existing zip file
-zip -r $ZIP_FILE getPollData.js
+zip -r $ZIP_FILE getPollData.js processDelegations.js
 
 # Check if zip file was created successfully
 if [ ! -f "$ZIP_FILE" ]; then

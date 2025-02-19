@@ -1,4 +1,5 @@
 const { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { processDelegations } = require('./processDelegations');
 
 /* schema of csv file:
 time,ip,poll_,vote,country,nonce,country_geoip,asn_name_geoip
@@ -216,64 +217,17 @@ async function aggregateCSVFiles(bucket, files) {
         const header = results[0].header.replace('poll_', 'poll').replace('ip', 'masked_ip') + ',delegated_votes,delegated_votes_from_verified_phone_numbers' +'\n';
         
         // Process all rows and track who has voted
-        const votersByPhone = new Map();
-        const votersByUserId = new Map();
         const allRows = results.flatMap(result => result.rows)
             .sort((a, b) => {
                 const timeA = parseInt(a.split(',')[0]);
                 const timeB = parseInt(b.split(',')[0]);
                 return timeA - timeB;
-            })
-            .map(row => {
-                const columns = row.split(',');
-                // Convert timestamp to ISO string
-                columns[0] = new Date(parseInt(columns[0])).toISOString();
-                
-                // Track voters by phone number (assuming phone is in column 13)
-                if (columns[13]) {
-                    votersByPhone.set(columns[13], true);
-                }
-                // Track voters by userId (assuming userId is in column 12)
-                if (columns[12]) {
-                    votersByUserId.set(columns[12], true);
-                }
-                
-                // Initialize delegation counts
-                columns.push('0'); // delegated_votes
-                columns.push('0'); // delegated_votes_from_verified_phone_numbers
-                return columns.join(',');
             });
 
-        // Process delegations
-        for (const [voterId, voterInfo] of Object.entries(delegationGraph)) {
-            // Skip if the delegator has already voted
-            if (votersByUserId.has(voterId)) continue;
+        // Process delegations using the new pure function with header
+        const processedRows = processDelegations(allRows, delegationGraph, results[0].header);
 
-            const delegation = voterInfo.delegations?.all;
-            if (!delegation?.target) continue;
-
-            // Find all rows where the target has voted
-            allRows.forEach((row, index) => {
-                const columns = row.split(',');
-                const rowVoterId = columns[12];
-                
-                if (rowVoterId === delegation.target) {
-                    // Increment delegated votes
-                    const currentDelegatedVotes = parseInt(columns[columns.length - 2]) || 0;
-                    columns[columns.length - 2] = (currentDelegatedVotes + 1).toString();
-                    
-                    // Increment verified phone delegated votes if delegator has phone
-                    if (voterInfo.phoneNumber) {
-                        const currentVerifiedDelegatedVotes = parseInt(columns[columns.length - 1]) || 0;
-                        columns[columns.length - 1] = (currentVerifiedDelegatedVotes + 1).toString();
-                    }
-                    
-                    allRows[index] = columns.join(',');
-                }
-            });
-        }
-
-        const aggregatedData = header + allRows.join('\n');
+        const aggregatedData = header + processedRows.join('\n');
         return aggregatedData;
     } catch (error) {
         console.error('Error in aggregateCSVFiles:', error);
