@@ -222,6 +222,12 @@ async function aggregateCSVFiles(bucket, files) {
                 const timeA = parseInt(a.split(',')[0]);
                 const timeB = parseInt(b.split(',')[0]);
                 return timeA - timeB;
+            })
+            .map(row => {
+                const columns = row.split(',');
+                // Convert Unix timestamp (milliseconds) to ISO string
+                columns[0] = new Date(parseInt(columns[0])).toISOString();
+                return columns.join(',');
             });
 
         // Process delegations using the new pure function with header
