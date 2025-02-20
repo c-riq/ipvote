@@ -43,7 +43,7 @@ export interface IpInfoResponse {
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768)
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+  const [_, setIsLoggedIn] = useState(() => {
     const sessionToken = localStorage.getItem('sessionToken');
     return !!sessionToken;
   });
