@@ -45,6 +45,13 @@ interface PublicProfile {
   delegatedVotes: number;
 }
 
+interface DelegationEdge {
+  source: string;
+  target: string;
+  category: string;
+  timestamp: string;
+}
+
 function DelegateVoting({ 
   privacyAccepted, 
   onPrivacyAcceptChange, 
@@ -56,10 +63,12 @@ function DelegateVoting({
   const [publicProfiles, setPublicProfiles] = useState<Record<string, PublicProfile>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | JSX.Element | null>(null);
+  const [allDelegations, setAllDelegations] = useState<DelegationEdge[]>([]);
 
   useEffect(() => {
     fetchDelegations();
     fetchPublicProfiles();
+    fetchAllDelegations();
   }, []);
 
   const fetchDelegations = async () => {
@@ -119,15 +128,24 @@ function DelegateVoting({
     }
   };
 
+  const fetchAllDelegations = async () => {
+    try {
+      const response = await fetch('https://ipvotes.s3.us-east-1.amazonaws.com/delegation/edges.json');
+      if (!response.ok) {
+        throw new Error('Failed to fetch all delegations');
+      }
+      const data = await response.json();
+      setAllDelegations(data);
+    } catch (error) {
+      console.error('Error fetching all delegations:', error);
+    }
+  };
+
   const renderDelegationGraph = () => {
-    if (delegations.length === 0) return null;
-
-    const sourceUserId = localStorage.getItem('userId');
-    if (!sourceUserId) return null;
-
     // Prepare data for the graph
-    const nodes = new Set([sourceUserId]);
-    delegations.forEach(d => {
+    const nodes = new Set<string>();
+    allDelegations.forEach(d => {
+      nodes.add(d.source);
       nodes.add(d.target);
     });
 
@@ -142,8 +160,8 @@ function DelegateVoting({
       return acc;
     }, { x: [] as number[], y: [] as number[] });
 
+    const sourceUserId = localStorage.getItem('userId');
     const data = [
-      // Nodes only
       {
         type: 'scatter' as const,
         x: coordinates.x,
@@ -165,8 +183,8 @@ function DelegateVoting({
     ];
 
     // Create annotations for arrows
-    const annotations = delegations.map(d => {
-      const sourceIndex = nodesList.indexOf(sourceUserId);
+    const annotations = allDelegations.map(d => {
+      const sourceIndex = nodesList.indexOf(d.source);
       const targetIndex = nodesList.indexOf(d.target);
       
       return {
