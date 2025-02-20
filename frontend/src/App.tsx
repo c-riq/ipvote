@@ -193,7 +193,7 @@ function App() {
             phoneVerification={phoneVerification}
           />
           <div className="main-content">
-            <Sidebar isOpen={isSidebarOpen} isLoggedIn={isLoggedIn} />
+            <Sidebar isOpen={isSidebarOpen} />
             <div onClick={handleMainContentClick}>
               <Routes>
                 {/* UI routes */}

@@ -10,10 +10,9 @@ import Forward from '@mui/icons-material/Forward';
 
 interface SidebarProps {
   isOpen: boolean;
-  isLoggedIn?: boolean;
 }
 
-function Sidebar({ isOpen, isLoggedIn }: SidebarProps) {
+function Sidebar({ isOpen }: SidebarProps) {
   const navigate = useNavigate();
   
   return (
