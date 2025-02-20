@@ -21,6 +21,8 @@ export const AUTH_HOST = 'https://4muvzwnbeezy7vgogyx2z75uaq0lctto.lambda-url.us
 
 export const DELEGATION_HOST = 'https://kjpewlorf6tyffwlbbcnra2ef40nglvd.lambda-url.us-east-1.on.aws'
 
+export const AGGREGATE_DELEGATIONS_HOST = 'https://vmxpev4fvftful4bor2nby6aja0tbbdt.lambda-url.us-east-1.on.aws'
+
 export const CAPTCHA_THRESHOLD = 10000
 
 export const VALID_TAGS = ['all', 'global', 'approval rating', 'national', 'other']

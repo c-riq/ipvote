@@ -20,7 +20,7 @@ import {
   TableRow
 } from '@mui/material';
 import { IpInfoResponse } from '../../App';
-import { DELEGATION_HOST, PUBLIC_PROFILES_HOST, VALID_TAGS } from '../../constants';
+import { DELEGATION_HOST, PUBLIC_PROFILES_HOST, VALID_TAGS, AGGREGATE_DELEGATIONS_HOST } from '../../constants';
 import PrivacyAccept from './PrivacyAccept';
 
 interface UserProfileProps {
@@ -201,6 +201,17 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to update delegation');
       }
+
+      // Trigger aggregation update without waiting
+      fetch(`${AGGREGATE_DELEGATIONS_HOST}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'update'
+        }),
+      }).catch(console.error); // Log any errors but don't block
 
       await Promise.all([
         fetchDelegationStatus(),
