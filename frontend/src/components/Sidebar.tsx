@@ -41,14 +41,12 @@ function Sidebar({ isOpen, isLoggedIn }: SidebarProps) {
               My identity
             </a>
           </li>
-          {isLoggedIn && (
-            <li>
-              <a href="/ui/delegate" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Forward sx={{ fontSize: 20 }} />
-                Delegate voting
-              </a>
-            </li>
-          )}
+          <li>
+            <a href="/ui/delegate" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Forward sx={{ fontSize: 20 }} />
+              Delegate voting (beta)
+            </a>
+          </li>
           <hr style={{ margin: '1rem 0', border: 'none', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }} />
           <li>
             <a href="/ip_based_polls_as_a_proxy_for_popular_opinion.html" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

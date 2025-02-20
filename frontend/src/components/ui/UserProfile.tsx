@@ -73,7 +73,7 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
     myDelegations: [],
     theirDelegations: []
   });
-  const [isDelegationsLoading, setIsDelegationsLoading] = useState(true);
+  const [isDelegationsLoading, setIsDelegationsLoading] = useState(false);
 
   useEffect(() => {
     fetchUserProfile();
@@ -105,7 +105,10 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
     const sourceUserId = localStorage.getItem('userId');
     const sourceEmail = localStorage.getItem('userEmail');
     
-    if (!sessionToken || !sourceUserId || !sourceEmail) return;
+    if (!sessionToken || !sourceUserId || !sourceEmail) {
+      setIsDelegationsLoading(false)
+      return
+    }
 
     try {
       // Fetch my delegations
@@ -411,7 +414,7 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
                           variant={isDelegatedToUser ? "outlined" : "contained"}
                           color={isDelegatedToUser ? "secondary" : "primary"}
                           onClick={() => handleDelegateVotes(tag)}
-                          disabled={isDelegating || !privacyAccepted || (myDelegation && !isDelegatedToUser)}
+                          disabled={isDelegating || !privacyAccepted || (myDelegation && !isDelegatedToUser) || !localStorage.getItem('sessionToken')}
                         >
                           {isDelegating ? (
                             <>
@@ -422,6 +425,8 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
                             'Revoke'
                           ) : myDelegation ? (
                             'Delegated Elsewhere'
+                          ) : !localStorage.getItem('sessionToken') ? (
+                            'Login to Delegate'
                           ) : (
                             'Delegate'
                           )}
@@ -438,6 +443,11 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
         {!privacyAccepted && (
           <Alert severity="info" sx={{ mt: 2 }}>
             Please accept the privacy policy to delegate votes.
+          </Alert>
+        )}
+        {!localStorage.getItem('sessionToken') && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Please <Link to="/ui/identity" style={{ textDecoration: 'underline' }}>log in</Link> to delegate votes.
           </Alert>
         )}
       </Box>

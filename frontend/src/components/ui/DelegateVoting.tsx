@@ -55,7 +55,7 @@ function DelegateVoting({
   const [delegations, setDelegations] = useState<Delegation[]>([]);
   const [publicProfiles, setPublicProfiles] = useState<Record<string, PublicProfile>>({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | JSX.Element | null>(null);
 
   useEffect(() => {
     fetchDelegations();
@@ -68,7 +68,11 @@ function DelegateVoting({
     const sourceEmail = localStorage.getItem('userEmail');
     
     if (!sessionToken || !sourceUserId || !sourceEmail) {
-      setError('Please log in to view delegations');
+      setError(
+        <>
+          Please <Link to="/ui/identity" style={{ textDecoration: 'underline' }}>log in</Link> to deletage voting.
+        </>
+      );
       setLoading(false);
       return;
     }
