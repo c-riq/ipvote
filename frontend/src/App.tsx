@@ -43,6 +43,10 @@ export interface IpInfoResponse {
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768)
+  const [_, setIsLoggedIn] = useState(() => {
+    const sessionToken = localStorage.getItem('sessionToken');
+    return !!sessionToken;
+  });
   const [privacyAccepted, setPrivacyAccepted] = useState<boolean>(() => {
     const stored = localStorage.getItem('privacyState')
     if (stored) {
@@ -119,6 +123,18 @@ function App() {
         localStorage.setItem('userIpInfo', JSON.stringify({...data, timestamp: new Date().toISOString()}))
       })
   }, [captchaState])
+
+  // Add effect to listen for session token changes
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'sessionToken') {
+        setIsLoggedIn(!!e.newValue);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const lightTheme = createTheme({
     palette: {

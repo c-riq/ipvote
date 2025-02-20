@@ -1,4 +1,5 @@
 const { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { processDelegations } = require('./processDelegations');
 
 /* schema of csv file:
 time,ip,poll_,vote,country,nonce,country_geoip,asn_name_geoip
@@ -14,6 +15,17 @@ const removeForbiddenStrings = (str) => {
 exports.handler = async (event) => {
     const bucket = 'ipvotes';
     let poll = event?.queryStringParameters?.poll;
+    
+    if (!poll) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Missing poll parameter',
+                time: new Date()
+            }),
+        };
+    }
+
     poll = poll.replace(/,/g, '%2C');
     const isOpen = event?.queryStringParameters?.isOpen === 'true';
     const forceRefresh = event?.queryStringParameters?.refresh === 'true';
@@ -147,6 +159,13 @@ async function aggregateCSVFiles(bucket, files) {
         if (!files || files.length === 0) {
             throw new Error('No files found to aggregate');
         }
+
+        // Fetch delegation graph
+        const delegationGraphResponse = await s3Client.send(new GetObjectCommand({
+            Bucket: bucket,
+            Key: 'delegationGraph/latest/full.json'
+        }));
+        const delegationGraph = JSON.parse(await delegationGraphResponse.Body.transformToString());
         
         const promises = files.map(async (file) => {
             try {
@@ -163,6 +182,15 @@ async function aggregateCSVFiles(bucket, files) {
                 
                 const lines = records.split('\n');
                 const header = lines[0] || '';
+                const headerColumns = header.split(',');
+                const columnIndices = {
+                    time: headerColumns.indexOf('time'),
+                    ip: headerColumns.indexOf('ip'),
+                    country_geoip: headerColumns.indexOf('country_geoip'),
+                    asn_name_geoip: headerColumns.indexOf('asn_name_geoip'),
+                    phone: headerColumns.indexOf('phone') // might be -1 if not present
+                };
+
                 const rows = lines.slice(1)
                     .filter(row => row.trim())
                     .map(row => {
@@ -170,19 +198,23 @@ async function aggregateCSVFiles(bucket, files) {
                         if (columns.length < 2) return null;
                         
                         // Mask IP and sanitize fields
-                        columns[1] = maskIP(columns[1]);
-                        if (columns.length >= 8) {
-                            columns[6] = removeForbiddenStrings(columns[6]);
-                            columns[7] = removeForbiddenStrings(columns[7]);
+                        if (columnIndices.ip !== -1) {
+                            columns[columnIndices.ip] = maskIP(columns[columnIndices.ip]);
                         }
-                        // Mask phone number if present (assuming it's the last column)
-                        if (columns.length >= 14) {
-                            columns[13] = maskPhoneNumber(columns[13]);
+                        if (columnIndices.country_geoip !== -1) {
+                            columns[columnIndices.country_geoip] = removeForbiddenStrings(columns[columnIndices.country_geoip]);
+                        }
+                        if (columnIndices.asn_name_geoip !== -1) {
+                            columns[columnIndices.asn_name_geoip] = removeForbiddenStrings(columns[columnIndices.asn_name_geoip]);
+                        }
+                        // Mask phone number if present
+                        if (columnIndices.phone !== -1) {
+                            columns[columnIndices.phone] = maskPhoneNumber(columns[columnIndices.phone]);
                         }
                         return columns.join(',');
                     })
                     .filter(Boolean);
-                return { header, rows };
+                return { header, rows, columnIndices };
             } catch (error) {
                 console.error('Error processing file:', file, error);
                 throw error;
@@ -190,28 +222,34 @@ async function aggregateCSVFiles(bucket, files) {
         });
         
         const results = await Promise.all(promises);
-        if (!results.length || !results[0].header) {
+        if (!results.length) {
             throw new Error('No valid data found in files');
         }
-        
+
         // Keep the header as is, just replace poll_ with poll and ip with masked_ip
-        const header = results[0].header.replace('poll_', 'poll').replace('ip', 'masked_ip') + '\n';
-        
-        // Combine all rows, convert timestamp, and sort by time
+        const header = results[0].header.replace('poll_', 'poll').replace('ip', 'masked_ip') + ',delegated_votes,delegated_votes_from_verified_phone_numbers' + '\n';
+        const columnIndices = results[0].columnIndices;
+
+        // Process all rows and track who has voted
         const allRows = results.flatMap(result => result.rows)
             .sort((a, b) => {
-                const timeA = parseInt(a.split(',')[0]);
-                const timeB = parseInt(b.split(',')[0]);
+                const timeA = parseInt(a.split(',')[columnIndices.time]);
+                const timeB = parseInt(b.split(',')[columnIndices.time]);
                 return timeA - timeB;
             })
             .map(row => {
                 const columns = row.split(',');
-                // Convert timestamp to ISO string
-                columns[0] = new Date(parseInt(columns[0])).toISOString();
+                // Convert Unix timestamp (milliseconds) to ISO string
+                if (columnIndices.time !== -1) {
+                    columns[columnIndices.time] = new Date(parseInt(columns[columnIndices.time])).toISOString();
+                }
                 return columns.join(',');
             });
 
-        const aggregatedData = header + allRows.join('\n');
+        // Process delegations using the new pure function with header
+        const processedRows = processDelegations(allRows, delegationGraph, results[0].header);
+
+        const aggregatedData = header + processedRows.join('\n');
         return aggregatedData;
     } catch (error) {
         console.error('Error in aggregateCSVFiles:', error);

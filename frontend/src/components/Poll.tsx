@@ -57,6 +57,9 @@ interface VoteData {
   is_cloud_provider?: string;
   custom_option?: string;
   phone_number?: string;
+  user_id?: string;
+  delegated_votes?: string;
+  delegated_votes_from_verified_phone_numbers?: string;
 }
 
 interface PollProps {
@@ -68,10 +71,9 @@ interface PollProps {
   phoneVerification: PhoneVerificationState | null
 }
 /* voting data schema:
-time,masked_ip,poll,vote,country,nonce,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider
-1730623803558,12.158.241.XXX,harris_or_trump,trump,,,TW,HostingInside LTD.,0,1,
-1730763791706,52.194.133.XXX,harris_or_trump,harris,,,US,Amazon.com%2C Inc.,0,1,aws:us-east-1
-1731672863490,62.126.89.XXX,harris_or_trump,trump,,,BG,Vivacom Bulgaria EAD,0,0,
+time,masked_ip,poll,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number,user_id,delegated_votes,delegated_votes_from_verified_phone_numbers
+1739714961914,79.135.10X.XXX,a_or_t,t,FR,Datacamp Limited,0,1,,,,,0,,,0,0
+1739970815565,87.210.02X.XXX,a_or_t,t,NL,Odido Netherlands B.V.,0,0,,,,,0,+4915234XXXXXX,4e47d8456fd684e27a78d2d513e037fc,2,2
 */
 
 // Add this outside the component to create a global cache
@@ -104,6 +106,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   const [includePhoneVerifiedOnly, setIncludePhoneVerifiedOnly] = useState(false)
   const [dataLoading, setDataLoading] = useState(false)
   const [showAdvancedMaps, setShowAdvancedMaps] = useState(false);
+  const [includeRegisteredUsersOnly, setIncludeRegisteredUsersOnly] = useState(false)
 
   useEffect(() => {
     setRequireCaptcha(allVotes.length > CAPTCHA_THRESHOLD)
@@ -137,7 +140,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     if (allVotes.length > 0 && poll) {
       processVotes(allVotes)
     }
-  }, [includeTor, includeVpn, includeCloud, includePhoneVerifiedOnly, allVotes, poll])
+  }, [includeTor, includeVpn, includeCloud, includePhoneVerifiedOnly, allVotes, poll, includeRegisteredUsersOnly])
 
   const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setFilterAnchorEl(event.currentTarget)
@@ -208,27 +211,51 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
       return (includeTor || vote.is_tor !== '1') && 
              (includeVpn || vote.is_vpn !== '1') && 
              (includeCloud || !vote.is_cloud_provider?.trim()) &&
-             (!includePhoneVerifiedOnly || vote.phone_number);
+             (!includePhoneVerifiedOnly || vote.phone_number) &&
+             (!includeRegisteredUsersOnly || vote.user_id);
     });
 
     setFilteredVotes(filteredVotes);
 
-    // Process current totals
+    // Process current totals with delegation
     if (isOpenPoll) {
       const voteCounts: { [key: string]: number } = {};
       filteredVotes.forEach(vote => {
         const option = vote.custom_option || vote.vote;
-        voteCounts[option] = (voteCounts[option] || 0) + 1;
+        const weight = includeRegisteredUsersOnly ? 
+          Number(vote.delegated_votes || 0) + 1 : 
+          1;
+        voteCounts[option] = (voteCounts[option] || 0) + weight;
       });
       setResults(voteCounts);
     } else if (poll.includes('_or_')) {
       const options = poll.split('_or_');
-      const option1Votes = filteredVotes.filter(vote => vote.vote === options[0]).length;
-      const option2Votes = filteredVotes.filter(vote => vote.vote === options[1]).length;
+      const option1Votes = filteredVotes.reduce((sum, vote) => 
+        vote.vote === options[0] ? 
+          sum + (includeRegisteredUsersOnly ? Number(vote.delegated_votes || 0) + 1 : 1) : 
+          sum, 
+        0
+      );
+      const option2Votes = filteredVotes.reduce((sum, vote) => 
+        vote.vote === options[1] ? 
+          sum + (includeRegisteredUsersOnly ? Number(vote.delegated_votes || 0) + 1 : 1) : 
+          sum, 
+        0
+      );
       setResults({ [options[0]]: option1Votes, [options[1]]: option2Votes });
     } else {
-      const yesVotes = filteredVotes.filter(vote => vote.vote === 'yes').length;
-      const noVotes = filteredVotes.filter(vote => vote.vote === 'no').length;
+      const yesVotes = filteredVotes.reduce((sum, vote) => 
+        vote.vote === 'yes' ? 
+          sum + (includeRegisteredUsersOnly ? Number(vote.delegated_votes || 0) + 1 : 1) : 
+          sum, 
+        0
+      );
+      const noVotes = filteredVotes.reduce((sum, vote) => 
+        vote.vote === 'no' ? 
+          sum + (includeRegisteredUsersOnly ? Number(vote.delegated_votes || 0) + 1 : 1) : 
+          sum, 
+        0
+      );
       setResults({ yes: yesVotes, no: noVotes });
     }
 
@@ -298,6 +325,9 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
       const votePayload = isOpenPoll && showCustomInput ? customOption : vote
       const phoneNumber = phoneVerification?.phoneNumber
       const phoneToken = phoneVerification?.token
+      const email = localStorage.getItem('userEmail')
+      const sessionToken = localStorage.getItem('sessionToken')
+      
       const params = new URLSearchParams({
         poll: poll,
         vote: votePayload,
@@ -314,6 +344,12 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
       
       if (phoneToken) {
         params.append('phoneToken', phoneToken);
+      }
+
+      // Add email and sessionToken if available
+      if (email && sessionToken) {
+        params.append('email', email);
+        params.append('sessionToken', sessionToken);
       }
 
       const response = await fetch(`${SUBMIT_VOTE_HOST}/?${params.toString()}`);
@@ -847,7 +883,18 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                             }}
                           />
                         }
-                        label="Show only votes with verified phone number"
+                        label="Verified phone numbers only"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={includeRegisteredUsersOnly}
+                            onChange={(e) => {
+                              setIncludeRegisteredUsersOnly(e.target.checked);
+                            }}
+                          />
+                        }
+                        label="Registered users only (with vote delegation)"
                       />
                     </FormGroup>
                   </FormControl>

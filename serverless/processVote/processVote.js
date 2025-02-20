@@ -5,8 +5,8 @@ const https = require('https');
 const { Lambda } = require('@aws-sdk/client-lambda');
 
 /* schema of csv file:
-time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number
-1716891868980,146.103.108.202,Abolish the US Electoral College,yes,US,Comcast Cable Communications%2C LLC,0,,,us-west-2,65.5,145,,
+time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number,user_id
+1716891868980,146.103.108.202,Abolish the US Electoral College,yes,US,Comcast Cable Communications%2C LLC,0,,,us-west-2,65.5,145,,,
 */
 
 const { Readable } = require('stream');
@@ -125,6 +125,38 @@ const validatePhoneToken = async (phoneNumber, token, bucketName) => {
     return false;
 };
 
+// Add new helper function to validate session token and get user ID
+const validateSessionToken = async (email, sessionToken) => {
+    if (!email || !sessionToken) return null;
+    
+    const partition = email.charAt(0).toLowerCase();
+    const userFilePath = `users/${partition}/users.json`;
+
+    try {
+        const command = new GetObjectCommand({
+            Bucket: 'ipvote-auth',
+            Key: userFilePath
+        });
+        const response = await s3Client.send(command);
+        const data = await response.Body.transformToString();
+        const users = JSON.parse(data);
+        const user = users[email];
+
+        if (!user || !user.sessions) return null;
+
+        const currentTime = Math.floor(Date.now() / 1000);
+        const isValidToken = user.sessions.some(token => {
+            const [tokenValue, expiry] = token.split('_');
+            return token === sessionToken && parseInt(expiry) > currentTime;
+        });
+
+        return isValidToken ? user.userId : null;
+    } catch (error) {
+        console.error('Session validation error:', error);
+        return null;
+    }
+};
+
 module.exports.handler = async (event) => {
     console.log('Processing vote request:', {
         ip: event.requestContext.http.sourceIp,
@@ -143,6 +175,15 @@ module.exports.handler = async (event) => {
     const phoneNumber = event.queryStringParameters.phoneNumber;
     const phoneToken = event.queryStringParameters.phoneToken;
     const forbiddenStringsRegex = /,|\\n|\\r|\\t|>|<|"|=/;
+
+    const email = event.queryStringParameters.email;
+    const sessionToken = event.queryStringParameters.sessionToken;
+    
+    // Validate session token if provided
+    let userId = '';
+    if (email && sessionToken) {
+        userId = await validateSessionToken(email, sessionToken) || '';
+    }
 
     // Prevent polls from being created with open_ prefix
     if (poll.startsWith('open_')) {
@@ -310,7 +351,7 @@ module.exports.handler = async (event) => {
         if (error.name === 'NoSuchKey') {
             // File does not exist, create a new one with updated schema
             data = 'time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,'+
-                'closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number\n';
+                'closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number,user_id\n';
         } else {
             console.log(error);
             return {
@@ -391,7 +432,7 @@ module.exports.handler = async (event) => {
     // Create new vote line with GeoIP data (added new columns with empty values)
     const newVote = `${timestamp},${requestIp},${poll},${vote},${
         countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')},,,,,,,${
-            captchaVerified},${verifiedPhone}`;
+            captchaVerified},${verifiedPhone},${userId}`;
     console.log('Attempting to save vote:', {
         fileName,
         voteData: newVote.trim()

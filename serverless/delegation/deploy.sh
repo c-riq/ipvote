@@ -2,23 +2,21 @@
 
 export AWS_PROFILE="rix-admin-chris"
 
-# Change to the directory containing getPollData.js
-cd "$(dirname "$0")"
 
 REGION="us-east-1"      # N. Virginia
-FUNCTION_NAME="getPollData"
+FUNCTION_NAME="delegation"
 ZIP_FILE="function.zip"
-ROLE_ARN="arn:aws:iam::152769399840:role/service-role/getPollData-role-vrm06ovv"
+ROLE_ARN="arn:aws:iam::152769399840:role/service-role/delegation-role-91jyzls7"
 
 # Check if required files exist
-if [ ! -f "getPollData.js" ] || [ ! -f "processDelegations.js" ]; then
-    echo "Error: Required files (getPollData.js and/or processDelegations.js) not found in current directory ($(pwd))"
+if [ ! -f "delegation.js" ]; then
+    echo "Error: delegation.js not found in current directory ($(pwd))"
     exit 1
 fi
 
 # Create deployment package
 rm -f $ZIP_FILE  # Remove any existing zip file
-zip -r $ZIP_FILE getPollData.js processDelegations.js
+zip -r $ZIP_FILE delegation.js
 
 # Check if zip file was created successfully
 if [ ! -f "$ZIP_FILE" ]; then
@@ -34,17 +32,17 @@ if ! aws lambda get-function --function-name $FUNCTION_NAME --region $REGION --n
         --function-name $FUNCTION_NAME \
         --runtime nodejs22.x \
         --role $ROLE_ARN \
-        --handler getPollData.handler \
+        --handler delegation.handler \
         --zip-file fileb://$ZIP_FILE \
         --region $REGION \
         --timeout 30 \
-        --memory-size 1024 \
+        --memory-size 128 \
         --no-cli-pager
 else
     aws lambda update-function-configuration \
         --function-name $FUNCTION_NAME \
         --timeout 30 \
-        --memory-size 1024 \
+        --memory-size 128 \
         --region $REGION \
         --no-cli-pager
     sleep 5

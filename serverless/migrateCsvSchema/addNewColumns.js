@@ -1,6 +1,13 @@
 const { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { fromIni } = require("@aws-sdk/credential-providers");
 
-const s3Client = new S3Client();
+const s3Client = new S3Client({ 
+    region: 'us-east-1',
+    credentials: fromIni({
+        profile: 'rix-admin-chris'
+    })
+});
+
 const BUCKET_NAME = 'ipvotes';
 
 const streamToString = (stream) =>
@@ -49,21 +56,17 @@ const migrateFile = async (fileKey) => {
         const headerLine = lines[0];
         const currentColumns = headerLine.split(',');
         
-        // Get index of column we need to check
-        const phoneNumberIndex = currentColumns.indexOf('phone_number');
-        
-        let needsMigration = false;
+        // Get index of user_id column
+        const userIdIndex = currentColumns.indexOf('user_id');
         
         // Check if column needs to be added
-        if (phoneNumberIndex === -1) {
-            currentColumns.push('phone_number');
-            needsMigration = true;
-        }
-
-        if (!needsMigration) {
-            console.log(`File ${fileKey} already has phone_number column`);
+        if (userIdIndex !== -1) {
+            console.log(`File ${fileKey} already has required columns`);
             return false;
         }
+
+        // Add user_id column
+        currentColumns.push('user_id');
 
         // Update header
         lines[0] = currentColumns.join(',');
