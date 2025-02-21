@@ -38,7 +38,9 @@ interface UserData {
     lastName?: string;
     country?: string;
     xUsername?: string;
+    xUsernameVerified?: string;
     linkedinUrl?: string;
+    linkedinUrlVerified?: string;
     websiteUrl?: string;
     lastUpdated?: string;
   };
@@ -291,6 +293,43 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
               startIcon={<Typography>𝕏</Typography>}
             >
               @{userData.settings.xUsername}
+              {userData.settings.xUsernameVerified === userData.settings.xUsername && (
+                <Box sx={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  ml: 0.5,
+                  gap: 0.5 
+                }}>
+                  <Typography 
+                    component="span" 
+                    sx={{ 
+                      color: '#00aa00',
+                      backgroundColor: '#00aa00',
+                      width: '16px',
+                      height: '16px',
+                      borderRadius: '50%',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      color: 'white'
+                    }}
+                  >
+                    ✓
+                  </Typography>
+                  <Typography 
+                    component="span"
+                    sx={{ 
+                      fontSize: '0.75rem',
+                      color: '#00aa00',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    Verified
+                  </Typography>
+                </Box>
+              )}
             </Button>
           )}
           
@@ -304,6 +343,43 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
               startIcon={<Typography>in</Typography>}
             >
               LinkedIn
+              {userData.settings.linkedinUrlVerified === userData.settings.linkedinUrl && (
+                <Box sx={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  ml: 0.5,
+                  gap: 0.5 
+                }}>
+                  <Typography 
+                    component="span" 
+                    sx={{ 
+                      color: '#00aa00',
+                      backgroundColor: '#00aa00',
+                      width: '16px',
+                      height: '16px',
+                      borderRadius: '50%',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      color: 'white'
+                    }}
+                  >
+                    ✓
+                  </Typography>
+                  <Typography 
+                    component="span"
+                    sx={{ 
+                      fontSize: '0.75rem',
+                      color: '#00aa00',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    Verified
+                  </Typography>
+                </Box>
+              )}
             </Button>
           )}
           
