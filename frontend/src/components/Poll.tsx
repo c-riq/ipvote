@@ -754,11 +754,46 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     if (!attachmentMatch) return null
 
     const hash = attachmentMatch[2]
+    const pdfUrl = `${IPVOTES_S3_BUCKET_HOST}/poll_attachments/${hash}.pdf`
+    
+    // Check if browser is Chrome or Firefox
+    const isChromium = window.navigator.userAgent.toLowerCase().includes('chrome')
+    const isFirefox = window.navigator.userAgent.toLowerCase().includes('firefox')
+    
+    if (isChromium || isFirefox) {
+      return (
+        <Box sx={{ mt: 2, mb: 2 }}>
+          <object
+            data={pdfUrl}
+            type="application/pdf"
+            style={{
+              width: '100%',
+              height: '800px',
+              borderRadius: '4px',
+              border: '1px solid rgba(0, 0, 0, 0.12)'
+            }}
+          >
+            <Box sx={{ mt: 2, mb: 2 }}>
+              <Button
+                variant="outlined"
+                href={pdfUrl}
+                target="_blank"
+                startIcon={<DownloadIcon />}
+              >
+                View Poll Attachment
+              </Button>
+            </Box>
+          </object>
+        </Box>
+      )
+    }
+
+    // Fallback for other browsers
     return (
       <Box sx={{ mt: 2, mb: 2 }}>
         <Button
           variant="outlined"
-          href={`${IPVOTES_S3_BUCKET_HOST}/poll_attachments/${hash}.pdf`}
+          href={pdfUrl}
           target="_blank"
           startIcon={<DownloadIcon />}
         >
