@@ -239,7 +239,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
       }}>
         <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>Recent Votes</h4>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {recentVotes.slice(0, 5).map((vote, index) => {
+          {recentVotes.slice(0, 50).map((vote, index) => {
             const voteDate = new Date(vote.timestamp);
             const today = new Date();
             let timeDisplay;
