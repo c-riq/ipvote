@@ -278,7 +278,12 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
           </Typography>
         )}
 
-        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2, 
+          mb: 2 
+        }}>
           {userData.settings.xUsername && (
             <Button
               variant="outlined"
@@ -287,6 +292,8 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
               target="_blank"
               rel="noopener noreferrer"
               startIcon={<Typography>𝕏</Typography>}
+              fullWidth={false}
+              sx={{ width: 'fit-content' }}
             >
               @{userData.settings.xUsername}
               {userData.settings.xUsernameVerified === userData.settings.xUsername && (
@@ -529,12 +536,19 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
                 primary={
                   <Link 
                     to={`/${encodeURIComponent(vote.poll)}`}
-                    style={{ textDecoration: 'none', color: 'inherit' }}
+                    style={{ 
+                      textDecoration: 'none', 
+                      color: 'inherit',
+                      wordBreak: 'break-word'
+                    }}
                   >
                     {vote.poll}
                   </Link>
                 }
                 secondary={`Voted: ${vote.vote} • ${new Date(vote.timestamp).toLocaleString()}`}
+                secondaryTypographyProps={{ 
+                  sx: { wordBreak: 'break-word' }
+                }}
               />
             </ListItem>
           )) || (
