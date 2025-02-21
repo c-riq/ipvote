@@ -71,7 +71,8 @@ function CreatePoll() {
   };
 
   const handleCreate = async () => {
-    // Add PDF upload handling
+    // Get hash if PDF file exists
+    let attachmentSuffix = '';
     if (pdfFile) {
       try {
         const hash = await computeFileHash(pdfFile);
@@ -81,6 +82,7 @@ function CreatePoll() {
           setError('Failed to upload PDF file');
           return;
         }
+        attachmentSuffix = `_attachment_${hash}`;
       } catch (error) {
         console.error('Error processing PDF:', error);
         setError('Failed to process PDF file');
@@ -105,7 +107,7 @@ function CreatePoll() {
         return
       }
 
-      const pollPath = encodeURIComponent(cleanOptionA) + '_or_' + encodeURIComponent(cleanOptionB)
+      const pollPath = encodeURIComponent(cleanOptionA) + '_or_' + encodeURIComponent(cleanOptionB) + attachmentSuffix;
       navigate(`/${pollPath}`)
     } else if (pollType === 'open') {
       const cleanQuestion = sanitizePollText(openQuestion)
@@ -119,7 +121,7 @@ function CreatePoll() {
         return
       }
 
-      navigate(`/open/${encodeURIComponent(cleanQuestion)}`)
+      navigate(`/open/${encodeURIComponent(cleanQuestion)}${attachmentSuffix}`)
     } else {
       const cleanQuestion = sanitizePollText(yesNoQuestion)
       console.log(cleanQuestion)
@@ -133,7 +135,7 @@ function CreatePoll() {
         return
       }
 
-      navigate(`/${encodeURIComponent(cleanQuestion)}`)
+      navigate(`/${encodeURIComponent(cleanQuestion)}${attachmentSuffix}`)
     }
   }
 

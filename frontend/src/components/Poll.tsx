@@ -28,7 +28,7 @@ import ASNTreemap from './ASNTreemap'
 import { IpInfoResponse, PhoneVerificationState } from '../App'
 import { triggerLatencyMeasurementIfNeeded } from '../utils/latencyTriangulation'
 import { parseCSV, hasRequiredFields } from '../utils/csvParser'
-import { CAPTCHA_THRESHOLD, POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
+import { CAPTCHA_THRESHOLD, IPVOTES_S3_BUCKET_HOST, POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PollMetadata from './PollMetadata'
 
@@ -119,7 +119,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     const pathParts = location.pathname.split('/')
     const isOpen = pathParts[1] === 'open'
     setIsOpenPoll(isOpen)
-    const pollFromPath = decodeURIComponent(isOpen ? pathParts[2] : pathParts[1])
+    let pollFromPath = decodeURIComponent(isOpen ? pathParts[2] : pathParts[1])
     
     // Only redirect if the poll name ends with specific file extensions
     if (/\.(html|js|css|jpg)$/i.test(pollFromPath)) {
@@ -127,11 +127,14 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
       return
     }
 
+    // Remove attachment suffix for display purposes but keep it for data fetching
+    const attachmentMatch = pollFromPath.match(/(.+)_attachment_([A-Za-z0-9_-]{43})$/)
+    const displayPoll = attachmentMatch ? attachmentMatch[1] : pollFromPath
+
     if (pollFromPath) {
-      const decodedPoll = decodeURIComponent(pollFromPath)
-      setPoll(decodedPoll)
-      if (poll !== decodedPoll) {
-        fetchResults(decodedPoll, true, isOpen)
+      setPoll(displayPoll)
+      if (poll !== displayPoll) {
+        fetchResults(pollFromPath, true, isOpen) // Use full poll ID including attachment for fetching
       }
     }
   }, [location])
@@ -745,6 +748,25 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     window.open(`${POLL_DATA_HOST}/?poll=${poll}&refresh=true&isOpen=${isOpenPoll}`, '_blank');
   };
 
+  // Add new function to handle attachment display
+  const renderAttachment = () => {
+    const attachmentMatch = poll && location.pathname.match(/(.+)_attachment_([A-Za-z0-9_-]{43})$/)
+    if (!attachmentMatch) return null
+
+    const hash = attachmentMatch[2]
+    return (
+      <Box sx={{ mt: 2, mb: 2 }}>
+        <Button
+          variant="outlined"
+          href={`${IPVOTES_S3_BUCKET_HOST}/poll_attachments/${hash}.pdf`}
+          target="_blank"
+          startIcon={<DownloadIcon />}
+        >
+          View Poll Attachment
+        </Button>
+      </Box>
+    )
+  }
 
   return (
     <div className="content">
@@ -753,6 +775,8 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
           ? poll.replace(/_/g, ' ') + '?' 
           : poll.replace(/_/g, ' ')}
       </h1>
+      
+      {renderAttachment()}
       
       {poll === "Who should be world president?" && isOpenPoll && (
         <Box sx={{ mb: 2 }}>
