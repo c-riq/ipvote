@@ -44,14 +44,11 @@ interface UserData {
     websiteUrl?: string;
     lastUpdated?: string;
   };
-  email: string;
-  joinedDate: string;
-  recentVotes: {
-    pollName: string;
+  votes: {
+    poll: string;
     vote: string;
-    timestamp: string;
+    timestamp: number;
   }[];
-  delegatedTags: string[];
 }
 
 interface Delegation {
@@ -268,7 +265,7 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
         <Typography variant="h5">
           {userData.settings.firstName && userData.settings.lastName 
             ? `${userData.settings.firstName} ${userData.settings.lastName}`
-            : userData.email
+            : userData.votes[0]?.poll
           }
         </Typography>
         
@@ -313,7 +310,6 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
                       justifyContent: 'center',
                       fontSize: '12px',
                       fontWeight: 'bold',
-                      color: 'white'
                     }}
                   >
                     ✓
@@ -363,7 +359,6 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
                       justifyContent: 'center',
                       fontSize: '12px',
                       fontWeight: 'bold',
-                      color: 'white'
                     }}
                   >
                     ✓
@@ -399,21 +394,6 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
       </Box>
 
       <Divider sx={{ my: 3 }} />
-
-      <Box sx={{ my: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Delegated Tags
-        </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          {userData.delegatedTags?.map((tag) => (
-            <Chip key={tag} label={tag} />
-          )) || (
-            <Typography variant="body2" color="text.secondary">
-              No delegated tags
-            </Typography>
-          )}
-        </Box>
-      </Box>
 
       <Box sx={{ my: 3 }}>
         <Typography variant="h6" gutterBottom>
@@ -544,10 +524,17 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
           Recent Public Votes
         </Typography>
         <List>
-          {userData.recentVotes?.map((vote, index) => (
-            <ListItem key={index} divider={index !== (userData.recentVotes?.length || 0) - 1}>
+          {userData.votes?.map((vote, index) => (
+            <ListItem key={index} divider={index !== (userData.votes?.length || 0) - 1}>
               <ListItemText
-                primary={vote.pollName}
+                primary={
+                  <Link 
+                    to={`/${encodeURIComponent(vote.poll)}`}
+                    style={{ textDecoration: 'none', color: 'inherit' }}
+                  >
+                    {vote.poll}
+                  </Link>
+                }
                 secondary={`Voted: ${vote.vote} • ${new Date(vote.timestamp).toLocaleString()}`}
               />
             </ListItem>
