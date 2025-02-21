@@ -11,7 +11,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Button,
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import PrivacyAccept from './PrivacyAccept';
