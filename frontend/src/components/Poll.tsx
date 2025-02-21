@@ -462,7 +462,8 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                   width: { xs: '100%', sm: 'auto' },
                   '&.Mui-disabled': {
                     pointerEvents: 'auto'
-                  }
+                  },
+                  textTransform: 'none'
                 }}
               >
                 {option}
