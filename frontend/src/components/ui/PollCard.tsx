@@ -3,6 +3,7 @@ import { Card, CardContent, Typography, Box, Button, Tooltip, Alert, CircularPro
 import { triggerLatencyMeasurementIfNeeded } from '../../utils/latencyTriangulation'
 import { IpInfoResponse, PhoneVerificationState } from '../../App'
 import { SUBMIT_VOTE_HOST } from '../../constants'
+import AttachmentIcon from '@mui/icons-material/Attachment';
 
 interface PollCardProps {
   poll: string
@@ -24,6 +25,9 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
   const [loading, setLoading] = useState(false)
   const [measuringLatency, setMeasuringLatency] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
+
+  const hasAttachment = poll.match(/(.+)_attachment_([A-Za-z0-9_-]{43})$/);
+  const displayPoll = hasAttachment ? hasAttachment[1] : poll;
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -89,6 +93,10 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
   }
 
   const renderVoteButtons = () => {
+    if (hasAttachment) {
+      return null;
+    }
+
     const options = poll.includes('_or_')
       ? poll.split('_or_')
       : poll.startsWith('open_') ? []
@@ -177,12 +185,19 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
       onClick={onClick}
     >
       <CardContent>
-        <Typography variant="h6">
-          {poll.includes('_or_')
-            ? poll.replace('_or_', ' or ') + '?' :
-            poll.startsWith('open_') ? poll.replace(/^open_/g, '') :
-            poll}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="h6">
+            {displayPoll.includes('_or_')
+              ? displayPoll.replace('_or_', ' or ') + '?' :
+              displayPoll.startsWith('open_') ? displayPoll.replace(/^open_/g, '') :
+              displayPoll}
+          </Typography>
+          {hasAttachment && (
+            <Tooltip title="This poll has an attachment. Click to view details.">
+              <AttachmentIcon color="action" />
+            </Tooltip>
+          )}
+        </Box>
         <Typography color="textSecondary">
           {votes} votes {isUpdating && <CircularProgress size={10} sx={{ ml: 1 }} />}
         </Typography>
@@ -212,7 +227,7 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
             mt: 3
           }}
         >
-          Click to view details
+          Click to view details{hasAttachment ? ' and attachment' : ''}
         </Typography>
       </CardContent>
     </Card>
