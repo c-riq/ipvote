@@ -57,7 +57,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
     if (tagParam) {
       return new Set(tagParam.split(','));
     }
-    return new Set(['global', 'approval rating']);
+    return new Set(['all']);
   });
 
   const handleTagChange = (tag: string) => {
