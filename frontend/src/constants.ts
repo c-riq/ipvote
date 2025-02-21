@@ -23,6 +23,8 @@ export const DELEGATION_HOST = 'https://kjpewlorf6tyffwlbbcnra2ef40nglvd.lambda-
 
 export const AGGREGATE_DELEGATIONS_HOST = 'https://vmxpev4fvftful4bor2nby6aja0tbbdt.lambda-url.us-east-1.on.aws'
 
+export const POLL_ATTACHMENT_UPLOAD_HOST = 'https://ej7myauwha2fnaegmr66jappnq0eeedt.lambda-url.us-east-1.on.aws'
+
 export const CAPTCHA_THRESHOLD = 10000
 
 export const VALID_TAGS = ['all', 'global', 'approval rating', 'national', 'other']

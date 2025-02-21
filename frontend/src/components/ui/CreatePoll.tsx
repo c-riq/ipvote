@@ -9,6 +9,7 @@ import {
   Alert,
   Paper
 } from '@mui/material'
+import { POLL_ATTACHMENT_UPLOAD_HOST } from '../../constants'
 
 function CreatePoll() {
   const [pollType, setPollType] = useState('yesNo')
@@ -17,6 +18,7 @@ function CreatePoll() {
   const [yesNoQuestion, setYesNoQuestion] = useState('')
   const [openQuestion, setOpenQuestion] = useState('')
   const [error, setError] = useState('')
+  const [pdfFile, setPdfFile] = useState<File | null>(null)
   const navigate = useNavigate()
 
   const sanitizePollText = (text: string) => {
@@ -33,7 +35,59 @@ function CreatePoll() {
       .trim()
   }
 
-  const handleCreate = () => {
+  // Add new helper function to compute SHA-256 hash
+  const computeFileHash = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    // Convert to base64 and make URL safe
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(hashBuffer)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    return base64;
+  };
+
+  // Add new helper function to upload PDF
+  const uploadPdf = async (file: File, hash: string): Promise<boolean> => {
+    try {
+      // First get the signed URL
+      const response = await fetch(`${POLL_ATTACHMENT_UPLOAD_HOST}/?hash=${hash}`);
+      const { uploadUrl } = await response.json();
+
+      // Upload the file using the signed URL
+      await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': 'application/pdf',
+        },
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error uploading PDF:', error);
+      return false;
+    }
+  };
+
+  const handleCreate = async () => {
+    // Add PDF upload handling
+    if (pdfFile) {
+      try {
+        const hash = await computeFileHash(pdfFile);
+        const uploadSuccess = await uploadPdf(pdfFile, hash);
+        
+        if (!uploadSuccess) {
+          setError('Failed to upload PDF file');
+          return;
+        }
+      } catch (error) {
+        console.error('Error processing PDF:', error);
+        setError('Failed to process PDF file');
+        return;
+      }
+    }
+
     if (pollType === 'or') {
       const cleanOptionA = sanitizePollText(optionA)
       const cleanOptionB = sanitizePollText(optionB)
@@ -80,6 +134,22 @@ function CreatePoll() {
       }
 
       navigate(`/${encodeURIComponent(cleanQuestion)}`)
+    }
+  }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        setError('Please upload a PDF file')
+        return
+      }
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError('PDF file must be smaller than 5MB')
+        return
+      }
+      setPdfFile(file)
+      setError('')
     }
   }
 
@@ -149,6 +219,21 @@ function CreatePoll() {
           sx={{ mb: 2 }}
         />
       )}
+
+      <Button
+        component="label"
+        variant="outlined"
+        fullWidth
+        sx={{ mb: 2 }}
+      >
+        {pdfFile ? `Selected: ${pdfFile.name}` : 'Attach PDF (optional)'}
+        <input
+          type="file"
+          hidden
+          accept=".pdf"
+          onChange={handleFileChange}
+        />
+      </Button>
 
       <Button 
         variant="contained" 
