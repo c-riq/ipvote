@@ -5,6 +5,7 @@ import Newsletter from './ui/Newsletter'
 import Popular from './ui/Popular'
 import CreatePoll from './ui/CreatePoll'
 import { IpInfoResponse, PhoneVerificationState } from '../App'
+import VoteTable from './VoteTable'
 
 // Lazy load components
 const Geolocation = lazy(() => import('./ui/Geolocation'))
@@ -106,6 +107,7 @@ function MainContent({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
             />
           </Suspense>
         } />
+        <Route path="votes/:pollId" element={<VoteTable />} />
         <Route path="/" element={<Navigate to="/ui/popular" replace />} />
       </Routes>
     </main>

@@ -306,7 +306,7 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
                   <Typography 
                     component="span" 
                     sx={{ 
-                      color: '#00aa00',
+                      color: '#ffffff',
                       backgroundColor: '#00aa00',
                       width: '16px',
                       height: '16px',
@@ -355,7 +355,7 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
                   <Typography 
                     component="span" 
                     sx={{ 
-                      color: '#00aa00',
+                      color: '#ffffff',
                       backgroundColor: '#00aa00',
                       width: '16px',
                       height: '16px',

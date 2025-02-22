@@ -31,6 +31,7 @@ import { parseCSV, hasRequiredFields } from '../utils/csvParser'
 import { CAPTCHA_THRESHOLD, IPVOTES_S3_BUCKET_HOST, POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PollMetadata from './PollMetadata'
+import SearchIcon from '@mui/icons-material/Search'
 
 interface VoteHistory {
   date: string;
@@ -765,11 +766,9 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     ));
   };
 
-  const downloadPollData = () => {
+  const viewPollData = () => {
     if (!poll) return;
-    
-    // Direct download from the API endpoint
-    window.open(`${POLL_DATA_HOST}/?poll=${poll}&refresh=true&isOpen=${isOpenPoll}`, '_blank');
+    navigate(`/ui/votes/${encodeURIComponent(poll)}`);
   };
 
   // Add new function to validate PDF hash
@@ -1064,10 +1063,10 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
               <Box sx={{ mt: 2, mb: 4 }}>
                 <Button
                   variant="outlined"
-                  onClick={downloadPollData}
-                  startIcon={<DownloadIcon />}
+                  onClick={viewPollData}
+                  startIcon={<SearchIcon />}
                 >
-                  Download Poll Data
+                  View Poll Data
                 </Button>
               </Box>
 
