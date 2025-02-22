@@ -31,6 +31,7 @@ import { parseCSV, hasRequiredFields } from '../utils/csvParser'
 import { CAPTCHA_THRESHOLD, IPVOTES_S3_BUCKET_HOST, POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PollMetadata from './PollMetadata'
+import SearchIcon from '@mui/icons-material/Search'
 
 interface VoteHistory {
   date: string;
@@ -80,6 +81,18 @@ time,masked_ip,poll,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_pro
 const resultsCache: { [key: string]: { data: string[], timestamp: number } } = {};
 const CACHE_DURATION = 3 * 60 * 1000; // 3 minutes in milliseconds
 
+// Add this helper function after the interface definitions
+const computeFileHash = async (pdfBlob: Blob): Promise<string> => {
+  const buffer = await pdfBlob.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  // Convert to base64 and make URL safe
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(hashBuffer)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return base64;
+};
+
 function Poll({ privacyAccepted, userIpInfo, captchaToken, 
     setCaptchaToken, onPrivacyAcceptChange, phoneVerification }: PollProps) {
   const navigate = useNavigate()
@@ -107,6 +120,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
   const [dataLoading, setDataLoading] = useState(false)
   const [showAdvancedMaps, setShowAdvancedMaps] = useState(false);
   const [includeRegisteredUsersOnly, setIncludeRegisteredUsersOnly] = useState(false)
+  const [pdfHashValid, setPdfHashValid] = useState<boolean | null>(null);
 
   useEffect(() => {
     setRequireCaptcha(allVotes.length > CAPTCHA_THRESHOLD)
@@ -127,17 +141,27 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
       return
     }
 
-    // Remove attachment suffix for display purposes but keep it for data fetching
-    const attachmentMatch = pollFromPath.match(/(.+)_attachment_([A-Za-z0-9_-]{43})$/)
-    const displayPoll = attachmentMatch ? attachmentMatch[1] : pollFromPath
-
     if (pollFromPath) {
-      setPoll(displayPoll)
-      if (poll !== displayPoll) {
-        fetchResults(pollFromPath, true, isOpen) // Use full poll ID including attachment for fetching
+      setPoll(pollFromPath)  // Store full poll ID including attachment
+      if (poll !== pollFromPath) {
+        fetchResults(pollFromPath, true, isOpen)
       }
     }
   }, [location])
+
+  // Move PDF hash validation effect here, before any conditional effects
+  useEffect(() => {
+    if (poll) {
+      const attachmentMatch = poll.match(/(.+)_attachment_([A-Za-z0-9_-]{43})$/)
+      if (attachmentMatch) {
+        const hash = attachmentMatch[2]
+        const pdfUrl = `${IPVOTES_S3_BUCKET_HOST}/poll_attachments/${hash}.pdf`
+        validatePdfHash(pdfUrl, hash)
+      } else {
+        setPdfHashValid(null)
+      }
+    }
+  }, [poll])
 
   useEffect(() => {
     if (allVotes.length > 0 && poll) {
@@ -439,7 +463,8 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                   width: { xs: '100%', sm: 'auto' },
                   '&.Mui-disabled': {
                     pointerEvents: 'auto'
-                  }
+                  },
+                  textTransform: 'none'
                 }}
               >
                 {option}
@@ -741,16 +766,30 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     ));
   };
 
-  const downloadPollData = () => {
+  const viewPollData = () => {
     if (!poll) return;
-    
-    // Direct download from the API endpoint
-    window.open(`${POLL_DATA_HOST}/?poll=${poll}&refresh=true&isOpen=${isOpenPoll}`, '_blank');
+    navigate(`/ui/votes/${encodeURIComponent(poll)}`);
   };
 
-  // Add new function to handle attachment display
+  // Add new function to validate PDF hash
+  const validatePdfHash = async (pdfUrl: string, expectedHash: string) => {
+    try {
+      const response = await fetch(pdfUrl);
+      if (!response.ok) {
+        throw new Error('Failed to fetch PDF');
+      }
+      const pdfBlob = await response.blob();
+      const actualHash = await computeFileHash(pdfBlob);
+      setPdfHashValid(actualHash === expectedHash);
+    } catch (error) {
+      console.error('Error validating PDF hash:', error);
+      setPdfHashValid(false);
+    }
+  };
+
+  // Modify the renderAttachment function
   const renderAttachment = () => {
-    const attachmentMatch = poll && location.pathname.match(/(.+)_attachment_([A-Za-z0-9_-]{43})$/)
+    const attachmentMatch = poll && poll.match(/(.+)_attachment_([A-Za-z0-9_-]{43})$/)
     if (!attachmentMatch) return null
 
     const hash = attachmentMatch[2]
@@ -760,9 +799,15 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     const isChromium = window.navigator.userAgent.toLowerCase().includes('chrome')
     const isFirefox = window.navigator.userAgent.toLowerCase().includes('firefox')
     
-    if (isChromium || isFirefox) {
-      return (
-        <Box sx={{ mt: 2, mb: 2 }}>
+    return (
+      <Box sx={{ mt: 2, mb: 2 }}>
+        {pdfHashValid === false && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Warning: The PDF hash does not match the reference in the poll.
+          </Alert>
+        )}
+        
+        {(isChromium || isFirefox) ? (
           <object
             data={pdfUrl}
             type="application/pdf"
@@ -784,31 +829,35 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
               </Button>
             </Box>
           </object>
-        </Box>
-      )
-    }
-
-    // Fallback for other browsers
-    return (
-      <Box sx={{ mt: 2, mb: 2 }}>
-        <Button
-          variant="outlined"
-          href={pdfUrl}
-          target="_blank"
-          startIcon={<DownloadIcon />}
-        >
-          View Poll Attachment
-        </Button>
+        ) : (
+          <Box sx={{ mt: 2, mb: 2 }}>
+            <Button
+              variant="outlined"
+              href={pdfUrl}
+              target="_blank"
+              startIcon={<DownloadIcon />}
+            >
+              View Poll Attachment
+            </Button>
+          </Box>
+        )}
       </Box>
     )
   }
 
+  const getDisplayTitle = (pollId: string) => {
+    const attachmentMatch = pollId.match(/(.+)_attachment_([A-Za-z0-9_-]{43})$/)
+    let displayPoll = attachmentMatch ? attachmentMatch[1] : poll
+    if (displayPoll.includes('_or_')){
+      displayPoll = displayPoll.replace(/_/g, ' ') + '?' 
+    }
+    return displayPoll
+  };
+
   return (
     <div className="content">
       <h1 style={{ wordBreak: 'break-word' }}>
-        {poll.includes('_or_') 
-          ? poll.replace(/_/g, ' ') + '?' 
-          : poll.replace(/_/g, ' ')}
+        {getDisplayTitle(poll)}
       </h1>
       
       {renderAttachment()}
@@ -1014,10 +1063,10 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
               <Box sx={{ mt: 2, mb: 4 }}>
                 <Button
                   variant="outlined"
-                  onClick={downloadPollData}
-                  startIcon={<DownloadIcon />}
+                  onClick={viewPollData}
+                  startIcon={<SearchIcon />}
                 >
-                  Download Poll Data
+                  View Poll Data
                 </Button>
               </Box>
 

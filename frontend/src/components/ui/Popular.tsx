@@ -57,7 +57,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
     if (tagParam) {
       return new Set(tagParam.split(','));
     }
-    return new Set(['global', 'approval rating']);
+    return new Set(['all']);
   });
 
   const handleTagChange = (tag: string) => {
@@ -225,6 +225,16 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
     return () => clearInterval(interval);
   }, []);
 
+  const getCountryFlag = (countryCode: string) => {
+    return countryCode
+      ? countryCode
+          .toUpperCase()
+          .replace(/./g, char => 
+            String.fromCodePoint(char.charCodeAt(0) + 127397)
+          )
+      : '';
+  };
+
   return (
     <div>
       <h2 style={{ margin: '0 0 20px 0' }}>Let the internet vote!</h2>
@@ -239,7 +249,7 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
       }}>
         <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>Recent Votes</h4>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {recentVotes.slice(0, 5).map((vote, index) => {
+          {recentVotes.slice(0, 50).map((vote, index) => {
             const voteDate = new Date(vote.timestamp);
             const today = new Date();
             let timeDisplay;
@@ -274,11 +284,11 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
                   }}
                   onClick={(e) => handlePollClick(vote.poll, e)}
                 >
-                  {vote.poll.replace(/^open_/, '')}:
+                  {vote.poll.replace(/^open_/, '').replace(/%2C/g, ',')}:
                 </span>
                 <span>{vote.vote}</span>
                 <span style={{ color: '#666' }}>
-                  from {vote.country}
+                  from {getCountryFlag(vote.country)} {vote.country}
                 </span>
               </div>
             );

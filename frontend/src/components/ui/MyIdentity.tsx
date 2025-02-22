@@ -361,8 +361,11 @@ function MyIdentity({
           setEmailVerified(data.emailVerified);
           localStorage.setItem('userId', data.userId);
 
-          // If no phone verification in response but exists in localStorage, sync it
-          if (!data.phoneVerification && localStorage.getItem('phoneVerification')) {
+          // Store phone verification data if present in response
+          if (data.phoneVerification) {
+            localStorage.setItem('phoneVerification', JSON.stringify(data.phoneVerification));
+            setPhoneVerification(data.phoneVerification);
+          } else if (localStorage.getItem('phoneVerification')) {
             await syncPhoneVerification(storedEmail, sessionToken);
           }
         } else if (response.status === 401) {
@@ -380,13 +383,14 @@ function MyIdentity({
     };
 
     checkSession();
-  }, []);
+  }, [setPhoneVerification]);
 
 
   const handleLogout = () => {
     localStorage.removeItem('sessionToken');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userId');  // Also remove userId on logout
+    localStorage.removeItem('phoneVerification');
     setIsLoggedIn(false);
     setEmail('');
   };

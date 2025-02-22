@@ -405,15 +405,52 @@ const handleUpdateSettings = async (email, sessionToken, settings) => {
             };
         }
 
-        // Validate the settings
-        if (typeof settings.isPolitician !== 'boolean') {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({
-                    message: 'Invalid settings format: isPolitician must be a boolean',
-                    time: new Date()
-                })
-            };
+        // Validate settings fields
+        const allowedFields = [
+            'isPolitician',
+            'firstName',
+            'lastName',
+            'country',
+            'xUsername',
+            'linkedinUrl',
+            'websiteUrl'
+        ];
+
+        const validatedSettings = {};
+        for (const [key, value] of Object.entries(settings)) {
+            // Check if the field is allowed
+            if (!allowedFields.includes(key)) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: `Invalid setting field: ${key}`,
+                        time: new Date()
+                    })
+                };
+            }
+
+            // Type validation
+            if (key === 'isPolitician' && typeof value !== 'boolean') {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: 'isPolitician must be a boolean',
+                        time: new Date()
+                    })
+                };
+            }
+
+            if (key !== 'isPolitician' && typeof value !== 'string') {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: `${key} must be a string`,
+                        time: new Date()
+                    })
+                };
+            }
+
+            validatedSettings[key] = value;
         }
 
         // Get existing public profile
@@ -422,7 +459,7 @@ const handleUpdateSettings = async (email, sessionToken, settings) => {
         // Update settings with new fields and timestamp
         const updatedSettings = {
             ...publicProfile.settings,
-            ...settings,
+            ...validatedSettings,
             lastUpdated: new Date().toISOString()
         };
 
