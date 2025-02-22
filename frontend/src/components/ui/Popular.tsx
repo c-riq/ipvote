@@ -225,6 +225,16 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
     return () => clearInterval(interval);
   }, []);
 
+  const getCountryFlag = (countryCode: string) => {
+    return countryCode
+      ? countryCode
+          .toUpperCase()
+          .replace(/./g, char => 
+            String.fromCodePoint(char.charCodeAt(0) + 127397)
+          )
+      : '';
+  };
+
   return (
     <div>
       <h2 style={{ margin: '0 0 20px 0' }}>Let the internet vote!</h2>
@@ -274,11 +284,11 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
                   }}
                   onClick={(e) => handlePollClick(vote.poll, e)}
                 >
-                  {vote.poll.replace(/^open_/, '')}:
+                  {vote.poll.replace(/^open_/, '').replace(/%2C/g, ',')}:
                 </span>
                 <span>{vote.vote}</span>
                 <span style={{ color: '#666' }}>
-                  from {vote.country}
+                  from {getCountryFlag(vote.country)} {vote.country}
                 </span>
               </div>
             );

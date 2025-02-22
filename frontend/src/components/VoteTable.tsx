@@ -81,6 +81,17 @@ function VoteTable() {
     window.open(`${POLL_DATA_HOST}/?poll=${pollId}&refresh=true&isOpen=${isOpen === 'true'}`, '_blank');
   };
 
+  const getCountryFlag = (countryCode: string) => {
+    // Convert country code to regional indicator symbols (flag emoji)
+    return countryCode
+      ? countryCode
+          .toUpperCase()
+          .replace(/./g, char => 
+            String.fromCodePoint(char.charCodeAt(0) + 127397)
+          )
+      : '';
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -123,9 +134,13 @@ function VoteTable() {
               .map((vote, index) => (
                 <TableRow key={index}>
                   <TableCell>{new Date(vote.time).toLocaleString()}</TableCell>
-                  <TableCell>{vote.masked_ip.replace(/XXXX:XXXX:XXXX$/g, '...')}</TableCell>
+                  <TableCell>{vote.masked_ip.replace(/\w{4}:\w{4}:\w{4}/g, '...')}</TableCell>
                   <TableCell>{vote.custom_option || vote.vote}</TableCell>
-                  <TableCell>{vote.country_geoip || '-'}</TableCell>
+                  <TableCell>
+                    {vote.country_geoip 
+                      ? `${getCountryFlag(vote.country_geoip)} ${vote.country_geoip}` 
+                      : '-'}
+                  </TableCell>
                   <TableCell>{(vote.asn_name_geoip || '-').replace(/%2C/g, ',')}</TableCell>
                   <TableCell>{vote.is_vpn === '1' ? 'Yes' : 'No'}</TableCell>
                   <TableCell>{vote.is_tor === '1' ? 'Yes' : 'No'}</TableCell>
