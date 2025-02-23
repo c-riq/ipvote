@@ -34,15 +34,26 @@ function generateRandomSelection(fullData, seed, limit = 30, offset = 0) {
         return x - Math.floor(x);
     };
 
-    // Seeded shuffle function
+    // Seeded shuffle function with boosting for recent activity
     const seededShuffle = (array, seed) => {
         let currentSeed = seed;
-        const shuffled = [...array];
-        for (let i = shuffled.length - 1; i > 0; i--) {
-            const j = Math.floor(seededRandom(currentSeed++) * (i + 1));
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        const shuffled = [];
+        const items = [...array];
+        
+        // Create boosted array where items with recent activity appear multiple times
+        const boostedItems = items.flatMap(item => {
+            const hasRecentActivity = item[2] > 0; // check last_7_days_count
+            return hasRecentActivity ? Array(5).fill(item) : [item];
+        });
+
+        while (boostedItems.length > 0) {
+            const index = Math.floor(seededRandom(currentSeed++) * boostedItems.length);
+            shuffled.push(boostedItems[index]);
+            boostedItems.splice(index, 1);
         }
-        return shuffled;
+
+        // Remove duplicates while maintaining order
+        return [...new Map(shuffled.map(item => [item[0], item])).values()];
     };
 
     // Keep top 10 fixed, shuffle the rest with seed
@@ -125,7 +136,16 @@ async function aggregateAllPollsData(specificPoll = null) {
             last_7_days_count: recentCounts.get(poll) || 0,
             metadata: pollMetadata.get(poll)
         }))
-        .sort((a, b) => b.count - a.count);
+        .sort((a, b) => {
+            // First compare recent activity (with threshold of 2)
+            const aHasRecent = a.last_7_days_count > 2;
+            const bHasRecent = b.last_7_days_count > 2;
+            if (aHasRecent !== bHasRecent) {
+                return bHasRecent ? 1 : -1;
+            }
+            // If both have same recent activity status, sort by total count
+            return b.count - a.count;
+        });
 
     return results;
 }

@@ -7,7 +7,6 @@ import {
   CircularProgress, 
   Alert,
   Button,
-  Chip,
   Divider,
   List,
   ListItem,
@@ -38,18 +37,17 @@ interface UserData {
     lastName?: string;
     country?: string;
     xUsername?: string;
+    xUsernameVerified?: string;
     linkedinUrl?: string;
+    linkedinUrlVerified?: string;
     websiteUrl?: string;
     lastUpdated?: string;
   };
-  email: string;
-  joinedDate: string;
-  recentVotes: {
-    pollName: string;
+  votes: {
+    poll: string;
     vote: string;
-    timestamp: string;
+    timestamp: number;
   }[];
-  delegatedTags: string[];
 }
 
 interface Delegation {
@@ -266,7 +264,7 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
         <Typography variant="h5">
           {userData.settings.firstName && userData.settings.lastName 
             ? `${userData.settings.firstName} ${userData.settings.lastName}`
-            : userData.email
+            : userData.votes[0]?.poll
           }
         </Typography>
         
@@ -280,7 +278,12 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
           </Typography>
         )}
 
-        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2, 
+          mb: 2 
+        }}>
           {userData.settings.xUsername && (
             <Button
               variant="outlined"
@@ -289,8 +292,46 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
               target="_blank"
               rel="noopener noreferrer"
               startIcon={<Typography>𝕏</Typography>}
+              fullWidth={false}
+              sx={{ width: 'fit-content' }}
             >
               @{userData.settings.xUsername}
+              {userData.settings.xUsernameVerified === userData.settings.xUsername && (
+                <Box sx={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  ml: 0.5,
+                  gap: 0.5 
+                }}>
+                  <Typography 
+                    component="span" 
+                    sx={{ 
+                      color: '#ffffff',
+                      backgroundColor: '#00aa00',
+                      width: '16px',
+                      height: '16px',
+                      borderRadius: '50%',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    ✓
+                  </Typography>
+                  <Typography 
+                    component="span"
+                    sx={{ 
+                      fontSize: '0.75rem',
+                      color: '#00aa00',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    Verified
+                  </Typography>
+                </Box>
+              )}
             </Button>
           )}
           
@@ -304,6 +345,42 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
               startIcon={<Typography>in</Typography>}
             >
               LinkedIn
+              {userData.settings.linkedinUrlVerified === userData.settings.linkedinUrl && (
+                <Box sx={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  ml: 0.5,
+                  gap: 0.5 
+                }}>
+                  <Typography 
+                    component="span" 
+                    sx={{ 
+                      color: '#ffffff',
+                      backgroundColor: '#00aa00',
+                      width: '16px',
+                      height: '16px',
+                      borderRadius: '50%',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    ✓
+                  </Typography>
+                  <Typography 
+                    component="span"
+                    sx={{ 
+                      fontSize: '0.75rem',
+                      color: '#00aa00',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    Verified
+                  </Typography>
+                </Box>
+              )}
             </Button>
           )}
           
@@ -323,21 +400,6 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
       </Box>
 
       <Divider sx={{ my: 3 }} />
-
-      <Box sx={{ my: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Delegated Tags
-        </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          {userData.delegatedTags?.map((tag) => (
-            <Chip key={tag} label={tag} />
-          )) || (
-            <Typography variant="body2" color="text.secondary">
-              No delegated tags
-            </Typography>
-          )}
-        </Box>
-      </Box>
 
       <Box sx={{ my: 3 }}>
         <Typography variant="h6" gutterBottom>
@@ -468,11 +530,25 @@ function UserProfile({ privacyAccepted, onPrivacyAcceptChange, userIpInfo, captc
           Recent Public Votes
         </Typography>
         <List>
-          {userData.recentVotes?.map((vote, index) => (
-            <ListItem key={index} divider={index !== (userData.recentVotes?.length || 0) - 1}>
+          {userData.votes?.map((vote, index) => (
+            <ListItem key={index} divider={index !== (userData.votes?.length || 0) - 1}>
               <ListItemText
-                primary={vote.pollName}
+                primary={
+                  <Link 
+                    to={`/${encodeURIComponent(vote.poll)}`}
+                    style={{ 
+                      textDecoration: 'none', 
+                      color: 'inherit',
+                      wordBreak: 'break-word'
+                    }}
+                  >
+                    {vote.poll}
+                  </Link>
+                }
                 secondary={`Voted: ${vote.vote} • ${new Date(vote.timestamp).toLocaleString()}`}
+                secondaryTypographyProps={{ 
+                  sx: { wordBreak: 'break-word' }
+                }}
               />
             </ListItem>
           )) || (

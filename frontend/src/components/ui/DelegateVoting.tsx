@@ -11,7 +11,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Button,
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import PrivacyAccept from './PrivacyAccept';
@@ -339,7 +338,6 @@ function DelegateVoting({
                 <TableCell>Name</TableCell>
                 <TableCell>Country</TableCell>
                 <TableCell>Delegated Votes</TableCell>
-                <TableCell>Action</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -357,16 +355,6 @@ function DelegateVoting({
                   </TableCell>
                   <TableCell>{profile.settings.country || '-'}</TableCell>
                   <TableCell>{profile.delegatedVotes}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      component={Link}
-                      to={`/ui/user/${userId}`}
-                    >
-                      View Profile
-                    </Button>
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

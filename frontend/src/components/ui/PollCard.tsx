@@ -185,8 +185,8 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
       onClick={onClick}
     >
       <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="h6">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-start' }}>
+          <Typography variant="h6" sx={{ textAlign: 'left' }}>
             {displayPoll.includes('_or_')
               ? displayPoll.replace('_or_', ' or ') + '?' :
               displayPoll.startsWith('open_') ? displayPoll.replace(/^open_/g, '') :
