@@ -134,7 +134,7 @@ function VoteTable() {
               .map((vote, index) => (
                 <TableRow key={index}>
                   <TableCell>{new Date(vote.time).toLocaleString()}</TableCell>
-                  <TableCell>{vote.masked_ip.replace(/\w{4}:\w{4}:\w{4}/g, '...')}</TableCell>
+                  <TableCell>{vote.masked_ip.replace(/XXXX:XXXX:XXXX$/g, '...')}</TableCell>
                   <TableCell>{vote.custom_option || vote.vote}</TableCell>
                   <TableCell>
                     {vote.country_geoip 
