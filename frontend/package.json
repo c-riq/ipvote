@@ -25,6 +25,7 @@
     "mapbox-gl": "^1.13.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-helmet-async": "^2.0.5",
     "react-plotly.js": "^2.6.0",
     "react-router-dom": "^7.1.2",
     "react-simple-maps": "^3.0.0"
