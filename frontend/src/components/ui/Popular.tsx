@@ -244,12 +244,12 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
         padding: '10px',
         borderRadius: '8px',
         marginBottom: '20px',
-        maxHeight: '100px',
+        maxHeight: '200px',
         overflow: 'auto'
       }}>
         <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>Recent Votes</h4>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {recentVotes.slice(0, 50).map((vote, index) => {
+          {recentVotes.slice(0, 80).map((vote, index) => {
             const voteDate = new Date(vote.timestamp);
             const today = new Date();
             let timeDisplay;
@@ -270,7 +270,9 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                maxWidth: '500px'
+                maxWidth: '500px',
+                overflowWrap: 'break-word',
+                wordBreak: 'break-word'
               }}>
                 <span style={{ color: '#666' }}>
                   {timeDisplay}
