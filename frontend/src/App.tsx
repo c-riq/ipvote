@@ -8,6 +8,7 @@ import MainContent from './components/MainContent'
 import Poll from './components/Poll'
 import './App.css'
 import { IP_INFO_HOST } from './constants'
+import { HelmetProvider } from 'react-helmet-async'
 
 interface PrivacyState {
   accepted: boolean;
@@ -181,65 +182,67 @@ function App() {
   };
 
   return (
-    <BrowserRouter>
-      <ThemeProvider theme={lightTheme}>
-        <CssBaseline />
-        <div className="app-container">
-          <Header 
-            isSidebarOpen={isSidebarOpen}
-            setIsSidebarOpen={setIsSidebarOpen}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            phoneVerification={phoneVerification}
-          />
-          <div className="main-content">
-            <Sidebar isOpen={isSidebarOpen} />
-            <div onClick={handleMainContentClick}>
-              <Routes>
-                {/* UI routes */}
-                <Route path="/ui/*" element={<MainContent 
-                  privacyAccepted={privacyAccepted} 
-                  userIpInfo={userIpInfo} 
-                  onPrivacyAcceptChange={handlePrivacyAcceptChange}
-                  query={searchQuery}
-                  captchaToken={captchaVerified && captchaState?.token || undefined}
-                  setCaptchaToken={handleCaptchaToken}
-                  phoneVerification={phoneVerification}
-                  setPhoneVerification={setPhoneVerification}
-                />} />
-                
-                {/* Routes with specific file extensions */}
-                <Route path="*.{html,js,css,jpg,png}" element={<MainContent 
-                  privacyAccepted={privacyAccepted} 
-                  userIpInfo={userIpInfo} 
-                  onPrivacyAcceptChange={handlePrivacyAcceptChange}
-                  query={searchQuery}
-                  captchaToken={captchaVerified && captchaState?.token || undefined}
-                  setCaptchaToken={handleCaptchaToken}
-                  phoneVerification={phoneVerification}
-                  setPhoneVerification={setPhoneVerification}
-                />} />
-                
-                {/* All other routes show Poll component */}
-                <Route path="/*" element={
-                  <Poll 
-                    privacyAccepted={privacyAccepted}
-                    userIpInfo={userIpInfo}
+    <HelmetProvider>
+      <BrowserRouter>
+        <ThemeProvider theme={lightTheme}>
+          <CssBaseline />
+          <div className="app-container">
+            <Header 
+              isSidebarOpen={isSidebarOpen}
+              setIsSidebarOpen={setIsSidebarOpen}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              phoneVerification={phoneVerification}
+            />
+            <div className="main-content">
+              <Sidebar isOpen={isSidebarOpen} />
+              <div onClick={handleMainContentClick}>
+                <Routes>
+                  {/* UI routes */}
+                  <Route path="/ui/*" element={<MainContent 
+                    privacyAccepted={privacyAccepted} 
+                    userIpInfo={userIpInfo} 
                     onPrivacyAcceptChange={handlePrivacyAcceptChange}
+                    query={searchQuery}
                     captchaToken={captchaVerified && captchaState?.token || undefined}
                     setCaptchaToken={handleCaptchaToken}
                     phoneVerification={phoneVerification}
-                  />
-                } />
-                
-                {/* Default route redirects to popular polls */}
-                <Route path="/" element={<Navigate to="/ui/popular" replace />} />
-              </Routes>
+                    setPhoneVerification={setPhoneVerification}
+                  />} />
+                  
+                  {/* Routes with specific file extensions */}
+                  <Route path="*.{html,js,css,jpg,png}" element={<MainContent 
+                    privacyAccepted={privacyAccepted} 
+                    userIpInfo={userIpInfo} 
+                    onPrivacyAcceptChange={handlePrivacyAcceptChange}
+                    query={searchQuery}
+                    captchaToken={captchaVerified && captchaState?.token || undefined}
+                    setCaptchaToken={handleCaptchaToken}
+                    phoneVerification={phoneVerification}
+                    setPhoneVerification={setPhoneVerification}
+                  />} />
+                  
+                  {/* All other routes show Poll component */}
+                  <Route path="/*" element={
+                    <Poll 
+                      privacyAccepted={privacyAccepted}
+                      userIpInfo={userIpInfo}
+                      onPrivacyAcceptChange={handlePrivacyAcceptChange}
+                      captchaToken={captchaVerified && captchaState?.token || undefined}
+                      setCaptchaToken={handleCaptchaToken}
+                      phoneVerification={phoneVerification}
+                    />
+                  } />
+                  
+                  {/* Default route redirects to popular polls */}
+                  <Route path="/" element={<Navigate to="/ui/popular" replace />} />
+                </Routes>
+              </div>
             </div>
           </div>
-        </div>
-      </ThemeProvider>
-    </BrowserRouter>
+        </ThemeProvider>
+      </BrowserRouter>
+    </HelmetProvider>
   )
 }
 

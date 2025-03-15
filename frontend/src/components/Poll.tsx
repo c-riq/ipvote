@@ -32,6 +32,7 @@ import { CAPTCHA_THRESHOLD, IPVOTES_S3_BUCKET_HOST, POLL_DATA_HOST, POPULAR_POLL
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PollMetadata from './PollMetadata'
 import SearchIcon from '@mui/icons-material/Search'
+import { Helmet } from 'react-helmet-async'
 
 interface VoteHistory {
   date: string;
@@ -856,6 +857,31 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
 
   return (
     <div className="content">
+      <Helmet>
+        <title>{getDisplayTitle(poll)} - ipvote.com</title>
+        <meta name="description" content={`Vote on: ${getDisplayTitle(poll)}. See real-time results and geographic distribution of votes.`} />
+        
+        {/* Open Graph tags for social sharing */}
+        <meta property="og:title" content={`${getDisplayTitle(poll)} - ipvote.com`} />
+        <meta property="og:description" content={`Vote on: ${getDisplayTitle(poll)}. See real-time results and geographic distribution of votes.`} />
+        <meta property="og:type" content="website" />
+        
+        {/* Schema.org structured data */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "VoteAction",
+            "name": getDisplayTitle(poll),
+            "description": `Vote on: ${getDisplayTitle(poll)}`,
+            "result": Object.entries(results).map(([option, count]) => ({
+              "@type": "VoteOption",
+              "name": option,
+              "voteCount": count
+            }))
+          })}
+        </script>
+      </Helmet>
+
       <h1 style={{ wordBreak: 'break-word' }}>
         {getDisplayTitle(poll)}
       </h1>
