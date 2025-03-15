@@ -1,6 +1,7 @@
 // aws lambda function to get the most popular polls using athena
 
 const { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { normalizeText } = require('./normalize');
 
 const s3Client = new S3Client();
 const BUCKET_NAME = 'ipvotes';
@@ -225,10 +226,10 @@ module.exports.handler = async (event) => {
                 }
 
                 if (query) {
-                    const searchTerms = query.toLowerCase().split(/\s+/);
+                    const searchTerms = query.toLowerCase().split(/\s+/).map(term => normalizeText(term));
                     filteredData = filteredData.filter(item => 
                         searchTerms.every(term => 
-                            item.poll.toLowerCase().replace(/_/g, ' ').includes(term)
+                            normalizeText(item.poll.replace(/_/g, ' ')).includes(term)
                         )
                     );
                 }
@@ -299,10 +300,10 @@ module.exports.handler = async (event) => {
     let filteredData = aggregatedData;
     if (query || tagFilter) {
         if (query) {
-            const searchTerms = query.toLowerCase().split(/\s+/);
+            const searchTerms = query.toLowerCase().split(/\s+/).map(term => normalizeText(term));
             filteredData = filteredData.filter(item => 
                 searchTerms.every(term => 
-                    item.poll.toLowerCase().replace(/_/g, ' ').includes(term)
+                    normalizeText(item.poll.replace(/_/g, ' ')).includes(term)
                 )
             );
         }
