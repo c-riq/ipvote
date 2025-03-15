@@ -1,4 +1,4 @@
-const { normalizeText } = require('./normalize');
+import { normalizeText } from './normalize';
 
 describe('normalizeText', () => {
     test('removes diacritics and converts to lowercase', () => {
@@ -12,4 +12,4 @@ describe('normalizeText', () => {
         expect(normalizeText('Hello World')).toBe('hello world');
         expect(normalizeText('TEST')).toBe('test');
     });
-});
+}); 

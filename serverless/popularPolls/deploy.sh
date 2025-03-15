@@ -9,14 +9,29 @@ ZIP_FILE="function.zip"
 ROLE_ARN="arn:aws:iam::152769399840:role/service-role/popularPolls-role-0o7z5cub"
 
 # Check if required files exist
-if [ ! -f "popularPolls.js" ]; then
-    echo "Error: popularPolls.js not found in current directory ($(pwd))"
+if [ ! -f "popularPolls.ts" ]; then
+    echo "Error: popularPolls.ts not found in current directory ($(pwd))"
+    exit 1
+fi
+
+if [ ! -f "normalize.ts" ]; then
+    echo "Error: normalize.ts not found in current directory ($(pwd))"
+    exit 1
+fi
+
+# Compile TypeScript
+echo "Compiling TypeScript..."
+npm run build
+
+# Check if compilation was successful
+if [ ! -d "dist" ]; then
+    echo "Error: TypeScript compilation failed"
     exit 1
 fi
 
 # Create deployment package
 rm -f $ZIP_FILE  # Remove any existing zip file
-zip -r $ZIP_FILE popularPolls.js
+cd dist && zip -r ../$ZIP_FILE . && cd ..
 
 # Check if zip file was created successfully
 if [ ! -f "$ZIP_FILE" ]; then
