@@ -1,7 +1,6 @@
 // Import the S3Client and GetObjectCommand from the AWS SDK
 const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getIPInfo } = require('./from_ipInfos/ipCountryLookup');
-const https = require('https');
 const { Lambda } = require('@aws-sdk/client-lambda');
 
 /* schema of csv file:
@@ -154,6 +153,23 @@ const validateSessionToken = async (email, sessionToken) => {
     } catch (error) {
         console.error('Session validation error:', error);
         return null;
+    }
+};
+
+const checkIfPollDisabled = async (poll, bucketName) => {
+    try {
+        // Check for disabled file in the poll's root directory
+        const disabledFilePath = `votes/poll=${poll}/disabled`;
+        await fetchFileFromS3(bucketName, disabledFilePath);
+        // If file exists (no error thrown), poll is disabled
+        return true;
+    } catch (error) {
+        if (error.name === 'NoSuchKey') {
+            return false;
+        }
+        // For other errors, log and assume poll is not disabled
+        console.error('Error checking disabled status:', error);
+        return false;
     }
 };
 
@@ -343,6 +359,18 @@ module.exports.handler = async (event) => {
     });
 
     const bucketName = 'ipvotes';
+
+    // Check if poll is disabled before processing vote
+    const isDisabled = await checkIfPollDisabled(pollPath, bucketName);
+    if (isDisabled) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Voting has been permanently disabled for this poll',
+                time: new Date()
+            }),
+        };
+    }
 
     let data = ''
     try {
