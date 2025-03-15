@@ -130,7 +130,9 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
                 minWidth: 0
               }}
               title={vote.vote}>
-                {vote.vote.length > MAX_CHARS ? vote.vote.slice(0, MAX_CHARS - 3) + '...' : vote.vote}
+                {vote.vote.length > MAX_CHARS * 0.6 
+                  ? vote.vote.slice(0, Math.floor(MAX_CHARS * 0.6) - 3) + '...' 
+                  : vote.vote}
               </span>
             </div>
           );
