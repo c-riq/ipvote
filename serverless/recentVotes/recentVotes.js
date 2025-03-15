@@ -2,7 +2,7 @@ const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/clien
 
 const s3Client = new S3Client();
 const RECENT_VOTES_FILE = 'recent_votes/all_polls.json';
-const MAX_VOTES = 100;
+const MAX_VOTES = 300;
 
 const fetchRecentVotes = async (bucketName) => {
     try {
