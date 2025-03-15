@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { RECENT_VOTES_FILE } from '../../constants';
 
+const MAX_CHARS = 80;
+
 interface RecentVote {
   poll: string;
   vote: string;
@@ -68,10 +70,12 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
           } else if (
             voteDate.toDateString() === new Date(today.setDate(today.getDate() - 1)).toDateString()
           ) {
-            timeDisplay = `Yesterday ${voteDate.toLocaleTimeString()}`;
+            timeDisplay = `Yesterday\n${voteDate.toLocaleTimeString()}`;
           } else {
-            timeDisplay = voteDate.toLocaleDateString() + ' ' + voteDate.toLocaleTimeString();
+            timeDisplay = `${voteDate.toLocaleDateString()}\n${voteDate.toLocaleTimeString()}`;
           }
+          
+          timeDisplay = timeDisplay.length > MAX_CHARS ? timeDisplay.slice(0, MAX_CHARS - 3) + '...' : timeDisplay;
           
           return (
             <div key={index} style={{ 
@@ -84,10 +88,12 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
             }}>
               <span style={{ 
                 color: '#666',
-                whiteSpace: 'nowrap',
+                whiteSpace: 'pre-line',
                 overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}>
+                textOverflow: 'ellipsis',
+                lineHeight: '1.2'
+              }}
+              title={timeDisplay}>
                 {timeDisplay}
               </span>
               <span 
@@ -100,21 +106,27 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
                   textOverflow: 'ellipsis'
                 }}
                 onClick={(e) => onPollClick(vote.poll, e)}
+                title={vote.poll.replace(/^open_/, '').replace(/%2C/g, ',')}
               >
-                {vote.poll.replace(/^open_/, '').replace(/%2C/g, ',')}
+                {(vote.poll.replace(/^open_/, '').replace(/%2C/g, ',').length > MAX_CHARS 
+                  ? vote.poll.replace(/^open_/, '').replace(/%2C/g, ',').slice(0, MAX_CHARS - 3) + '...'
+                  : vote.poll.replace(/^open_/, '').replace(/%2C/g, ',')
+                )}
               </span>
               <span style={{
                 overflow: 'hidden',
                 textOverflow: 'ellipsis'
-              }}>
-                {vote.vote}
+              }}
+              title={vote.vote}>
+                {vote.vote.length > MAX_CHARS ? vote.vote.slice(0, MAX_CHARS - 3) + '...' : vote.vote}
               </span>
               <span style={{ 
                 color: '#666',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis'
-              }}>
+              }}
+              title={`${getCountryFlag(vote.country)} ${vote.country}`}>
                 {getCountryFlag(vote.country)} {vote.country}
               </span>
             </div>
