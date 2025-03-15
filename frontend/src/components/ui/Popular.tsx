@@ -186,8 +186,9 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
   }
 
   const handlePollClick = (poll: string, event: React.MouseEvent) => {
+    const parsedPoll = poll.replace('%2C', ',')
     const isOpen = poll.startsWith('open_')
-    const path = isOpen ? `/open/${encodeURIComponent(poll.replace(/^open_/g, ''))}` : `/${encodeURIComponent(poll)}`
+    const path = isOpen ? `/open/${encodeURIComponent(parsedPoll.replace(/^open_/g, ''))}` : `/${encodeURIComponent(parsedPoll)}`
     if (event.metaKey || event.ctrlKey) {
       // Open in new tab
       window.open(path, '_blank')
