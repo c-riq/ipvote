@@ -52,13 +52,16 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
       marginBottom: '20px',
       maxHeight: '200px',
       overflow: 'auto',
-      maxWidth: '500px'
+      maxWidth: '500px',
+      minWidth: 0,
+      width: '100%'
     }}>
       <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>Recent Votes</h4>
       <div style={{ 
         display: 'flex', 
         flexDirection: 'column', 
-        gap: '4px'
+        gap: '4px',
+        minWidth: 0
       }}>
         {recentVotes.slice(0, 80).map((vote, index) => {
           const voteDate = new Date(vote.timestamp);
@@ -81,20 +84,25 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
             <div key={index} style={{ 
               fontSize: '12px',
               display: 'grid',
-              gridTemplateColumns: '100px minmax(100px, 1.5fr) minmax(60px, 1fr) 100px',
-              gap: '8px',
-              alignItems: 'center',
-              padding: '4px 0'
+              gridTemplateColumns: 'minmax(68px, 80px) minmax(100px, 2fr) minmax(40px, 0.7fr)',
+              gap: '4px',
+              alignItems: 'start',
+              padding: '4px 0',
+              minWidth: 0,
+              width: '100%'
             }}>
               <span style={{ 
                 color: '#666',
                 whiteSpace: 'pre-line',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                lineHeight: '1.2'
+                lineHeight: '1.2',
+                textAlign: 'left',
+                minWidth: 0,
+                fontSize: '11px'
               }}
-              title={timeDisplay}>
-                {timeDisplay}
+              title={`${timeDisplay} - ${vote.country}`}>
+                {getCountryFlag(vote.country)} {vote.country} {'\n'}{timeDisplay}
               </span>
               <span 
                 style={{ 
@@ -103,7 +111,9 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
                   color: '#1976d2',
                   textDecoration: 'underline',
                   overflow: 'hidden',
-                  textOverflow: 'ellipsis'
+                  textOverflow: 'ellipsis',
+                  textAlign: 'left',
+                  minWidth: 0
                 }}
                 onClick={(e) => onPollClick(vote.poll, e)}
                 title={vote.poll.replace(/^open_/, '').replace(/%2C/g, ',')}
@@ -115,19 +125,12 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
               </span>
               <span style={{
                 overflow: 'hidden',
-                textOverflow: 'ellipsis'
+                textOverflow: 'ellipsis',
+                textAlign: 'left',
+                minWidth: 0
               }}
               title={vote.vote}>
                 {vote.vote.length > MAX_CHARS ? vote.vote.slice(0, MAX_CHARS - 3) + '...' : vote.vote}
-              </span>
-              <span style={{ 
-                color: '#666',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}
-              title={`${getCountryFlag(vote.country)} ${vote.country}`}>
-                {getCountryFlag(vote.country)} {vote.country}
               </span>
             </div>
           );
