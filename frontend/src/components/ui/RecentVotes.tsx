@@ -63,7 +63,7 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
         gap: '4px',
         minWidth: 0
       }}>
-        {recentVotes.slice(0, 80).map((vote, index) => {
+        {recentVotes.slice(0, 200).map((vote, index) => {
           const voteDate = new Date(vote.timestamp);
           const today = new Date();
           let timeDisplay;
