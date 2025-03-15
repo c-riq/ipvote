@@ -852,7 +852,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     if (displayPoll.includes('_or_')){
       displayPoll = displayPoll.replace(/_/g, ' ') + '?' 
     }
-    return displayPoll
+    return displayPoll.replace('%2C', ',')
   };
 
   return (
