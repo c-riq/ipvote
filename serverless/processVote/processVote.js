@@ -456,7 +456,7 @@ module.exports.handler = async (event) => {
             FunctionName: 'recentVotes',
             InvocationType: 'Event', // Asynchronous invocation
             Payload: JSON.stringify({
-                poll: poll,
+                poll: isOpen ? `open_${poll}` : poll,  // Add open_ prefix for open polls
                 vote: vote,
                 timestamp: timestamp,
                 ip: requestIp,
