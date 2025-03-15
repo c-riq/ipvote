@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import PollCard from './PollCard'
 import PrivacyAccept from './PrivacyAccept'
 import { IpInfoResponse, PhoneVerificationState } from '../../App'
-import { CAPTCHA_THRESHOLD, POPULAR_POLLS_HOST, RECENT_VOTES_FILE, VALID_TAGS } from '../../constants'
+import { CAPTCHA_THRESHOLD, POPULAR_POLLS_HOST, VALID_TAGS } from '../../constants'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import RecentVotes from './RecentVotes'
 
