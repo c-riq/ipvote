@@ -49,10 +49,15 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
       borderRadius: '8px',
       marginBottom: '20px',
       maxHeight: '200px',
-      overflow: 'auto'
+      overflow: 'auto',
+      maxWidth: '500px'
     }}>
       <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>Recent Votes</h4>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: '4px'
+      }}>
         {recentVotes.slice(0, 80).map((vote, index) => {
           const voteDate = new Date(vote.timestamp);
           const today = new Date();
@@ -71,14 +76,18 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
           return (
             <div key={index} style={{ 
               fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
+              display: 'grid',
+              gridTemplateColumns: '100px minmax(100px, 1.5fr) minmax(60px, 1fr) 100px',
               gap: '8px',
-              maxWidth: '500px',
-              overflowWrap: 'break-word',
-              wordBreak: 'break-word'
+              alignItems: 'center',
+              padding: '4px 0'
             }}>
-              <span style={{ color: '#666' }}>
+              <span style={{ 
+                color: '#666',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
                 {timeDisplay}
               </span>
               <span 
@@ -86,15 +95,27 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
                   fontWeight: 'bold', 
                   cursor: 'pointer',
                   color: '#1976d2',
-                  textDecoration: 'underline'
+                  textDecoration: 'underline',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
                 }}
                 onClick={(e) => onPollClick(vote.poll, e)}
               >
-                {vote.poll.replace(/^open_/, '').replace(/%2C/g, ',')}:
+                {vote.poll.replace(/^open_/, '').replace(/%2C/g, ',')}
               </span>
-              <span>{vote.vote}</span>
-              <span style={{ color: '#666' }}>
-                from {getCountryFlag(vote.country)} {vote.country}
+              <span style={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {vote.vote}
+              </span>
+              <span style={{ 
+                color: '#666',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {getCountryFlag(vote.country)} {vote.country}
               </span>
             </div>
           );
