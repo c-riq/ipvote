@@ -2,6 +2,7 @@
 // record timestamp and store in S3 along with nonce and IP address
 const { S3Client, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const crypto = require('crypto');
+const fs = require('fs');
 
 /*
 - change file name from index.mjs to index.js in AWS Lambda
@@ -18,8 +19,14 @@ const DELAY = 1000; // to have a predictable delay. s3 requests fail if lambda r
 
 const awsRegionOfMaster = 'us-east-1';
 
-// Add TOTP encryption constants and function
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+// Read and parse ENCRYPTION_KEY from .env file
+const envFile = fs.readFileSync('.env', 'utf8');
+const encryptionKeyMatch = envFile.match(/ENCRYPTION_KEY=(.+)/);
+if (!encryptionKeyMatch) {
+    throw new Error('ENCRYPTION_KEY not found in .env file');
+}
+const ENCRYPTION_KEY = encryptionKeyMatch[1];
+
 const IV_LENGTH = 16;
 
 const encrypt = (text) => {
@@ -58,19 +65,16 @@ exports.handler = async (event, context) => {
 
     // Handle TOTP1 request
     if (getTOTP1 === 'true') {
-        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const timestamp = Date.now();
         const dataToEncrypt = `${timestamp}:${ip}`;
         const encryptedData = encrypt(dataToEncrypt);
 
         return {
             statusCode: 200,
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'text/plain',
             },
-            body: JSON.stringify({
-                token: encryptedData,
-                expires: parseInt(timestamp) + 300
-            })
+            body: encryptedData
         };
     }
 
@@ -95,21 +99,16 @@ exports.handler = async (event, context) => {
             }
 
             // Get current timestamp with millisecond precision
-            const timestamp2 = Date.now().toString();
+            const timestamp2 = Date.now();
             const dataToEncrypt = `${timestamp1}:${timestamp2}:${ip}`;
             const encryptedData = encrypt(dataToEncrypt);
 
             return {
                 statusCode: 200,
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'text/plain',
                 },
-                body: JSON.stringify({
-                    token: encryptedData,
-                    timestamp1,
-                    timestamp2,
-                    expires: Math.floor(Date.now() / 1000) + 300
-                })
+                body: encryptedData
             };
         } catch (error) {
             return {
