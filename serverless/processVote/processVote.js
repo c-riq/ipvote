@@ -174,6 +174,28 @@ const checkIfPollDisabled = async (poll, bucketName) => {
 };
 
 module.exports.handler = async (event) => {
+    // Add header validation at the start of the handler
+    const origin = event.headers?.origin || '';
+    const referer = event.headers?.referer || '';
+    
+    const allowedOrigins = ['http://localhost:5173', 'https://ip-vote.com'];
+    const isValidOrigin = allowedOrigins.includes(origin) || allowedOrigins.includes(origin.replace(/\/$/, ''));
+    const isValidReferer = allowedOrigins.some(allowed => 
+        referer === allowed || 
+        referer.startsWith(allowed + '/')
+    );
+
+    if (!isValidOrigin || !isValidReferer) {
+        console.log('Invalid origin or referer:', { origin, referer });
+        return {
+            statusCode: 403,
+            body: JSON.stringify({
+                message: 'Unauthorized request origin',
+                time: new Date()
+            }),
+        };
+    }
+
     console.log('Processing vote request:', {
         ip: event.requestContext.http.sourceIp,
         poll: event.queryStringParameters.poll,
