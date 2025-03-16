@@ -1,9 +1,15 @@
-import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { Lambda } from '@aws-sdk/client-lambda';
 import { APIGatewayProxyEventV2 as APIGatewayEvent } from 'aws-lambda';
 import { getIPInfo } from './from_ipInfos/ipCountryLookup';
-import { Readable } from 'stream';
-
+import { expandIPv6, _64bitMask, getPartitionKey } from './utils/ipUtils';
+import { fetchFileFromS3, s3Client } from './utils/s3Utils';
+import { 
+    validateCachedCaptcha, 
+    validatePhoneToken, 
+    validateSessionToken,
+    checkIfPollDisabled 
+} from './utils/validators';
 
 interface APIResponse {
     statusCode: number;
@@ -18,172 +24,7 @@ time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,
 // TODO: check which polls exceed the threshold to require captcha
 const pollsToRequireCaptcha: string[] = []
 
-const s3Client = new S3Client(); 
 const lambda = new Lambda();
-
-const fetchFileFromS3 = async (bucketName: string, key: string): Promise<string> => {
-    const getObjectParams = {
-        Bucket: bucketName,
-        Key: key,
-    };
-    
-    const command = new GetObjectCommand(getObjectParams);
-    const response = await s3Client.send(command);
-    if (!response.Body) {
-        throw new Error('Empty response body');
-    }
-    const fileContents = await streamToString(response.Body as Readable);
-    return fileContents;
-};
-
-const expandIPv6 = (ip: string): string => {
-    if (ip.includes('::')) {
-        const [prefix, suffix] = ip.split('::');
-        const prefixParts = prefix.split(':');
-        const suffixParts = suffix.split(':');
-        const missingParts = 8 - prefixParts.length - suffixParts.length;
-        const expanded = prefixParts.concat(Array(missingParts).fill('0000')).concat(suffixParts);
-        return expanded.join(':');
-    }
-    return ip;
-}
-
-const _64bitMask = (ip: string): string => {
-    const parts = ip.split(':');
-    const mask = parts.slice(0, 4).map(i => i.padStart(4, '0')).join(':');
-    return mask;
-}
-
-// Helper function to convert stream to string
-const streamToString = (stream: Readable): Promise<string> =>
-    new Promise((resolve, reject) => {
-        const chunks: Buffer[] = [];
-        stream.on('data', (chunk) => chunks.push(chunk));
-        stream.on('error', reject);
-        stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-    });
-
-const getPartitionKey = (ip: string): string => {
-    if (ip.includes(':')) { 
-        const firstPart = ip.split(':')[0]
-        const paddedIp = firstPart.padStart(4, '0');
-        return paddedIp.substring(0, 2);
-    }
-    if (ip.includes('.')) {
-        const firstPart = ip.split('.')[0]
-        const paddedIp = firstPart.padStart(3, '0');
-        return paddedIp.substring(0, 2);
-    }
-    throw new Error('Invalid IP address');
-};
-
-const validateCachedCaptcha = async (ip: string, token: string, bucketName: string): Promise<boolean> => {
-    const fileName = 'captcha_cache/verifications.csv';
-    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000; // One week in milliseconds
-    
-    try {
-        const data = await fetchFileFromS3(bucketName, fileName);
-        const lines = data.split('\n');
-        
-        for (let i = 1; i < lines.length; i++) { // Skip header
-            const [cachedIp, cachedToken, timestamp] = lines[i].split(',');
-            if (!cachedIp || !cachedToken || !timestamp) continue;
-            
-            // Check if this verification is for the same IP and token
-            if (cachedIp === ip && cachedToken === token) {
-                const verificationTime = parseInt(timestamp);
-                const now = Date.now();
-                // Verify that the token is not older than one week
-                if (now - verificationTime < oneWeekInMs) {
-                    return true;
-                }
-            }
-        }
-    } catch (error) {
-        console.error('Error validating cached captcha:', error);
-    }
-    return false;
-};
-
-const validatePhoneToken = async (phoneNumber: string, token: string, bucketName: string): Promise<boolean> => {
-    const fileName = 'phone_number/verification.csv';
-    const monthInMs = 31 * 24 * 60 * 60 * 1000; // One month in milliseconds
-    
-    try {
-        const data = await fetchFileFromS3(bucketName, fileName);
-        const lines = data.split('\n');
-        
-        for (let i = 1; i < lines.length; i++) { // Skip header
-            const [timestamp, storedPhone, storedToken] = lines[i].split(',');
-            if (!storedPhone || !storedToken || !timestamp) continue;
-            
-            // Check if this verification is for the same phone and token
-            if (storedPhone === phoneNumber && storedToken === token) {
-                const verificationTime = parseInt(timestamp);
-                const now = Date.now();
-                // Verify that the token is not older than one month
-                if (now - verificationTime < monthInMs) {
-                    return true;
-                }
-            }
-        }
-    } catch (error) {
-        console.error('Error validating phone token:', error);
-    }
-    return false;
-};
-
-// Add new helper function to validate session token and get user ID
-const validateSessionToken = async (email: string, sessionToken: string): Promise<string | null> => {
-    if (!email || !sessionToken) return null;
-    
-    const partition = email.charAt(0).toLowerCase();
-    const userFilePath = `users/${partition}/users.json`;
-
-    try {
-        const command = new GetObjectCommand({
-            Bucket: 'ipvote-auth',
-            Key: userFilePath
-        });
-        const response = await s3Client.send(command);
-        if (!response.Body) {
-            throw new Error('Empty response body');
-        }
-        const data = await response.Body.transformToString();
-        const users = JSON.parse(data);
-        const user = users[email];
-
-        if (!user || !user.sessions) return null;
-
-        const currentTime = Math.floor(Date.now() / 1000);
-        const isValidToken = user.sessions.some((token: string) => {
-            const [tokenValue, expiry] = token.split('_');
-            return token === sessionToken && parseInt(expiry) > currentTime;
-        });
-
-        return isValidToken ? user.userId : null;
-    } catch (error) {
-        console.error('Session validation error:', error);
-        return null;
-    }
-};
-
-const checkIfPollDisabled = async (poll: string, bucketName: string): Promise<boolean> => {
-    try {
-        // Check for disabled file in the poll's root directory
-        const disabledFilePath = `votes/poll=${poll}/disabled`;
-        await fetchFileFromS3(bucketName, disabledFilePath);
-        // If file exists (no error thrown), poll is disabled
-        return true;
-    } catch (error: unknown) {
-        if (error && typeof error === 'object' && 'name' in error && error.name === 'NoSuchKey') {
-            return false;
-        }
-        // For other errors, log and assume poll is not disabled
-        console.error('Error checking disabled status:', error);
-        return false;
-    }
-};
 
 export const handler = async (event: APIGatewayEvent): Promise<APIResponse> => {
     const origin = event.headers?.origin || '';
