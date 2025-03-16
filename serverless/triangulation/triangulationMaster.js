@@ -1,6 +1,7 @@
 // AWS lambda node.js to respond with random nonce
 // record timestamp and store in S3 along with nonce and IP address
 const { S3Client, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const crypto = require('crypto');
 
 /*
 - change file name from index.mjs to index.js in AWS Lambda
@@ -17,6 +18,18 @@ const DELAY = 1000; // to have a predictable delay. s3 requests fail if lambda r
 
 const awsRegionOfMaster = 'us-east-1';
 
+// Add TOTP encryption constants and function
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+const IV_LENGTH = 16;
+
+const encrypt = (text) => {
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+    let encrypted = cipher.update(text);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return iv.toString('hex') + ':' + encrypted.toString('hex');
+};
+
 exports.handler = async (event, context) => {
     const lambdaStartTimestamp = new Date().getTime();
     //context.callbackWaitsForEmptyEventLoop = !!IS_SLAVE; // does not work
@@ -26,6 +39,50 @@ exports.handler = async (event, context) => {
     const clientStartTimestamp = event.queryStringParameters?.clientStartTimestamp;
     const clientReceivedNonceTimestamp = event.queryStringParameters?.clientReceivedNonceTimestamp;
     const ip = event.requestContext.http.sourceIp;
+
+    // Add TOTP handling
+    const getTOTP1 = event.queryStringParameters?.getTOTP1;
+    const getTOTP2 = event.queryStringParameters?.getTOTP2;
+    const TOTP1 = event.queryStringParameters?.TOTP1;
+
+    // Handle TOTP1 request
+    if (getTOTP1 === 'true') {
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const dataToEncrypt = `${timestamp}:${ip}`;
+        const encryptedData = encrypt(dataToEncrypt);
+
+        return {
+            statusCode: 200,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                token: encryptedData,
+                expires: parseInt(timestamp) + 300
+            })
+        };
+    }
+
+    // Handle TOTP2 request
+    if (getTOTP2 === 'true' && TOTP1) {
+        const timestamp1 = Math.floor(Date.now() / 1000).toString();
+        const timestamp2 = Math.floor(Date.now() / 1000).toString();
+        const dataToEncrypt = `${timestamp1}:${timestamp2}:${ip}`;
+        const encryptedData = encrypt(dataToEncrypt);
+
+        return {
+            statusCode: 200,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                token: encryptedData,
+                timestamp1,
+                timestamp2,
+                expires: parseInt(timestamp2) + 300
+            })
+        };
+    }
 
     if (!proxyId && !nonce) {
         // master initial request
