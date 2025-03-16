@@ -30,6 +30,17 @@ const encrypt = (text) => {
     return iv.toString('hex') + ':' + encrypted.toString('hex');
 };
 
+// Add decrypt function
+const decrypt = (text) => {
+    const [ivHex, encryptedHex] = text.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+    const encrypted = Buffer.from(encryptedHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+    let decrypted = decipher.update(encrypted);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString();
+};
+
 exports.handler = async (event, context) => {
     const lambdaStartTimestamp = new Date().getTime();
     //context.callbackWaitsForEmptyEventLoop = !!IS_SLAVE; // does not work
@@ -65,23 +76,52 @@ exports.handler = async (event, context) => {
 
     // Handle TOTP2 request
     if (getTOTP2 === 'true' && TOTP1) {
-        const timestamp1 = Math.floor(Date.now() / 1000).toString();
-        const timestamp2 = Math.floor(Date.now() / 1000).toString();
-        const dataToEncrypt = `${timestamp1}:${timestamp2}:${ip}`;
-        const encryptedData = encrypt(dataToEncrypt);
+        try {
+            // Decrypt and validate TOTP1
+            const decryptedTOTP1 = decrypt(TOTP1);
+            const [timestamp1, storedIP] = decryptedTOTP1.split(':');
 
-        return {
-            statusCode: 200,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                token: encryptedData,
-                timestamp1,
-                timestamp2,
-                expires: parseInt(timestamp2) + 300
-            })
-        };
+            // Validate IP
+            if (storedIP !== ip) {
+                return {
+                    statusCode: 403,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        error: 'IP address mismatch'
+                    })
+                };
+            }
+
+            // Get current timestamp with millisecond precision
+            const timestamp2 = Date.now().toString();
+            const dataToEncrypt = `${timestamp1}:${timestamp2}:${ip}`;
+            const encryptedData = encrypt(dataToEncrypt);
+
+            return {
+                statusCode: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    token: encryptedData,
+                    timestamp1,
+                    timestamp2,
+                    expires: Math.floor(Date.now() / 1000) + 300
+                })
+            };
+        } catch (error) {
+            return {
+                statusCode: 400,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    error: 'Invalid TOTP1 token'
+                })
+            };
+        }
     }
 
     if (!proxyId && !nonce) {
