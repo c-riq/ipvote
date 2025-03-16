@@ -25,13 +25,16 @@ const encryptionKeyMatch = envFile.match(/ENCRYPTION_KEY=(.+)/);
 if (!encryptionKeyMatch) {
     throw new Error('ENCRYPTION_KEY not found in .env file');
 }
-const ENCRYPTION_KEY = encryptionKeyMatch[1];
+// Convert the key to exactly 32 bytes using SHA-256
+const ENCRYPTION_KEY_AES = crypto.createHash('sha256')
+    .update(encryptionKeyMatch[1])
+    .digest();
 
 const IV_LENGTH = 16;
 
 const encrypt = (text) => {
     const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY_AES), iv);
     let encrypted = cipher.update(text);
     encrypted = Buffer.concat([encrypted, cipher.final()]);
     return iv.toString('hex') + ':' + encrypted.toString('hex');
@@ -42,7 +45,7 @@ const decrypt = (text) => {
     const [ivHex, encryptedHex] = text.split(':');
     const iv = Buffer.from(ivHex, 'hex');
     const encrypted = Buffer.from(encryptedHex, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY_AES), iv);
     let decrypted = decipher.update(encrypted);
     decrypted = Buffer.concat([decrypted, decipher.final()]);
     return decrypted.toString();
