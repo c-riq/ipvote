@@ -18,6 +18,7 @@ export interface MeasurementRound {
     serverStartTime: number
     serverFinishTime: number
     clientFinishTime: number
+    TOTP2: string
   }[]
   inferredData: {
     latencies: { region: string; value: number }[]
@@ -124,7 +125,8 @@ export async function performLatencyMeasurements(
             clientStartTime,
             serverStartTime: timestamp1,
             serverFinishTime: timestamp2,
-            clientFinishTime
+            clientFinishTime,
+            TOTP2: totp2
           })
 
           round.inferredData.latencies.push({
@@ -150,20 +152,30 @@ export async function performLatencyMeasurements(
   return { allMeasurementRounds }
 }
 
-export async function triggerLatencyMeasurementIfNeeded(currentIp: string): Promise<void> {
-  const STORAGE_KEY = 'lastMeasuredIp';
-  const lastMeasuredIp = localStorage.getItem(STORAGE_KEY);
-
-  if (lastMeasuredIp === currentIp) {
-    return;
+export async function getLatencyTokens(currentIp: string): Promise<[ string, string][]> {
+  const STORAGE_KEY = 'latencyMeasurement';
+  const exsistingMeasurement = localStorage.getItem(STORAGE_KEY);
+  if (exsistingMeasurement) {
+    // {ip, latencyTokens:[[datacenter, TOTP2],...]}
+    const result = JSON.parse(exsistingMeasurement);
+    if (result.ip === currentIp) {
+      return result.latencyTokens;
+    }
   }
 
-  await performLatencyMeasurements(
+  const result = await performLatencyMeasurements(
     () => {},
     () => {},
     () => {},
   );
+  const allMeasurementRounds = result.allMeasurementRounds;
+  const latencyTokens: [string, string][] = [];
+  for (const round of allMeasurementRounds) {
+    for (const timestamp of round.timestamps) {
+      latencyTokens.push([timestamp.region, timestamp.TOTP2]);
+    }
+  }
 
-  localStorage.setItem(STORAGE_KEY, currentIp);
-
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ip: currentIp, latencyTokens}));
+  return latencyTokens;
 }

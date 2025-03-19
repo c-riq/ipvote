@@ -26,7 +26,7 @@ import IPBlockMap from './IPBlockMap'
 import IPv6BlockMap from './IPv6BlockMap'
 import ASNTreemap from './ASNTreemap'
 import { IpInfoResponse, PhoneVerificationState } from '../App'
-import { triggerLatencyMeasurementIfNeeded } from '../utils/latencyTriangulation'
+import { getLatencyTokens } from '../utils/latencyTriangulation'
 import { parseCSV, hasRequiredFields } from '../utils/csvParser'
 import { CAPTCHA_THRESHOLD, IPVOTES_S3_BUCKET_HOST, POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
@@ -378,6 +378,13 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
       if (email && sessionToken) {
         params.append('email', email);
         params.append('sessionToken', sessionToken);
+      } else {
+        setMeasuringLatency(true)
+        const latencyTokens = await getLatencyTokens(userIpInfo?.ip || '')
+        for (const [region, token] of latencyTokens) {
+          params.append('latencyTokens', `${region}:${token}`)
+        }
+        setMeasuringLatency(false)
       }
 
       const response = await fetch(`${SUBMIT_VOTE_HOST}/?${params.toString()}`);
@@ -388,11 +395,6 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
         fetch(
           `${POPULAR_POLLS_HOST}/?limit=15&offset=0&seed=1&q=&pollToUpdate=${encodeURIComponent(poll)}`
         )
-        if (userIpInfo?.ip && requireCaptcha) {
-          setMeasuringLatency(true)
-          await triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
-          setMeasuringLatency(false)
-        }
       } else {
         setMessage(JSON.parse(data)?.message || data)
         if (data.includes('captcha')) {

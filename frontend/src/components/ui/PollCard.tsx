@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, Typography, Box, Button, Tooltip, Alert, CircularProgress } from '@mui/material'
-import { triggerLatencyMeasurementIfNeeded } from '../../utils/latencyTriangulation'
+//import { triggerLatencyMeasurementIfNeeded } from '../../utils/latencyTriangulation'
 import { IpInfoResponse, PhoneVerificationState } from '../../App'
 import { SUBMIT_VOTE_HOST } from '../../constants'
 import AttachmentIcon from '@mui/icons-material/Attachment';
@@ -80,7 +80,7 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
         handleVote(poll)
         if (userIpInfo?.ip && requireCaptcha) {
           setMeasuringLatency(true)
-          await triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
+          //await triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
           setMeasuringLatency(false)
         }
       } else {
