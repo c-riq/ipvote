@@ -6,8 +6,8 @@ import Plot from 'react-plotly.js'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import PrivacyAccept from './PrivacyAccept'
 import { Data } from 'plotly.js'
-import { performLatencyMeasurementsV2, LatencyMessage } from '../../utils/latencyTriangulationV2'
-import { dataCenters, TriangulationReport } from '../../utils/latencyTriangulation'
+import { performLatencyMeasurements, LatencyMessage, TriangulationReport } from '../../utils/latencyTriangulation'
+import { dataCenters } from '../../utils/dataCenters'
 // Add type for the country geometry
 interface CountryGeometry {
   type: 'Polygon' | 'MultiPolygon';
@@ -165,7 +165,6 @@ const calculateIntersectingCountries = (sortedCircles: {
 
 function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captchaToken, setCaptchaToken }: GeolocationProps) {
   const [messages, setMessages] = useState<LatencyMessage[]>([])
-  const [clockOffsets, setClockOffsets] = useState<ClockOffset[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
@@ -377,15 +376,13 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
   const triggerTriangulationMeasurements = async () => {
     setIsLoading(true)
     setMessages([])
-    setClockOffsets([])
     setProgress(0)
     setHasHighLatency(false)
     
-    const { allMeasurementRounds } = await performLatencyMeasurementsV2(
+    const { allMeasurementRounds } = await performLatencyMeasurements(
       (progress) => setProgress(progress),
       (activity) => setCurrentActivity(activity),
-      (message) => setMessages(prev => [...prev, message]),
-      (offset) => setClockOffsets(prev => [...prev, offset])
+      (message) => setMessages(prev => [...prev, message])
     )
 
     // Use the same calculation function
@@ -430,7 +427,7 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
     };
 
     try {
-      await fetch(`${dataCenters.find(dc => dc.name_long === 'us-east-1')?.url}/?nonce=${firstNonce || 'no_nonce'}`, {
+      await fetch(`${dataCenters.find(dc => dc.name_long === 'us-east-1')?.url}?nonce=${Math.random().toString(36).substring(2, 15)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -504,17 +501,13 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
   const plotData: Data[] = dataCenters.map(dc => ({
     name: dc.name,
     type: 'scatter' as const,
-    mode: 'text+markers' as const,
+    mode: 'markers' as const,
     x: messages
       .filter(msg => msg.region === dc.name)
+      .map(msg => msg.measurementIndex !== undefined ? msg.measurementIndex + 1 : 0),
+    y: messages
+      .filter(msg => msg.region === dc.name)
       .map(msg => msg.latency),
-    y: clockOffsets
-      .filter(offset => offset.region === dc.name)
-      .map(offset => offset.offset_slave),
-    text: clockOffsets
-      .filter(offset => offset.region === dc.name)
-      .map(offset => `#${offset.measurementIndex! + 1}`),
-    textposition: 'top center' as const,
     marker: {
       color: dc.color,
       size: 8
@@ -602,10 +595,10 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
       
       <Box sx={{ my: 4, height: 400 }} ref={mapContainer} />
 
-      {clockOffsets.length > 0 && messages.length > 0 && (
+      {messages.length > 0 && (
         <Box sx={{ mt: 4 }}>
           <Typography variant="h6" gutterBottom>
-            Latency vs Clock Offset:
+            Latency Measurements:
           </Typography>
           <Box sx={{ height: 300 }}>
             <Plot
@@ -615,18 +608,20 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
                 height: 300,
                 xaxis: {
                   title: {
-                    text: 'Latency (ms)',
-                    standoff: 10
-                  },
-                  zeroline: true
-                },
-                yaxis: {
-                  title: {
-                    text: 'Clock Offset (ms)',
+                    text: 'Measurement Round',
                     standoff: 10
                   },
                   zeroline: true,
-                  tickformat: '.1f',
+                  tickmode: 'linear',
+                  tick0: 1,
+                  dtick: 1
+                },
+                yaxis: {
+                  title: {
+                    text: 'Latency (ms)',
+                    standoff: 10
+                  },
+                  zeroline: true,
                   automargin: true
                 },
                 hovermode: 'closest',
