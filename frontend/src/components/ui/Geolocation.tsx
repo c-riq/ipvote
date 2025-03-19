@@ -6,8 +6,8 @@ import Plot from 'react-plotly.js'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import PrivacyAccept from './PrivacyAccept'
 import { Data } from 'plotly.js'
-import { performLatencyMeasurements, LatencyMessage, ClockOffset, dataCenters, TriangulationReport } from '../../utils/latencyTriangulation'
-
+import { performLatencyMeasurementsV2, LatencyMessage } from '../../utils/latencyTriangulationV2'
+import { dataCenters, TriangulationReport } from '../../utils/latencyTriangulation'
 // Add type for the country geometry
 interface CountryGeometry {
   type: 'Polygon' | 'MultiPolygon';
@@ -381,7 +381,7 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
     setProgress(0)
     setHasHighLatency(false)
     
-    const { allMeasurementRounds, firstNonce } = await performLatencyMeasurements(
+    const { allMeasurementRounds } = await performLatencyMeasurementsV2(
       (progress) => setProgress(progress),
       (activity) => setCurrentActivity(activity),
       (message) => setMessages(prev => [...prev, message]),

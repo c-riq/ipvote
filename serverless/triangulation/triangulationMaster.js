@@ -64,7 +64,9 @@ exports.handler = async (event, context) => {
     // Add TOTP handling
     const getTOTP1 = event.queryStringParameters?.getTOTP1;
     const getTOTP2 = event.queryStringParameters?.getTOTP2;
+    const getLatency = event.queryStringParameters?.getLatency;
     const TOTP1 = event.queryStringParameters?.TOTP1;
+    const TOTP2 = event.queryStringParameters?.TOTP2;
 
     // Handle TOTP1 request
     if (getTOTP1 === 'true') {
@@ -121,6 +123,66 @@ exports.handler = async (event, context) => {
                 },
                 body: JSON.stringify({
                     error: 'Invalid TOTP1 token'
+                })
+            };
+        }
+    }
+
+    // Handle getLatency request
+    if (getLatency === 'true' && TOTP2) {
+        try {
+
+            // Decrypt and validate TOTP2
+            const decryptedTOTP2 = decrypt(TOTP2);
+            const [timestamp1, timestamp2, storedIP2] = decryptedTOTP2.split(':');
+
+            // Validate timestamps and IPs
+            if (storedIP2 !== ip) {
+                return {
+                    statusCode: 403,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        error: 'Invalid TOTP tokens'
+                    })
+                };
+            }
+
+            const currentTime = Date.now();
+            const maxAge = 30 * 1000 * 60; // 30 minutes in milliseconds
+            if (currentTime - parseInt(timestamp2) > maxAge) {
+                return {
+                    statusCode: 403,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        error: 'TOTP tokens expired'
+                    })
+                };
+            }
+
+            return {
+                statusCode: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    timestamp1: timestamp1,
+                    timestamp2: timestamp2,
+                    // @ts-ignore
+                    dt: timestamp2 - timestamp1 
+                })
+            };
+        } catch (error) {
+            return {
+                statusCode: 400,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    error: 'Invalid tokens'
                 })
             };
         }

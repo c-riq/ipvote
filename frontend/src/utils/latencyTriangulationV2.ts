@@ -1,0 +1,142 @@
+import { DataCenter, dataCenters, delay, MEASUREMENT_ROUND_DELAY_MS } from './latencyTriangulation'
+
+export interface TOTPResponse {
+  token: string
+}
+
+export interface LatencyMessage {
+  region: string
+  latency: number
+  measurementIndex?: number
+}
+
+export interface MeasurementRound {
+  roundNumber: number
+  timestamps: {
+    region: string
+    clientStartTime: number
+    serverStartTime: number
+    serverFinishTime: number
+    clientFinishTime: number
+  }[]
+  inferredData: {
+    latencies: { region: string; value: number }[]
+    clockOffsets: { region: string; master: number; slave: number }[]
+  }
+}
+
+async function getTOTP1(datacenter: DataCenter): Promise<string> {
+  const response = await fetch(`${datacenter.url}?getTOTP1=true`)
+  if (!response.ok) {
+    throw new Error(`Failed to get TOTP1 from ${datacenter.name}`)
+  }
+  return await response.text()
+}
+
+async function getTOTP2(datacenter: DataCenter, totp1: string): Promise<string> {
+  const response = await fetch(`${datacenter.url}?getTOTP2=true&TOTP1=${encodeURIComponent(totp1)}`)
+  if (!response.ok) {
+    throw new Error(`Failed to get TOTP2 from ${datacenter.name}`)
+  }
+  return await response.text()
+}
+
+export async function performLatencyMeasurementsV2(
+  onProgress: (progress: number) => void,
+  onActivity: (activity: string) => void,
+  onMessage: (message: LatencyMessage) => void
+): Promise<{
+  allMeasurementRounds: MeasurementRound[]
+}> {
+  const allMeasurementRounds: MeasurementRound[] = []
+
+  for (let measurementIndex = 0; measurementIndex < 3; measurementIndex++) {
+    const round: MeasurementRound = {
+      roundNumber: measurementIndex + 1,
+      timestamps: [],
+      inferredData: {
+        latencies: [],
+        clockOffsets: []
+      }
+    }
+
+    try {
+      // Only warm up in the first round
+      if (measurementIndex === 0) {
+        onActivity('Warming up connections...')
+        try {
+          await Promise.all(dataCenters.map((region) => fetch(region.url)))
+        } catch (_) {}
+      }
+
+      onProgress((measurementIndex * 100) / 3)
+      
+      onActivity(`Running measurement round ${measurementIndex + 1}/3: `)
+
+      // Wait between rounds (except for the first one)
+      if (measurementIndex > 0) {
+        onActivity(`Waiting between measurement rounds (${measurementIndex + 1}/3)...`)
+        await delay(MEASUREMENT_ROUND_DELAY_MS)
+      }
+
+      await Promise.all(
+        dataCenters.map(async (region) => {
+          const clientStartTime = Date.now()
+          
+          // Get TOTP1
+          const totp1 = await getTOTP1(region)
+          
+          // Get TOTP2
+          const totp2 = await getTOTP2(region, totp1)
+          
+          // Get latency measurement
+          const response = await fetch(
+            `${region.url}?getLatency=true&TOTP2=${encodeURIComponent(totp2)}`
+          )
+          
+          const clientFinishTime = Date.now()
+          
+          if (!response.ok) {
+            throw new Error(`Failed to get latency measurement from ${region.name}`)
+          }
+          
+          const data = await response.json()
+          const { timestamp1, timestamp2, dt } = data
+          const oneWayLatency = dt / 2
+
+          onMessage({
+            region: region.name,
+            latency: oneWayLatency,
+            measurementIndex
+          })
+
+          round.timestamps.push({
+            region: region.name_long,
+            clientStartTime,
+            serverStartTime: timestamp1,
+            serverFinishTime: timestamp2,
+            clientFinishTime
+          })
+
+          round.inferredData.latencies.push({
+            region: region.name_long,
+            value: oneWayLatency
+          })
+
+        })
+      )
+
+      allMeasurementRounds.push(round)
+
+    } catch (error) {
+      console.error('Triangulation error:', error)
+      onMessage({
+        region: 'Error',
+        latency: 0,
+        measurementIndex
+      })
+    }
+  }
+
+  return { allMeasurementRounds }
+}
