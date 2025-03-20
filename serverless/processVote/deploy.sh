@@ -2,7 +2,7 @@
 
 export AWS_PROFILE="rix-admin-chris"
 
-# Change to the directory containing processVote.js
+# Change to the directory containing processVote.ts
 cd "$(dirname "$0")"
 
 REGION="us-east-1"      # N. Virginia
@@ -12,8 +12,8 @@ PARTITION_DIR="from_ipInfos"
 ROLE_ARN="arn:aws:iam::152769399840:role/service-role/process_ip_vote-role-e2qax5j9"
 
 # Check if required files exist
-if [ ! -f "processVote.js" ]; then
-    echo "Error: processVote.js not found in current directory ($(pwd))"
+if [ ! -f "processVote.ts" ]; then
+    echo "Error: processVote.ts not found in current directory ($(pwd))"
     exit 1
 fi
 
@@ -29,9 +29,22 @@ if [ ! -d "$IP_DATA_DIR" ]; then
     exit 1
 fi
 
+# Compile TypeScript
+echo "Compiling TypeScript..."
+npm run build
+if [ $? -ne 0 ]; then
+    echo "Error: TypeScript compilation failed"
+    exit 1
+fi
+
 # Create deployment package
 rm -f $ZIP_FILE  # Remove any existing zip file
-zip -r $ZIP_FILE processVote.js "$PARTITION_DIR"
+
+# Copy from_ipInfos directory to dist before zipping
+echo "Copying from_ipInfos directory to dist..."
+cp -r $PARTITION_DIR dist/
+
+cd dist && zip -r ../$ZIP_FILE processVote.js from_ipInfos && cd ..
 
 # Check if zip file was created successfully
 if [ ! -f "$ZIP_FILE" ]; then

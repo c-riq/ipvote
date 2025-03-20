@@ -1,6 +1,8 @@
 // AWS lambda node.js to respond with random nonce
 // record timestamp and store in S3 along with nonce and IP address
 const { S3Client, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const crypto = require('crypto');
+const fs = require('fs');
 
 /*
 - change file name from index.mjs to index.js in AWS Lambda
@@ -17,6 +19,38 @@ const DELAY = 1000; // to have a predictable delay. s3 requests fail if lambda r
 
 const awsRegionOfMaster = 'us-east-1';
 
+// Read and parse ENCRYPTION_KEY from .env file
+const envFile = fs.readFileSync('.env', 'utf8');
+const encryptionKeyMatch = envFile.match(/ENCRYPTION_KEY=(.+)/);
+if (!encryptionKeyMatch) {
+    throw new Error('ENCRYPTION_KEY not found in .env file');
+}
+// Convert the key to exactly 32 bytes using SHA-256
+const ENCRYPTION_KEY_AES = crypto.createHash('sha256')
+    .update(encryptionKeyMatch[1])
+    .digest();
+
+const IV_LENGTH = 16;
+
+const encrypt = (text) => {
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY_AES), iv);
+    let encrypted = cipher.update(text);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return iv.toString('hex') + ';' + encrypted.toString('hex');
+};
+
+// Add decrypt function
+const decrypt = (text) => {
+    const [ivHex, encryptedHex] = text.split(';');
+    const iv = Buffer.from(ivHex, 'hex');
+    const encrypted = Buffer.from(encryptedHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY_AES), iv);
+    let decrypted = decipher.update(encrypted);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString();
+};
+
 exports.handler = async (event, context) => {
     const lambdaStartTimestamp = new Date().getTime();
     //context.callbackWaitsForEmptyEventLoop = !!IS_SLAVE; // does not work
@@ -26,6 +60,72 @@ exports.handler = async (event, context) => {
     const clientStartTimestamp = event.queryStringParameters?.clientStartTimestamp;
     const clientReceivedNonceTimestamp = event.queryStringParameters?.clientReceivedNonceTimestamp;
     const ip = event.requestContext.http.sourceIp;
+
+    // Add TOTP handling
+    const getTOTP1 = event.queryStringParameters?.getTOTP1;
+    const getTOTP2 = event.queryStringParameters?.getTOTP2;
+    const TOTP1 = event.queryStringParameters?.TOTP1;
+
+    // Handle TOTP1 request
+    if (getTOTP1 === 'true') {
+        const timestamp = Date.now();
+        const dataToEncrypt = `${timestamp};${ip}`;
+        const encryptedData = encrypt(dataToEncrypt);
+
+        return {
+            statusCode: 200,
+            headers: {
+                'Content-Type': 'text/plain; charset=utf-8',
+            },
+            body: encryptedData
+        };
+    }
+
+    // Handle TOTP2 request
+    if (getTOTP2 === 'true' && TOTP1) {
+        try {
+            // Decrypt and validate TOTP1
+            const decryptedTOTP1 = decrypt(TOTP1);
+            const [timestamp1, storedIP] = decryptedTOTP1.split(';');
+
+            // Validate IP
+            if (storedIP !== ip) {
+                return {
+                    statusCode: 403,
+                    headers: {
+                        'Content-Type': 'application/json; charset=utf-8',
+                    },
+                    body: JSON.stringify({
+                        error: 'IP address mismatch'
+                    })
+                };
+            }
+
+            // Get current timestamp with millisecond precision
+            const timestamp2 = Date.now();
+            const latency = timestamp2 - parseInt(timestamp1);
+            const dataToEncrypt = `${timestamp1};${timestamp2};${ip}`;
+            const encryptedData = encrypt(dataToEncrypt);
+
+            return {
+                statusCode: 200,
+                headers: {
+                    'Content-Type': 'text/plain; charset=utf-8',
+                },
+                body: `${encryptedData};${latency}`
+            };
+        } catch (error) {
+            return {
+                statusCode: 400,
+                headers: {
+                    'Content-Type': 'application/json; charset=utf-8',
+                },
+                body: JSON.stringify({
+                    error: 'Invalid TOTP1 token'
+                })
+            };
+        }
+    }
 
     if (!proxyId && !nonce) {
         // master initial request
@@ -57,7 +157,7 @@ exports.handler = async (event, context) => {
             statusCode: 200,
             body: {nonce, lambdaStartTimestamp, nonceSentTime},
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json; charset=utf-8',
             }
         };
     }
@@ -136,7 +236,7 @@ exports.handler = async (event, context) => {
             statusCode: 200,
             body: {lambdaStartTimestamp, nonce, latencyResponseTimestamp},
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json; charset=utf-8',
             }
         };
     }

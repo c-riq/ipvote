@@ -67,9 +67,9 @@ do
     sed -i.bak "s/const IS_SLAVE = .*;/const IS_SLAVE = $is_slave;/" index.js
     sed -i.bak "s/const AWS_REGION_OF_SLAVE = '.*';/const AWS_REGION_OF_SLAVE = '$region';/" index.js
     
-    # Create deployment package with just the JS file
+    # Create deployment package with the JS file and .env
     rm -f $ZIP_FILE  # Remove any existing zip file
-    zip $ZIP_FILE index.js
+    zip $ZIP_FILE index.js .env
     
     # Check if zip file was created successfully
     if [ ! -f "$ZIP_FILE" ]; then
