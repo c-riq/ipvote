@@ -44,12 +44,14 @@ async function getTOTP1(datacenter: DataCenter): Promise<string> {
   return await response.text()
 }
 
-async function getTOTP2(datacenter: DataCenter, totp1: string): Promise<string> {
+async function getTOTP2(datacenter: DataCenter, totp1: string): Promise<{token: string, latency: number}> {
   const response = await fetch(`${datacenter.url}?getTOTP2=true&TOTP1=${encodeURIComponent(totp1)}`)
   if (!response.ok) {
     throw new Error(`Failed to get TOTP2 from ${datacenter.name}`)
   }
-  return await response.text()
+  const responseText = await response.text()
+  const [token, latency] = responseText.split(';')
+  return { token, latency: parseInt(latency) }
 }
 
 export async function performLatencyMeasurements(
@@ -96,44 +98,30 @@ export async function performLatencyMeasurements(
           // Get TOTP1
           const totp1 = await getTOTP1(region)
           
-          // Get TOTP2
-          const totp2 = await getTOTP2(region, totp1)
-          
-          // Get latency measurement
-          const response = await fetch(
-            `${region.url}?getLatency=true&TOTP2=${encodeURIComponent(totp2)}`
-          )
+          // Get TOTP2 with latency
+          const { token: totp2, latency } = await getTOTP2(region, totp1)
           
           const clientFinishTime = Date.now()
-          
-          if (!response.ok) {
-            throw new Error(`Failed to get latency measurement from ${region.name}`)
-          }
-          
-          const data = await response.json()
-          const { timestamp1, timestamp2, dt } = data
-          const oneWayLatency = dt / 2
 
           onMessage({
             region: region.name,
-            latency: oneWayLatency,
+            latency,
             measurementIndex
           })
 
           round.timestamps.push({
             region: region.name_long,
             clientStartTime,
-            serverStartTime: timestamp1,
-            serverFinishTime: timestamp2,
+            serverStartTime: clientStartTime, // Not needed anymore but keeping for compatibility
+            serverFinishTime: clientFinishTime, // Not needed anymore but keeping for compatibility
             clientFinishTime,
             TOTP2: totp2
           })
 
           round.inferredData.latencies.push({
             region: region.name_long,
-            value: oneWayLatency
+            value: latency
           })
-
         })
       )
 
@@ -152,7 +140,7 @@ export async function performLatencyMeasurements(
   return { allMeasurementRounds }
 }
 
-export async function getLatencyTokens(currentIp: string): Promise<[ string, string][]> {
+export async function getMinLatencyTokens(currentIp: string): Promise<[ string, string][]> {
   const STORAGE_KEY = 'latencyMeasurement';
   const exsistingMeasurement = localStorage.getItem(STORAGE_KEY);
   if (exsistingMeasurement) {

@@ -64,20 +64,18 @@ exports.handler = async (event, context) => {
     // Add TOTP handling
     const getTOTP1 = event.queryStringParameters?.getTOTP1;
     const getTOTP2 = event.queryStringParameters?.getTOTP2;
-    const getLatency = event.queryStringParameters?.getLatency;
     const TOTP1 = event.queryStringParameters?.TOTP1;
-    const TOTP2 = event.queryStringParameters?.TOTP2;
 
     // Handle TOTP1 request
     if (getTOTP1 === 'true') {
         const timestamp = Date.now();
-        const dataToEncrypt = `${timestamp}:${ip}`;
+        const dataToEncrypt = `${timestamp};${ip}`;
         const encryptedData = encrypt(dataToEncrypt);
 
         return {
             statusCode: 200,
             headers: {
-                'Content-Type': 'text/plain',
+                'Content-Type': 'text/plain; charset=utf-8',
             },
             body: encryptedData
         };
@@ -88,14 +86,14 @@ exports.handler = async (event, context) => {
         try {
             // Decrypt and validate TOTP1
             const decryptedTOTP1 = decrypt(TOTP1);
-            const [timestamp1, storedIP] = decryptedTOTP1.split(':');
+            const [timestamp1, storedIP] = decryptedTOTP1.split(';');
 
             // Validate IP
             if (storedIP !== ip) {
                 return {
                     statusCode: 403,
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json; charset=utf-8',
                     },
                     body: JSON.stringify({
                         error: 'IP address mismatch'
@@ -105,84 +103,25 @@ exports.handler = async (event, context) => {
 
             // Get current timestamp with millisecond precision
             const timestamp2 = Date.now();
-            const dataToEncrypt = `${timestamp1}:${timestamp2}:${ip}`;
+            const latency = timestamp2 - parseInt(timestamp1);
+            const dataToEncrypt = `${timestamp1};${timestamp2};${ip}`;
             const encryptedData = encrypt(dataToEncrypt);
 
             return {
                 statusCode: 200,
                 headers: {
-                    'Content-Type': 'text/plain',
+                    'Content-Type': 'text/plain; charset=utf-8',
                 },
-                body: encryptedData
+                body: `${encryptedData};${latency}`
             };
         } catch (error) {
             return {
                 statusCode: 400,
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json; charset=utf-8',
                 },
                 body: JSON.stringify({
                     error: 'Invalid TOTP1 token'
-                })
-            };
-        }
-    }
-
-    // Handle getLatency request
-    if (getLatency === 'true' && TOTP2) {
-        try {
-
-            // Decrypt and validate TOTP2
-            const decryptedTOTP2 = decrypt(TOTP2);
-            const [timestamp1, timestamp2, storedIP2] = decryptedTOTP2.split(':');
-
-            // Validate timestamps and IPs
-            if (storedIP2 !== ip) {
-                return {
-                    statusCode: 403,
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        error: 'Invalid TOTP tokens'
-                    })
-                };
-            }
-
-            const currentTime = Date.now();
-            const maxAge = 30 * 1000 * 60; // 30 minutes in milliseconds
-            if (currentTime - parseInt(timestamp2) > maxAge) {
-                return {
-                    statusCode: 403,
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        error: 'TOTP tokens expired'
-                    })
-                };
-            }
-
-            return {
-                statusCode: 200,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    timestamp1: timestamp1,
-                    timestamp2: timestamp2,
-                    // @ts-ignore
-                    dt: timestamp2 - timestamp1 
-                })
-            };
-        } catch (error) {
-            return {
-                statusCode: 400,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    error: 'Invalid tokens'
                 })
             };
         }
@@ -218,7 +157,7 @@ exports.handler = async (event, context) => {
             statusCode: 200,
             body: {nonce, lambdaStartTimestamp, nonceSentTime},
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json; charset=utf-8',
             }
         };
     }
@@ -297,7 +236,7 @@ exports.handler = async (event, context) => {
             statusCode: 200,
             body: {lambdaStartTimestamp, nonce, latencyResponseTimestamp},
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json; charset=utf-8',
             }
         };
     }

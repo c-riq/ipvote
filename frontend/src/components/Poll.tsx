@@ -26,7 +26,7 @@ import IPBlockMap from './IPBlockMap'
 import IPv6BlockMap from './IPv6BlockMap'
 import ASNTreemap from './ASNTreemap'
 import { IpInfoResponse, PhoneVerificationState } from '../App'
-import { getLatencyTokens } from '../utils/latencyTriangulation'
+import { getMinLatencyTokens } from '../utils/latencyTriangulation'
 import { parseCSV, hasRequiredFields } from '../utils/csvParser'
 import { CAPTCHA_THRESHOLD, IPVOTES_S3_BUCKET_HOST, POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
@@ -380,7 +380,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
         params.append('sessionToken', sessionToken);
       } else {
         setMeasuringLatency(true)
-        const latencyTokens = await getLatencyTokens(userIpInfo?.ip || '')
+        const latencyTokens = await getMinLatencyTokens(userIpInfo?.ip || '')
         for (const [region, token] of latencyTokens) {
           params.append('latencyTokens', `${region}:${token}`)
         }
