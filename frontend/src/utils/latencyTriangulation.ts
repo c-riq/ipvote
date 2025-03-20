@@ -140,12 +140,11 @@ export async function performLatencyMeasurements(
   return { allMeasurementRounds }
 }
 
-export async function getMinLatencyTokens(currentIp: string): Promise<[ string, string][]> {
+export async function getMinLatencyTokens(currentIp: string): Promise<[string, string][]> {
   const STORAGE_KEY = 'latencyMeasurement';
-  const exsistingMeasurement = localStorage.getItem(STORAGE_KEY);
-  if (exsistingMeasurement) {
-    // {ip, latencyTokens:[[datacenter, TOTP2],...]}
-    const result = JSON.parse(exsistingMeasurement);
+  const existingMeasurement = localStorage.getItem(STORAGE_KEY);
+  if (existingMeasurement) {
+    const result = JSON.parse(existingMeasurement);
     if (result.ip === currentIp) {
       return result.latencyTokens;
     }
@@ -157,12 +156,28 @@ export async function getMinLatencyTokens(currentIp: string): Promise<[ string, 
     () => {},
   );
   const allMeasurementRounds = result.allMeasurementRounds;
-  const latencyTokens: [string, string][] = [];
+
+  // Create a map to track minimum latency and corresponding TOTP2 for each region
+  const regionLatencyMap = new Map<string, { latency: number; token: string }>();
+
   for (const round of allMeasurementRounds) {
-    for (const timestamp of round.timestamps) {
-      latencyTokens.push([timestamp.region, timestamp.TOTP2]);
+    for (let i = 0; i < round.timestamps.length; i++) {
+      const timestamp = round.timestamps[i];
+      const latency = round.inferredData.latencies[i].value;
+      
+      if (!regionLatencyMap.has(timestamp.region) || 
+          latency < regionLatencyMap.get(timestamp.region)!.latency) {
+        regionLatencyMap.set(timestamp.region, {
+          latency: latency,
+          token: timestamp.TOTP2
+        });
+      }
     }
   }
+
+  // Convert map to array of [region, token] pairs
+  const latencyTokens: [string, string][] = Array.from(regionLatencyMap.entries())
+    .map(([region, data]) => [region, data.token]);
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ip: currentIp, latencyTokens}));
   return latencyTokens;
