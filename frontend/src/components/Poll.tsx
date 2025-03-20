@@ -382,7 +382,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
         setMeasuringLatency(true)
         const latencyTokens = await getMinLatencyTokens(userIpInfo?.ip || '')
         for (const [region, token] of latencyTokens) {
-          params.append('latencyTokens', `${region}:${token}`)
+          params.append('latencyTokens', `${region};${token}`)
         }
         setMeasuringLatency(false)
       }

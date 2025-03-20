@@ -10,6 +10,8 @@ import {
     validateSessionToken,
     checkIfPollDisabled 
 } from './utils/validators';
+import { createHash } from 'crypto';
+import { decryptLatencyToken } from './utils/decryptionUtils';
 
 interface APIResponse {
     statusCode: number;
@@ -266,7 +268,9 @@ export const handler = async (event: APIGatewayEvent): Promise<APIResponse> => {
         if (error && typeof error === 'object' && 'name' in error && error.name === 'NoSuchKey') {
             // File does not exist, create a new one with updated schema
             data = 'time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,'+
-                'closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number,user_id\n';
+                'closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number,user_id,'+
+                'eu-central-1-latency,ap-northeast-1-latency,sa-east-1-latency,us-east-1-latency,'+
+                'us-west-2-latency,ap-south-1-latency,eu-west-1-latency,af-south-1-latency\n';
         } else {
             console.log(error);
             return {
@@ -344,14 +348,76 @@ export const handler = async (event: APIGatewayEvent): Promise<APIResponse> => {
     const countryGeoip = ipInfo?.country || 'XX';
     const asnNameGeoip = ipInfo?.as_name || '';
 
-    // Create new vote line with GeoIP data (added new columns with empty values)
+    // Get encryption key from environment
+    const encryptionKey = process.env.ENCRYPTION_KEY;
+    if (!encryptionKey) {
+        console.error('Missing ENCRYPTION_KEY environment variable');
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'Server configuration error',
+                time: new Date()
+            }),
+        };
+    }
+
+    // Convert the key to exactly 32 bytes using SHA-256
+    const encryptionKeyBuffer = createHash('sha256')
+        .update(encryptionKey)
+        .digest();
+
+    // Process latency tokens if present
+    const latencyTokens = event.queryStringParameters?.latencyTokens?.split(',') || [];
+    const latencies: { [key: string]: number } = {};
+    
+    for (const token of latencyTokens) {
+        const result = decryptLatencyToken(token, encryptionKeyBuffer, requestIp);
+        if (result) {
+            latencies[`${result.region}-latency`] = result.latency;
+        }
+    }
+
+    // Add validation for all required latency tokens
+    const requiredRegions = [
+        'eu-central-1',
+        'ap-northeast-1',
+        'sa-east-1',
+        'us-east-1',
+        'us-west-2',
+        'ap-south-1',
+        'eu-west-1',
+        'af-south-1'
+    ];
+
+    const missingRegions = requiredRegions.filter(region => 
+        !latencies.hasOwnProperty(`${region}-latency`)
+    );
+
+    if (missingRegions.length > 0) {
+        console.log('Missing latency tokens for regions:', missingRegions);
+        return {
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Missing latency measurements for some regions',
+                missingRegions,
+                time: new Date()
+            }),
+        };
+    }
+
+    // Update the CSV schema and new vote line
     const newVote = `${timestamp},${requestIp},${poll},${vote},${
         countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')},,,,,,,${
-            captchaVerified},${verifiedPhone},${userId}`;
-    console.log('Attempting to save vote:', {
-        fileName,
-        voteData: newVote.trim()
-    });
+            captchaVerified},${verifiedPhone},${userId},${
+            latencies['eu-central-1-latency'] || ''},${
+            latencies['ap-northeast-1-latency'] || ''},${
+            latencies['sa-east-1-latency'] || ''},${
+            latencies['us-east-1-latency'] || ''},${
+            latencies['us-west-2-latency'] || ''},${
+            latencies['ap-south-1-latency'] || ''},${
+            latencies['eu-west-1-latency'] || ''},${
+            latencies['af-south-1-latency'] || ''}`;
+
     // Ensure proper newlines both before and after the new vote
     const newVotes = (data.endsWith('\n') ? data : data + '\n') + newVote + '\n';
     const putParams = {

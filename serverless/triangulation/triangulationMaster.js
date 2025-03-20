@@ -37,12 +37,12 @@ const encrypt = (text) => {
     const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY_AES), iv);
     let encrypted = cipher.update(text);
     encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return iv.toString('hex') + ':' + encrypted.toString('hex');
+    return iv.toString('hex') + ';' + encrypted.toString('hex');
 };
 
 // Add decrypt function
 const decrypt = (text) => {
-    const [ivHex, encryptedHex] = text.split(':');
+    const [ivHex, encryptedHex] = text.split(';');
     const iv = Buffer.from(ivHex, 'hex');
     const encrypted = Buffer.from(encryptedHex, 'hex');
     const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY_AES), iv);

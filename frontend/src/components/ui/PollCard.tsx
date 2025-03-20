@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, Typography, Box, Button, Tooltip, Alert, CircularProgress } from '@mui/material'
-//import { triggerLatencyMeasurementIfNeeded } from '../../utils/latencyTriangulation'
+import { getMinLatencyTokens } from '../../utils/latencyTriangulation'
 import { IpInfoResponse, PhoneVerificationState } from '../../App'
 import { SUBMIT_VOTE_HOST } from '../../constants'
 import AttachmentIcon from '@mui/icons-material/Attachment';
@@ -71,6 +71,13 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
       if (email && sessionToken) {
         params.append('email', email);
         params.append('sessionToken', sessionToken);
+      } else {
+        setMeasuringLatency(true)
+        const latencyTokens = await getMinLatencyTokens(userIpInfo?.ip || '')
+        for (const [region, token] of latencyTokens) {
+          params.append('latencyTokens', `${region};${token}`)
+        }
+        setMeasuringLatency(false)
       }
 
       const response = await fetch(`${SUBMIT_VOTE_HOST}/?${params.toString()}`)
@@ -78,11 +85,6 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
       if (response.status === 200) {
         setMessage('Vote submitted successfully!')
         handleVote(poll)
-        if (userIpInfo?.ip && requireCaptcha) {
-          setMeasuringLatency(true)
-          //await triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
-          setMeasuringLatency(false)
-        }
       } else {
         setMessage(JSON.parse(data)?.message || data)
       }
