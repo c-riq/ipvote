@@ -140,7 +140,7 @@ export async function performLatencyMeasurements(
   return { allMeasurementRounds }
 }
 
-export async function getMinLatencyTokens(currentIp: string): Promise<[string, string][]> {
+export async function getMinLatencyTokens(currentIp: string): Promise<string[]> {
   const STORAGE_KEY = 'latencyMeasurement';
   const existingMeasurement = localStorage.getItem(STORAGE_KEY);
   if (existingMeasurement) {
@@ -175,9 +175,9 @@ export async function getMinLatencyTokens(currentIp: string): Promise<[string, s
     }
   }
 
-  // Convert map to array of [region, token] pairs
-  const latencyTokens: [string, string][] = Array.from(regionLatencyMap.entries())
-    .map(([region, data]) => [region, data.token]);
+  // Convert map to array of formatted strings
+  const latencyTokens: string[] = Array.from(regionLatencyMap.entries())
+    .map(([region, data]) => `${region};${data.token}`);
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ip: currentIp, latencyTokens}));
   return latencyTokens;

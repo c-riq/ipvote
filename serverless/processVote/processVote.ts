@@ -12,7 +12,7 @@ import {
 } from './utils/validators';
 import { createHash } from 'crypto';
 import { decryptLatencyToken } from './utils/decryptionUtils';
-import { VoteRequestBody } from './voteTypes';
+import { VoteRequestBody } from './processVoteTypes';
 
 interface APIResponse {
     statusCode: number;

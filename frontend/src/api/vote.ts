@@ -44,7 +44,7 @@ export const submitVote = async ({
     requestBody.sessionToken = sessionToken;
   } else if (userIp) {
     const latencyTokens = await getMinLatencyTokens(userIp);
-    requestBody.latencyTokens = latencyTokens.map(([region, token]) => `${region};${token}`);
+    requestBody.latencyTokens = latencyTokens;
   }
 
   const response = await fetch(`${SUBMIT_VOTE_HOST}`, {
