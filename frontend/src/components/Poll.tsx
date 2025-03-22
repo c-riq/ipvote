@@ -26,9 +26,8 @@ import IPBlockMap from './IPBlockMap'
 import IPv6BlockMap from './IPv6BlockMap'
 import ASNTreemap from './ASNTreemap'
 import { IpInfoResponse, PhoneVerificationState } from '../App'
-import { getMinLatencyTokens } from '../utils/latencyTriangulation'
 import { parseCSV, hasRequiredFields } from '../utils/csvParser'
-import { CAPTCHA_THRESHOLD, IPVOTES_S3_BUCKET_HOST, POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
+import { CAPTCHA_THRESHOLD, IPVOTES_S3_BUCKET_HOST, POLL_DATA_HOST, POPULAR_POLLS_HOST } from '../constants'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PollMetadata from './PollMetadata'
 import SearchIcon from '@mui/icons-material/Search'
@@ -367,16 +366,14 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
       setMessage(response.message);
       
       if (response.success) {
-        handleVote(poll);
         // Trigger updating popular polls
         fetch(
           `${POPULAR_POLLS_HOST}/?limit=15&offset=0&seed=1&q=&pollToUpdate=${encodeURIComponent(poll)}`
         );
+        fetchResults(poll, true, isOpenPoll);
       } else if (response.message.includes('captcha')) {
         setCaptchaToken('');
       }
-      
-      fetchResults(poll, true, isOpenPoll);
     } catch (error) {
       setMessage('Error submitting vote');
     }
@@ -384,67 +381,6 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     setMeasuringLatency(false);
     setLoading(false);
   };
-
-  const handleVote = async (vote: string) => {
-    setLoading(true)
-    try {
-      const votePayload = isOpenPoll && showCustomInput ? customOption : vote
-      const phoneNumber = phoneVerification?.phoneNumber
-      const phoneToken = phoneVerification?.token
-      const email = localStorage.getItem('userEmail')
-      const sessionToken = localStorage.getItem('sessionToken')
-      
-      const params = new URLSearchParams({
-        poll: poll,
-        vote: votePayload,
-        captchaToken: captchaToken || ''
-      });
-
-      if (isOpenPoll) {
-        params.append('isOpen', 'true');
-      }
-      
-      if (phoneNumber) {
-        params.append('phoneNumber', phoneNumber);
-      }
-      
-      if (phoneToken) {
-        params.append('phoneToken', phoneToken);
-      }
-
-      // Add email and sessionToken if available
-      if (email && sessionToken) {
-        params.append('email', email);
-        params.append('sessionToken', sessionToken);
-      } else {
-        setMeasuringLatency(true)
-        const latencyTokens = await getMinLatencyTokens(userIpInfo?.ip || '')
-        for (const [region, token] of latencyTokens) {
-          params.append('latencyTokens', `${region};${token}`)
-        }
-        setMeasuringLatency(false)
-      }
-
-      const response = await fetch(`${SUBMIT_VOTE_HOST}/?${params.toString()}`);
-      const data = await response.text()
-      if (response.status === 200) {
-        setMessage('Vote submitted successfully!')
-        // Trigger updating popular polls
-        fetch(
-          `${POPULAR_POLLS_HOST}/?limit=15&offset=0&seed=1&q=&pollToUpdate=${encodeURIComponent(poll)}`
-        )
-      } else {
-        setMessage(JSON.parse(data)?.message || data)
-        if (data.includes('captcha')) {
-          setCaptchaToken('')
-        }
-      }
-      fetchResults(poll, true, isOpenPoll)
-    } catch (error) {
-      setMessage('Error submitting vote')
-    }
-    setLoading(false)
-  }
 
   const renderResults = () => {
     if (Object.keys(results).length === 0) return null;

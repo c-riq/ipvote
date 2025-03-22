@@ -22,7 +22,7 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
   userIpInfo, requireCaptcha = false, setShowCaptcha, phoneVerification }: PollCardProps) {
   const [message, setMessage] = useState<string>('')
   const [loading, setLoading] = useState(false)
-  const [measuringLatency, setMeasuringLatency] = useState(false)
+  const [measuringLatency, _] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
 
   const hasAttachment = poll.match(/(.+)_attachment_([A-Za-z0-9_-]{43})$/);
