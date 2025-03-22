@@ -33,6 +33,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PollMetadata from './PollMetadata'
 import SearchIcon from '@mui/icons-material/Search'
 import { Helmet } from 'react-helmet-async'
+import { submitVote } from '../api/vote'
 
 interface VoteHistory {
   date: string;
@@ -347,6 +348,43 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     setAsnData(asnArray);
   }
 
+  const vote = async (vote: string) => {
+    setLoading(true);
+    setMeasuringLatency(true);
+    
+    try {
+      const votePayload = isOpenPoll && showCustomInput ? customOption : vote;
+      
+      const response = await submitVote({
+        poll,
+        vote: votePayload,
+        captchaToken: captchaToken || '',
+        userIp: userIpInfo?.ip,
+        phoneVerification,
+        isOpen: isOpenPoll
+      });
+
+      setMessage(response.message);
+      
+      if (response.success) {
+        handleVote(poll);
+        // Trigger updating popular polls
+        fetch(
+          `${POPULAR_POLLS_HOST}/?limit=15&offset=0&seed=1&q=&pollToUpdate=${encodeURIComponent(poll)}`
+        );
+      } else if (response.message.includes('captcha')) {
+        setCaptchaToken('');
+      }
+      
+      fetchResults(poll, true, isOpenPoll);
+    } catch (error) {
+      setMessage('Error submitting vote');
+    }
+    
+    setMeasuringLatency(false);
+    setLoading(false);
+  };
+
   const handleVote = async (vote: string) => {
     setLoading(true)
     try {
@@ -459,7 +497,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
               <Button
                 variant="contained"
                 disabled={!allowVote}
-                onClick={() => handleVote(option)}
+                onClick={() => vote(option)}
                 sx={{ 
                   minWidth: '100px',
                   order: { xs: 2, sm: 1 },
@@ -631,7 +669,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                     <Button
                       variant="contained"
                       disabled={!allowVote}
-                      onClick={() => handleVote(option)}
+                      onClick={() => vote(option)}
                       sx={{ 
                         minWidth: '200px',  // Updated minimum width
                         width: { xs: '100%', sm: 'auto' },
@@ -679,7 +717,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                 <Button
                   variant="contained"
                   disabled={!allowVote || !customOption.trim()}
-                  onClick={() => handleVote(customOption)}
+                  onClick={() => vote(customOption)}
                 >
                   Submit
                 </Button>
@@ -747,7 +785,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
               <Button
                 variant="contained"
                 disabled={!allowVote}
-                onClick={() => handleVote(option)}
+                onClick={() => vote(option)}
                 sx={{ 
                   minWidth: '200px',  // Updated minimum width
                   width: { xs: '100%', sm: 'auto' },

@@ -12,6 +12,7 @@ import {
 } from './utils/validators';
 import { createHash } from 'crypto';
 import { decryptLatencyToken } from './utils/decryptionUtils';
+import { VoteRequestBody } from './voteTypes';
 
 interface APIResponse {
     statusCode: number;
@@ -19,8 +20,8 @@ interface APIResponse {
 }
 
 /* schema of csv file:
-time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number,user_id
-1716891868980,146.103.108.202,Abolish the US Electoral College,yes,US,Comcast Cable Communications%2C LLC,0,,,us-west-2,65.5,145,,,
+time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number,user_id,eu-central-1-latency,ap-northeast-1-latency,sa-east-1-latency,us-east-1-latency,us-west-2-latency,ap-south-1-latency,eu-west-1-latency,af-south-1-latency
+1716891868980,146.103.108.202,Abolish the US Electoral College,yes,US,Comcast Cable Communications%2C LLC,0,,,,,,,,,123,456,789,101,202,303,404,505
 */
 
 // TODO: check which polls exceed the threshold to require captcha
@@ -50,11 +51,24 @@ export const handler = async (event: APIGatewayEvent): Promise<APIResponse> => {
         };
     }
 
-    if (!event.queryStringParameters) {
+    if (!event.body) {
         return {
             statusCode: 400,
             body: JSON.stringify({
-                message: 'Missing query parameters',
+                message: 'Missing request body',
+                time: new Date()
+            }),
+        };
+    }
+
+    let requestBody: VoteRequestBody;
+    try {
+        requestBody = JSON.parse(event.body);
+    } catch (error) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Invalid JSON body',
                 time: new Date()
             }),
         };
@@ -62,8 +76,8 @@ export const handler = async (event: APIGatewayEvent): Promise<APIResponse> => {
 
     console.log('Processing vote request:', {
         ip: event.requestContext.http.sourceIp,
-        poll: event.queryStringParameters.poll,
-        vote: event.queryStringParameters.vote,
+        poll: requestBody.poll,
+        vote: requestBody.vote,
         timestamp: new Date().toISOString()
     });
 
@@ -76,8 +90,9 @@ export const handler = async (event: APIGatewayEvent): Promise<APIResponse> => {
         phoneNumber,
         phoneToken,
         email,
-        sessionToken
-    } = event.queryStringParameters;
+        sessionToken,
+        latencyTokens
+    } = requestBody;
 
     if (!vote || !rawPoll) {
         return {
@@ -366,11 +381,11 @@ export const handler = async (event: APIGatewayEvent): Promise<APIResponse> => {
         .update(encryptionKey)
         .digest();
 
-    // Process latency tokens if present
-    const latencyTokens = event.queryStringParameters?.latencyTokens?.split(',') || [];
+    // Update latency tokens processing
+    const tokens = latencyTokens || [];
     const latencies: { [key: string]: number } = {};
     
-    for (const token of latencyTokens) {
+    for (const token of tokens) {
         const result = decryptLatencyToken(token, encryptionKeyBuffer, requestIp);
         if (result) {
             latencies[`${result.region}-latency`] = result.latency;

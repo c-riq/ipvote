@@ -50,8 +50,8 @@ async function getTOTP2(datacenter: DataCenter, totp1: string): Promise<{token: 
     throw new Error(`Failed to get TOTP2 from ${datacenter.name}`)
   }
   const responseText = await response.text()
-  const [token, latency] = responseText.split(';')
-  return { token, latency: parseFloat(latency) / 2 }
+  const [iv, token, latency] = responseText.split(';')
+  return { token: `${iv};${token}`, latency: parseFloat(latency) / 2 }
 }
 
 export async function performLatencyMeasurements(
