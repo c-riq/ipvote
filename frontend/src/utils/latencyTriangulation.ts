@@ -50,8 +50,8 @@ async function getTOTP2(datacenter: DataCenter, totp1: string): Promise<{token: 
     throw new Error(`Failed to get TOTP2 from ${datacenter.name}`)
   }
   const responseText = await response.text()
-  const [iv, token, latency] = responseText.split(';')
-  return { token: `${iv};${token}`, latency: parseFloat(latency) / 2 }
+  const [region, iv, token, latency] = responseText.split(';')
+  return { token: `${region};${iv};${token}`, latency: parseFloat(latency) / 2 }
 }
 
 export async function performLatencyMeasurements(
@@ -177,7 +177,7 @@ export async function getMinLatencyTokens(currentIp: string): Promise<string[]> 
 
   // Convert map to array of formatted strings
   const latencyTokens: string[] = Array.from(regionLatencyMap.entries())
-    .map(([region, data]) => `${region};${data.token}`);
+    .map(([_, data]) => `${data.token}`);
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ip: currentIp, latencyTokens}));
   return latencyTokens;

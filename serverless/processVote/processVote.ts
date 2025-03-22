@@ -386,7 +386,9 @@ export const handler = async (event: APIGatewayEvent): Promise<APIResponse> => {
     const latencies: { [key: string]: number } = {};
     
     for (const token of tokens) {
+        console.log('Decrypting latency token:', token);
         const result = decryptLatencyToken(token, encryptionKeyBuffer, requestIp);
+        console.log('Decrypted latency token:', result);
         if (result) {
             latencies[`${result.region}-latency`] = result.latency;
         }

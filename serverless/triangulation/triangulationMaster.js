@@ -69,7 +69,7 @@ exports.handler = async (event, context) => {
     // Handle TOTP1 request
     if (getTOTP1 === 'true') {
         const timestamp = Date.now();
-        const dataToEncrypt = `${timestamp};${ip}`;
+        const dataToEncrypt = `${AWS_REGION_OF_SLAVE};${timestamp};${ip}`;
         const encryptedData = encrypt(dataToEncrypt);
 
         return {
@@ -86,7 +86,7 @@ exports.handler = async (event, context) => {
         try {
             // Decrypt and validate TOTP1
             const decryptedTOTP1 = decrypt(TOTP1);
-            const [timestamp1, storedIP] = decryptedTOTP1.split(';');
+            const [region, timestamp1, storedIP] = decryptedTOTP1.split(';');
 
             // Validate IP
             if (storedIP !== ip) {
@@ -100,11 +100,23 @@ exports.handler = async (event, context) => {
                     })
                 };
             }
+            if (region !== AWS_REGION_OF_SLAVE) {
+                return {
+                    statusCode: 403,
+                    headers: {
+                        'Content-Type': 'application/json; charset=utf-8',
+                    },
+                    body: JSON.stringify({
+                        error: 'Region mismatch'
+                    })
+                };
+            }
+            
 
             // Get current timestamp with millisecond precision
             const timestamp2 = Date.now();
             const latency = timestamp2 - parseInt(timestamp1);
-            const dataToEncrypt = `${timestamp1};${timestamp2};${ip}`;
+            const dataToEncrypt = `${AWS_REGION_OF_SLAVE};${timestamp1};${timestamp2};${ip}`;
             const encryptedData = encrypt(dataToEncrypt);
 
             return {
@@ -112,7 +124,7 @@ exports.handler = async (event, context) => {
                 headers: {
                     'Content-Type': 'text/plain; charset=utf-8',
                 },
-                body: `${encryptedData};${latency}`
+                body: `${AWS_REGION_OF_SLAVE};${encryptedData};${latency}`
             };
         } catch (error) {
             return {
