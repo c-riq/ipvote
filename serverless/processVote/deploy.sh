@@ -2,8 +2,23 @@
 
 export AWS_PROFILE="rix-admin-chris"
 
-# Change to the directory containing processVote.js
+# Change to the directory containing processVote.ts
 cd "$(dirname "$0")"
+
+# Load environment variables from .env file
+if [ -f ".env" ]; then
+    echo "Loading environment variables from .env file..."
+    export $(cat .env | grep -v '^#' | xargs)
+else
+    echo "Error: .env file not found. Please create one with ENCRYPTION_KEY defined."
+    exit 1
+fi
+
+# Verify ENCRYPTION_KEY is set
+if [ -z "$ENCRYPTION_KEY" ]; then
+    echo "Error: ENCRYPTION_KEY environment variable is not set in .env file"
+    exit 1
+fi
 
 REGION="us-east-1"      # N. Virginia
 FUNCTION_NAME="process_ip_vote"
@@ -12,8 +27,8 @@ PARTITION_DIR="from_ipInfos"
 ROLE_ARN="arn:aws:iam::152769399840:role/service-role/process_ip_vote-role-e2qax5j9"
 
 # Check if required files exist
-if [ ! -f "processVote.js" ]; then
-    echo "Error: processVote.js not found in current directory ($(pwd))"
+if [ ! -f "processVote.ts" ]; then
+    echo "Error: processVote.ts not found in current directory ($(pwd))"
     exit 1
 fi
 
@@ -29,9 +44,30 @@ if [ ! -d "$IP_DATA_DIR" ]; then
     exit 1
 fi
 
+# Compile TypeScript
+echo "Compiling TypeScript..."
+npm run build
+if [ $? -ne 0 ]; then
+    echo "Error: TypeScript compilation failed"
+    exit 1
+fi
+
 # Create deployment package
 rm -f $ZIP_FILE  # Remove any existing zip file
-zip -r $ZIP_FILE processVote.js "$PARTITION_DIR"
+
+# Copy from_ipInfos directory to dist before zipping
+echo "Copying from_ipInfos directory to dist..."
+cp -r $PARTITION_DIR dist/
+
+# Add this new section to copy .env
+echo "Copying .env file to dist..."
+if [ -f ".env" ]; then
+    cp .env dist/
+else
+    echo "Warning: .env file not found, continuing without it"
+fi
+
+cd dist && zip -r ../$ZIP_FILE . && cd ..
 
 # Check if zip file was created successfully
 if [ ! -f "$ZIP_FILE" ]; then
@@ -52,6 +88,7 @@ if ! aws lambda get-function --function-name $FUNCTION_NAME --region $REGION --n
         --region $REGION \
         --timeout 30 \
         --memory-size 1024 \
+        --environment "Variables={ENCRYPTION_KEY=$ENCRYPTION_KEY}" \
         --no-cli-pager
 else
     aws lambda update-function-configuration \
@@ -59,6 +96,7 @@ else
         --timeout 30 \
         --memory-size 1024 \
         --region $REGION \
+        --environment "Variables={ENCRYPTION_KEY=$ENCRYPTION_KEY}" \
         --no-cli-pager
     sleep 5
     aws lambda update-function-code \

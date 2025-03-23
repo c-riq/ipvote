@@ -50,13 +50,13 @@ if ! aws lambda get-function --function-name $FUNCTION_NAME --region $REGION --n
         --handler popularPolls.handler \
         --zip-file fileb://$ZIP_FILE \
         --region $REGION \
-        --timeout 30 \
+        --timeout 90 \
         --memory-size 1024 \
         --no-cli-pager
 else
     aws lambda update-function-configuration \
         --function-name $FUNCTION_NAME \
-        --timeout 30 \
+        --timeout 90 \
         --memory-size 1024 \
         --region $REGION \
         --no-cli-pager

@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, Typography, Box, Button, Tooltip, Alert, CircularProgress } from '@mui/material'
-import { triggerLatencyMeasurementIfNeeded } from '../../utils/latencyTriangulation'
 import { IpInfoResponse, PhoneVerificationState } from '../../App'
-import { SUBMIT_VOTE_HOST } from '../../constants'
 import AttachmentIcon from '@mui/icons-material/Attachment';
+import { submitVote } from '../../api/vote';
 
 interface PollCardProps {
   poll: string
@@ -23,7 +22,7 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
   userIpInfo, requireCaptcha = false, setShowCaptcha, phoneVerification }: PollCardProps) {
   const [message, setMessage] = useState<string>('')
   const [loading, setLoading] = useState(false)
-  const [measuringLatency, setMeasuringLatency] = useState(false)
+  const [measuringLatency, _] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
 
   const hasAttachment = poll.match(/(.+)_attachment_([A-Za-z0-9_-]{43})$/);
@@ -50,41 +49,18 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
   const vote = async (option: string) => {
     setLoading(true)
     try {
-      const {phoneNumber, token: phoneToken} = phoneVerification || {}
-      const email = localStorage.getItem('userEmail')
-      const sessionToken = localStorage.getItem('sessionToken')
-      
-      const params = new URLSearchParams({
-        poll: poll,
+      const response = await submitVote({
+        poll,
         vote: option,
-        captchaToken: captchaToken || ''
+        captchaToken: captchaToken || '',
+        userIp: userIpInfo?.ip,
+        phoneVerification
       });
-      
-      if (phoneNumber) {
-        params.append('phoneNumber', phoneNumber);
-      }
-      
-      if (phoneToken) {
-        params.append('phoneToken', phoneToken);
-      }
 
-      if (email && sessionToken) {
-        params.append('email', email);
-        params.append('sessionToken', sessionToken);
-      }
-
-      const response = await fetch(`${SUBMIT_VOTE_HOST}/?${params.toString()}`)
-      const data = await response.text()
-      if (response.status === 200) {
-        setMessage('Vote submitted successfully!')
-        handleVote(poll)
-        if (userIpInfo?.ip && requireCaptcha) {
-          setMeasuringLatency(true)
-          await triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
-          setMeasuringLatency(false)
-        }
-      } else {
-        setMessage(JSON.parse(data)?.message || data)
+      setMessage(response.message);
+      
+      if (response.success) {
+        handleVote(poll);
       }
     } catch (error) {
       setMessage('Error submitting vote')
@@ -140,7 +116,7 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
                   }
                 }}
               >
-                {option}
+                {loading ? <CircularProgress size={20} color="inherit" /> : option}
               </Button>
             </div>
           </Tooltip>

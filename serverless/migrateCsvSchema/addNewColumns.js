@@ -56,29 +56,44 @@ const migrateFile = async (fileKey) => {
         const headerLine = lines[0];
         const currentColumns = headerLine.split(',');
         
-        // Get index of user_id column
-        const userIdIndex = currentColumns.indexOf('user_id');
+        // Define new columns to add
+        const newColumns = [
+            'eu-central-1-latency',
+            'ap-northeast-1-latency',
+            'sa-east-1-latency',
+            'us-east-1-latency',
+            'us-west-2-latency',
+            'ap-south-1-latency',
+            'eu-west-1-latency',
+            'af-south-1-latency'
+        ];
+
+        // Check if any of the new columns need to be added
+        const needsMigration = newColumns.some(col => !currentColumns.includes(col));
         
-        // Check if column needs to be added
-        if (userIdIndex !== -1) {
+        if (!needsMigration) {
             console.log(`File ${fileKey} already has required columns`);
             return false;
         }
 
-        // Add user_id column
-        currentColumns.push('user_id');
+        // Add missing columns
+        for (const column of newColumns) {
+            if (!currentColumns.includes(column)) {
+                currentColumns.push(column);
+            }
+        }
 
         // Update header
         lines[0] = currentColumns.join(',');
 
-        // Add empty values for new column to all data rows
+        // Add empty values for new columns to all data rows
         let processedRows = 0;
         
         for (let i = 1; i < lines.length; i++) {
             if (!lines[i].trim()) continue;
             
             const columns = lines[i].split(',');
-            // Add empty value for missing column
+            // Add empty value for missing columns
             while (columns.length < currentColumns.length) {
                 columns.push('');
             }
@@ -118,7 +133,7 @@ async function main() {
         // Migrate each file
         let migratedCount = 0;
         for (const file of files) {
-            // if (migratedCount > 0) break;
+            //if (migratedCount > 0) break;
             const wasMigrated = await migrateFile(file.Key);
             if (wasMigrated) migratedCount++;
         }

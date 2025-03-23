@@ -26,13 +26,13 @@ import IPBlockMap from './IPBlockMap'
 import IPv6BlockMap from './IPv6BlockMap'
 import ASNTreemap from './ASNTreemap'
 import { IpInfoResponse, PhoneVerificationState } from '../App'
-import { triggerLatencyMeasurementIfNeeded } from '../utils/latencyTriangulation'
 import { parseCSV, hasRequiredFields } from '../utils/csvParser'
-import { CAPTCHA_THRESHOLD, IPVOTES_S3_BUCKET_HOST, POLL_DATA_HOST, POPULAR_POLLS_HOST, SUBMIT_VOTE_HOST } from '../constants'
+import { CAPTCHA_THRESHOLD, IPVOTES_S3_BUCKET_HOST, POLL_DATA_HOST, POPULAR_POLLS_HOST } from '../constants'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PollMetadata from './PollMetadata'
 import SearchIcon from '@mui/icons-material/Search'
 import { Helmet } from 'react-helmet-async'
+import { submitVote } from '../api/vote'
 
 interface VoteHistory {
   date: string;
@@ -347,64 +347,40 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     setAsnData(asnArray);
   }
 
-  const handleVote = async (vote: string) => {
-    setLoading(true)
+  const vote = async (vote: string) => {
+    setLoading(true);
+    setMeasuringLatency(true);
+    
     try {
-      const votePayload = isOpenPoll && showCustomInput ? customOption : vote
-      const phoneNumber = phoneVerification?.phoneNumber
-      const phoneToken = phoneVerification?.token
-      const email = localStorage.getItem('userEmail')
-      const sessionToken = localStorage.getItem('sessionToken')
+      const votePayload = isOpenPoll && showCustomInput ? customOption : vote;
       
-      const params = new URLSearchParams({
-        poll: poll,
+      const response = await submitVote({
+        poll,
         vote: votePayload,
-        captchaToken: captchaToken || ''
+        captchaToken: captchaToken || '',
+        userIp: userIpInfo?.ip,
+        phoneVerification,
+        isOpen: isOpenPoll
       });
 
-      if (isOpenPoll) {
-        params.append('isOpen', 'true');
-      }
+      setMessage(response.message);
       
-      if (phoneNumber) {
-        params.append('phoneNumber', phoneNumber);
-      }
-      
-      if (phoneToken) {
-        params.append('phoneToken', phoneToken);
-      }
-
-      // Add email and sessionToken if available
-      if (email && sessionToken) {
-        params.append('email', email);
-        params.append('sessionToken', sessionToken);
-      }
-
-      const response = await fetch(`${SUBMIT_VOTE_HOST}/?${params.toString()}`);
-      const data = await response.text()
-      if (response.status === 200) {
-        setMessage('Vote submitted successfully!')
+      if (response.success) {
         // Trigger updating popular polls
         fetch(
           `${POPULAR_POLLS_HOST}/?limit=15&offset=0&seed=1&q=&pollToUpdate=${encodeURIComponent(poll)}`
-        )
-        if (userIpInfo?.ip && requireCaptcha) {
-          setMeasuringLatency(true)
-          await triggerLatencyMeasurementIfNeeded(userIpInfo.ip)
-          setMeasuringLatency(false)
-        }
-      } else {
-        setMessage(JSON.parse(data)?.message || data)
-        if (data.includes('captcha')) {
-          setCaptchaToken('')
-        }
+        );
+        fetchResults(poll, true, isOpenPoll);
+      } else if (response.message.includes('captcha')) {
+        setCaptchaToken('');
       }
-      fetchResults(poll, true, isOpenPoll)
     } catch (error) {
-      setMessage('Error submitting vote')
+      setMessage('Error submitting vote');
     }
-    setLoading(false)
-  }
+    
+    setMeasuringLatency(false);
+    setLoading(false);
+  };
 
   const renderResults = () => {
     if (Object.keys(results).length === 0) return null;
@@ -457,7 +433,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
               <Button
                 variant="contained"
                 disabled={!allowVote}
-                onClick={() => handleVote(option)}
+                onClick={() => vote(option)}
                 sx={{ 
                   minWidth: '100px',
                   order: { xs: 2, sm: 1 },
@@ -629,7 +605,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                     <Button
                       variant="contained"
                       disabled={!allowVote}
-                      onClick={() => handleVote(option)}
+                      onClick={() => vote(option)}
                       sx={{ 
                         minWidth: '200px',  // Updated minimum width
                         width: { xs: '100%', sm: 'auto' },
@@ -677,7 +653,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
                 <Button
                   variant="contained"
                   disabled={!allowVote || !customOption.trim()}
-                  onClick={() => handleVote(customOption)}
+                  onClick={() => vote(customOption)}
                 >
                   Submit
                 </Button>
@@ -745,7 +721,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
               <Button
                 variant="contained"
                 disabled={!allowVote}
-                onClick={() => handleVote(option)}
+                onClick={() => vote(option)}
                 sx={{ 
                   minWidth: '200px',  // Updated minimum width
                   width: { xs: '100%', sm: 'auto' },

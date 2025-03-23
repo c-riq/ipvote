@@ -1,200 +1,113 @@
-// Import the S3Client and GetObjectCommand from the AWS SDK
-const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
-const { getIPInfo } = require('./from_ipInfos/ipCountryLookup');
-const { Lambda } = require('@aws-sdk/client-lambda');
+import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { Lambda } from '@aws-sdk/client-lambda';
+import { APIGatewayProxyEventV2 as APIGatewayEvent } from 'aws-lambda';
+import { getIPInfo } from './from_ipInfos/ipCountryLookup';
+import { expandIPv6, _64bitMask, getPartitionKey } from './utils/ipUtils';
+import { fetchFileFromS3, s3Client } from './utils/s3Utils';
+import { 
+    validateCachedCaptcha, 
+    validatePhoneToken, 
+    validateSessionToken,
+    checkIfPollDisabled 
+} from './utils/validators';
+import { createHash } from 'crypto';
+import { decryptLatencyToken } from './utils/decryptionUtils';
+import { VoteRequestBody } from './processVoteTypes';
+
+interface APIResponse {
+    statusCode: number;
+    body: string;
+}
 
 /* schema of csv file:
-time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number,user_id
-1716891868980,146.103.108.202,Abolish the US Electoral College,yes,US,Comcast Cable Communications%2C LLC,0,,,us-west-2,65.5,145,,,
+time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number,user_id,eu-central-1-latency,ap-northeast-1-latency,sa-east-1-latency,us-east-1-latency,us-west-2-latency,ap-south-1-latency,eu-west-1-latency,af-south-1-latency
+1716891868980,146.103.108.202,Abolish the US Electoral College,yes,US,Comcast Cable Communications%2C LLC,0,,,,,,,,,123,456,789,101,202,303,404,505
 */
 
-const { Readable } = require('stream');
-
 // TODO: check which polls exceed the threshold to require captcha
-const pollsToRequireCaptcha = []
+const pollsToRequireCaptcha: string[] = []
 
-const s3Client = new S3Client(); 
 const lambda = new Lambda();
 
-const fetchFileFromS3 = async (bucketName, key) => {
-    const getObjectParams = {
-        Bucket: bucketName,
-        Key: key,
-    };
-    const command = new GetObjectCommand(getObjectParams);
-    const response = await s3Client.send(command);
-    const fileContents = await streamToString(response.Body);
-    return fileContents;
-
-};
-
-const expandIPv6 = (ip) => {
-    if (ip.includes('::')) {
-        const [prefix, suffix] = ip.split('::');
-        const prefixParts = prefix.split(':');
-        const suffixParts = suffix.split(':');
-        const missingParts = 8 - prefixParts.length - suffixParts.length;
-        const expanded = prefixParts.concat(Array(missingParts).fill('0000')).concat(suffixParts);
-        return expanded.join(':');
-    }
-    return ip;
-}
-
-const _64bitMask = (ip) => {
-    const parts = ip.split(':');
-    const mask = parts.slice(0, 4).map(i => i.padStart(4, '0')).join(':');
-    return mask;
-}
-
-// Helper function to convert stream to string
-const streamToString = (stream) =>
-    new Promise((resolve, reject) => {
-        const chunks = [];
-        stream.on('data', (chunk) => chunks.push(chunk));
-        stream.on('error', reject);
-        stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-    });
-
-const getPartitionKey = (ip) => {
-    if (ip.includes(':')) { 
-        const firstPart = ip.split(':')[0]
-        const paddedIp = firstPart.padStart(4, '0');
-        return paddedIp.substring(0, 2);
-    }
-    if (ip.includes('.')) {
-        const firstPart = ip.split('.')[0]
-        const paddedIp = firstPart.padStart(3, '0');
-        return paddedIp.substring(0, 2);
-    }
-};
-
-const validateCachedCaptcha = async (ip, token, bucketName) => {
-    const fileName = 'captcha_cache/verifications.csv';
-    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000; // One week in milliseconds
+export const handler = async (event: APIGatewayEvent): Promise<APIResponse> => {
+    const origin = event.headers?.origin || '';
+    const referer = event.headers?.referer || '';
     
-    try {
-        const data = await fetchFileFromS3(bucketName, fileName);
-        const lines = data.split('\n');
-        
-        for (let i = 1; i < lines.length; i++) { // Skip header
-            const [cachedIp, cachedToken, timestamp] = lines[i].split(',');
-            if (!cachedIp || !cachedToken || !timestamp) continue;
-            
-            // Check if this verification is for the same IP and token
-            if (cachedIp === ip && cachedToken === token) {
-                const verificationTime = parseInt(timestamp);
-                const now = Date.now();
-                // Verify that the token is not older than one week
-                if (now - verificationTime < oneWeekInMs) {
-                    return true;
-                }
-            }
-        }
-    } catch (error) {
-        console.error('Error validating cached captcha:', error);
+    const allowedOrigins = ['http://localhost:5173', 'https://ip-vote.com'];
+    const isValidOrigin = allowedOrigins.includes(origin) || allowedOrigins.includes(origin.replace(/\/$/, ''));
+    const isValidReferer = allowedOrigins.some(allowed => 
+        referer === allowed || 
+        referer.startsWith(allowed + '/')
+    );
+
+    if (!isValidOrigin || !isValidReferer) {
+        console.log('Invalid origin or referer:', { origin, referer });
+        return {
+            statusCode: 403,
+            body: JSON.stringify({
+                message: 'Unauthorized request origin',
+                time: new Date()
+            }),
+        };
     }
-    return false;
-};
 
-const validatePhoneToken = async (phoneNumber, token, bucketName) => {
-    const fileName = 'phone_number/verification.csv';
-    const monthInMs = 31 * 24 * 60 * 60 * 1000; // One month in milliseconds
-    
-    try {
-        const data = await fetchFileFromS3(bucketName, fileName);
-        const lines = data.split('\n');
-        
-        for (let i = 1; i < lines.length; i++) { // Skip header
-            const [timestamp, storedPhone, storedToken] = lines[i].split(',');
-            if (!storedPhone || !storedToken || !timestamp) continue;
-            
-            // Check if this verification is for the same phone and token
-            if (storedPhone === phoneNumber && storedToken === token) {
-                const verificationTime = parseInt(timestamp);
-                const now = Date.now();
-                // Verify that the token is not older than one month
-                if (now - verificationTime < monthInMs) {
-                    return true;
-                }
-            }
-        }
-    } catch (error) {
-        console.error('Error validating phone token:', error);
+    if (!event.body) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Missing request body',
+                time: new Date()
+            }),
+        };
     }
-    return false;
-};
 
-// Add new helper function to validate session token and get user ID
-const validateSessionToken = async (email, sessionToken) => {
-    if (!email || !sessionToken) return null;
-    
-    const partition = email.charAt(0).toLowerCase();
-    const userFilePath = `users/${partition}/users.json`;
-
+    let requestBody: VoteRequestBody;
     try {
-        const command = new GetObjectCommand({
-            Bucket: 'ipvote-auth',
-            Key: userFilePath
-        });
-        const response = await s3Client.send(command);
-        const data = await response.Body.transformToString();
-        const users = JSON.parse(data);
-        const user = users[email];
-
-        if (!user || !user.sessions) return null;
-
-        const currentTime = Math.floor(Date.now() / 1000);
-        const isValidToken = user.sessions.some(token => {
-            const [tokenValue, expiry] = token.split('_');
-            return token === sessionToken && parseInt(expiry) > currentTime;
-        });
-
-        return isValidToken ? user.userId : null;
+        requestBody = JSON.parse(event.body);
     } catch (error) {
-        console.error('Session validation error:', error);
-        return null;
+        return {
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Invalid JSON body',
+                time: new Date()
+            }),
+        };
     }
-};
 
-const checkIfPollDisabled = async (poll, bucketName) => {
-    try {
-        // Check for disabled file in the poll's root directory
-        const disabledFilePath = `votes/poll=${poll}/disabled`;
-        await fetchFileFromS3(bucketName, disabledFilePath);
-        // If file exists (no error thrown), poll is disabled
-        return true;
-    } catch (error) {
-        if (error.name === 'NoSuchKey') {
-            return false;
-        }
-        // For other errors, log and assume poll is not disabled
-        console.error('Error checking disabled status:', error);
-        return false;
-    }
-};
-
-module.exports.handler = async (event) => {
     console.log('Processing vote request:', {
         ip: event.requestContext.http.sourceIp,
-        poll: event.queryStringParameters.poll,
-        vote: event.queryStringParameters.vote,
+        poll: requestBody.poll,
+        vote: requestBody.vote,
         timestamp: new Date().toISOString()
     });
 
-    const vote = event.queryStringParameters.vote;
-    let poll = event.queryStringParameters.poll;
+    const { 
+        vote,
+        poll: rawPoll,
+        isOpen,
+        country,
+        captchaToken: hcaptchaToken,
+        phoneNumber,
+        phoneToken,
+        email,
+        sessionToken,
+        latencyTokens
+    } = requestBody;
+
+    if (!vote || !rawPoll) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Missing vote or poll parameters',
+                time: new Date()
+            }),
+        };
+    }
+
     // Replace commas with %2C
-    poll = poll.replace(/,/g, '%2C');
-    const isOpen = event.queryStringParameters.isOpen === 'true';
-    const country = event.queryStringParameters.country;
-    const hcaptchaToken = event.queryStringParameters.captchaToken;
-    const phoneNumber = event.queryStringParameters.phoneNumber;
-    const phoneToken = event.queryStringParameters.phoneToken;
+    const poll = rawPoll.replace(/,/g, '%2C');
     const forbiddenStringsRegex = /,|\\n|\\r|\\t|>|<|"|=/;
 
-    const email = event.queryStringParameters.email;
-    const sessionToken = event.queryStringParameters.sessionToken;
-    
     // Validate session token if provided
     let userId = '';
     if (email && sessionToken) {
@@ -249,15 +162,6 @@ module.exports.handler = async (event) => {
         }
     }
 
-    if (!vote || !poll) {
-        return {
-            statusCode: 400,
-            body: JSON.stringify({
-                message: 'Missing vote or poll parameters',
-                time: new Date()
-            }),
-        };
-    }
     if (country && !country.match(/^[A-Z]{2}$/)) {
         return {
             statusCode: 400,
@@ -375,11 +279,13 @@ module.exports.handler = async (event) => {
     let data = ''
     try {
         data = await fetchFileFromS3(bucketName, fileName)
-    } catch (error) {
-        if (error.name === 'NoSuchKey') {
+    } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'name' in error && error.name === 'NoSuchKey') {
             // File does not exist, create a new one with updated schema
             data = 'time,ip,poll_,vote,country_geoip,asn_name_geoip,is_tor,is_vpn,is_cloud_provider,'+
-                'closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number,user_id\n';
+                'closest_region,latency_ms,roundtrip_ms,captcha_verified,phone_number,user_id,'+
+                'eu-central-1-latency,ap-northeast-1-latency,sa-east-1-latency,us-east-1-latency,'+
+                'us-west-2-latency,ap-south-1-latency,eu-west-1-latency,af-south-1-latency\n';
         } else {
             console.log(error);
             return {
@@ -457,14 +363,78 @@ module.exports.handler = async (event) => {
     const countryGeoip = ipInfo?.country || 'XX';
     const asnNameGeoip = ipInfo?.as_name || '';
 
-    // Create new vote line with GeoIP data (added new columns with empty values)
+    // Get encryption key from environment
+    const encryptionKey = process.env.ENCRYPTION_KEY;
+    if (!encryptionKey) {
+        console.error('Missing ENCRYPTION_KEY environment variable');
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'Server configuration error',
+                time: new Date()
+            }),
+        };
+    }
+
+    // Convert the key to exactly 32 bytes using SHA-256
+    const encryptionKeyBuffer = createHash('sha256')
+        .update(encryptionKey)
+        .digest();
+
+    // Update latency tokens processing
+    const tokens = latencyTokens || [];
+    const latencies: { [key: string]: number } = {};
+    
+    for (const token of tokens) {
+        console.log('Decrypting latency token:', token);
+        const result = decryptLatencyToken(token, encryptionKeyBuffer, requestIp);
+        console.log('Decrypted latency token:', result);
+        if (result) {
+            latencies[`${result.region}-latency`] = result.latency;
+        }
+    }
+
+    // Add validation for all required latency tokens
+    const requiredRegions = [
+        'eu-central-1',
+        'ap-northeast-1',
+        'sa-east-1',
+        'us-east-1',
+        'us-west-2',
+        'ap-south-1',
+        'eu-west-1',
+        'af-south-1'
+    ];
+
+    const missingRegions = requiredRegions.filter(region => 
+        !latencies.hasOwnProperty(`${region}-latency`)
+    );
+
+    if (missingRegions.length > 0) {
+        console.log('Missing latency tokens for regions:', missingRegions);
+        return {
+            statusCode: 460,
+            body: JSON.stringify({
+                message: 'Missing or invalid proxy detection. Please try again.',
+                missingRegions,
+                time: new Date()
+            }),
+        };
+    }
+
+    // Update the CSV schema and new vote line
     const newVote = `${timestamp},${requestIp},${poll},${vote},${
         countryGeoip.replace(/,|"/g, '')},${asnNameGeoip.replace(/,|"/g, '')},,,,,,,${
-            captchaVerified},${verifiedPhone},${userId}`;
-    console.log('Attempting to save vote:', {
-        fileName,
-        voteData: newVote.trim()
-    });
+            captchaVerified},${verifiedPhone},${userId},${
+            latencies['eu-central-1-latency'] || ''},${
+            latencies['ap-northeast-1-latency'] || ''},${
+            latencies['sa-east-1-latency'] || ''},${
+            latencies['us-east-1-latency'] || ''},${
+            latencies['us-west-2-latency'] || ''},${
+            latencies['ap-south-1-latency'] || ''},${
+            latencies['eu-west-1-latency'] || ''},${
+            latencies['af-south-1-latency'] || ''}`;
+
     // Ensure proper newlines both before and after the new vote
     const newVotes = (data.endsWith('\n') ? data : data + '\n') + newVote + '\n';
     const putParams = {

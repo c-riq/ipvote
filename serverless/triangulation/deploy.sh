@@ -5,6 +5,21 @@ export AWS_PROFILE="rix-admin-chris"
 # Change to the directory containing triangulationMaster.js
 cd "$(dirname "$0")"
 
+# Load environment variables from .env file
+if [ -f ".env" ]; then
+    echo "Loading environment variables from .env file..."
+    export $(cat .env | grep -v '^#' | xargs)
+else
+    echo "Error: .env file not found. Please create one with ENCRYPTION_KEY defined."
+    exit 1
+fi
+
+# Verify ENCRYPTION_KEY is set
+if [ -z "$ENCRYPTION_KEY" ]; then
+    echo "Error: ENCRYPTION_KEY environment variable is not set in .env file"
+    exit 1
+fi
+
 # List of regions to deploy to
 REGIONS=(
     "us-east-1"      # N. Virginia (Master)
@@ -67,9 +82,9 @@ do
     sed -i.bak "s/const IS_SLAVE = .*;/const IS_SLAVE = $is_slave;/" index.js
     sed -i.bak "s/const AWS_REGION_OF_SLAVE = '.*';/const AWS_REGION_OF_SLAVE = '$region';/" index.js
     
-    # Create deployment package with just the JS file
+    # Create deployment package with the JS file and .env
     rm -f $ZIP_FILE  # Remove any existing zip file
-    zip $ZIP_FILE index.js
+    zip $ZIP_FILE index.js .env
     
     # Check if zip file was created successfully
     if [ ! -f "$ZIP_FILE" ]; then
@@ -91,10 +106,12 @@ do
         --no-cli-pager
     
     # Update function configuration
-    # aws lambda update-function-configuration \
-    #     --function-name $function_name \
-    #     --timeout $TIMEOUT \
-    #     --region $region
+    aws lambda update-function-configuration \
+        --function-name $function_name \
+        --timeout $TIMEOUT \
+        --region $region \
+        --environment "Variables={ENCRYPTION_KEY=$ENCRYPTION_KEY}" \
+        --no-cli-pager
     
     echo "Deployment to $region complete!"
 done

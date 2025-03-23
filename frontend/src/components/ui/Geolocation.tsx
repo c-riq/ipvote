@@ -6,8 +6,8 @@ import Plot from 'react-plotly.js'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import PrivacyAccept from './PrivacyAccept'
 import { Data } from 'plotly.js'
-import { performLatencyMeasurements, LatencyMessage, ClockOffset, dataCenters, TriangulationReport } from '../../utils/latencyTriangulation'
-
+import { performLatencyMeasurements, LatencyMessage, TriangulationReport } from '../../utils/latencyTriangulation'
+import { dataCenters } from '../../utils/dataCenters'
 // Add type for the country geometry
 interface CountryGeometry {
   type: 'Polygon' | 'MultiPolygon';
@@ -30,6 +30,7 @@ interface CountryData {
 // @ts-ignore
 import countriesData from '@geo-maps/countries-land-10km'
 import { IpInfoResponse } from '../../App'
+import { LOG_TRIANGULATION_TEST_HOST } from '../../constants'
 const countries = countriesData() as CountryData
 
 // Replace with your Mapbox access token
@@ -165,7 +166,6 @@ const calculateIntersectingCountries = (sortedCircles: {
 
 function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captchaToken, setCaptchaToken }: GeolocationProps) {
   const [messages, setMessages] = useState<LatencyMessage[]>([])
-  const [clockOffsets, setClockOffsets] = useState<ClockOffset[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
@@ -377,15 +377,13 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
   const triggerTriangulationMeasurements = async () => {
     setIsLoading(true)
     setMessages([])
-    setClockOffsets([])
     setProgress(0)
     setHasHighLatency(false)
     
-    const { allMeasurementRounds, firstNonce } = await performLatencyMeasurements(
+    const { allMeasurementRounds } = await performLatencyMeasurements(
       (progress) => setProgress(progress),
       (activity) => setCurrentActivity(activity),
-      (message) => setMessages(prev => [...prev, message]),
-      (offset) => setClockOffsets(prev => [...prev, offset])
+      (message) => setMessages(prev => [...prev, message])
     )
 
     // Use the same calculation function
@@ -426,11 +424,11 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
       userIpInfo: {ip: userIpInfo?.ip || '', country: userIpInfo?.geo.country || ''},
       measurementRounds: allMeasurementRounds,
       possibleCountries: detectedCountries,
-      ...(browserCoordinates && shareCoordinates ? { browserCoordinates } : {})
+      browserCoordinates: shareCoordinates && browserCoordinates ? browserCoordinates : undefined
     };
 
     try {
-      await fetch(`${dataCenters.find(dc => dc.name_long === 'us-east-1')?.url}/?nonce=${firstNonce || 'no_nonce'}`, {
+      await fetch(`${LOG_TRIANGULATION_TEST_HOST}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -504,17 +502,13 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
   const plotData: Data[] = dataCenters.map(dc => ({
     name: dc.name,
     type: 'scatter' as const,
-    mode: 'text+markers' as const,
+    mode: 'markers' as const,
     x: messages
       .filter(msg => msg.region === dc.name)
+      .map(msg => msg.measurementIndex !== undefined ? msg.measurementIndex + 1 : 0),
+    y: messages
+      .filter(msg => msg.region === dc.name)
       .map(msg => msg.latency),
-    y: clockOffsets
-      .filter(offset => offset.region === dc.name)
-      .map(offset => offset.offset_slave),
-    text: clockOffsets
-      .filter(offset => offset.region === dc.name)
-      .map(offset => `#${offset.measurementIndex! + 1}`),
-    textposition: 'top center' as const,
     marker: {
       color: dc.color,
       size: 8
@@ -602,10 +596,10 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
       
       <Box sx={{ my: 4, height: 400 }} ref={mapContainer} />
 
-      {clockOffsets.length > 0 && messages.length > 0 && (
+      {messages.length > 0 && (
         <Box sx={{ mt: 4 }}>
           <Typography variant="h6" gutterBottom>
-            Latency vs Clock Offset:
+            Latency Measurements:
           </Typography>
           <Box sx={{ height: 300 }}>
             <Plot
@@ -615,18 +609,20 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
                 height: 300,
                 xaxis: {
                   title: {
-                    text: 'Latency (ms)',
-                    standoff: 10
-                  },
-                  zeroline: true
-                },
-                yaxis: {
-                  title: {
-                    text: 'Clock Offset (ms)',
+                    text: 'Measurement Round',
                     standoff: 10
                   },
                   zeroline: true,
-                  tickformat: '.1f',
+                  tickmode: 'linear',
+                  tick0: 1,
+                  dtick: 1
+                },
+                yaxis: {
+                  title: {
+                    text: 'Latency (ms)',
+                    standoff: 10
+                  },
+                  zeroline: true,
                   automargin: true
                 },
                 hovermode: 'closest',
