@@ -2,6 +2,7 @@ import { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command, Lis
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { normalizeText } from './normalize';
 import { S3ServiceException } from '@aws-sdk/client-s3';
+import { ignorePoll } from './blacklistedTerms';
 
 const s3Client = new S3Client();
 const BUCKET_NAME = 'ipvotes';
@@ -287,10 +288,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                     if (query) {
                         const searchTerms = query.toLowerCase().split(/\s+/).map(term => normalizeText(term));
                         filteredData = filteredData.filter(item => 
+                            !ignorePoll(item.poll) &&
                             searchTerms.every(term => 
                                 normalizeText(item.poll.replace(/_/g, ' ')).includes(term)
                             )
                         );
+                    } else {
+                        filteredData = filteredData.filter(item => !ignorePoll(item.poll));
                     }
 
                     if (tagFilter) {
@@ -357,7 +361,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }));
 
     // Filter and return results
-    let filteredData = aggregatedData;
+    let filteredData = aggregatedData.filter(item => !ignorePoll(item.poll));
     if (query || tagFilter) {
         if (query) {
             const searchTerms = query.toLowerCase().split(/\s+/).map(term => normalizeText(term));
