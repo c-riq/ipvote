@@ -68,5 +68,5 @@ export const dataCenters: DataCenter[] = [
 // Helper function for delay
 export const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-export const MEASUREMENT_ROUND_DELAY_MS = 800
+export const MEASUREMENT_ROUND_DELAY_MS = 400
 

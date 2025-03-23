@@ -14,10 +14,6 @@ export interface MeasurementRound {
   roundNumber: number
   timestamps: {
     region: string
-    clientStartTime: number
-    serverStartTime: number
-    serverFinishTime: number
-    clientFinishTime: number
     TOTP2: string
   }[]
   inferredData: {
@@ -93,15 +89,11 @@ export async function performLatencyMeasurements(
 
       await Promise.all(
         dataCenters.map(async (region) => {
-          const clientStartTime = Date.now()
           
-          // Get TOTP1
           const totp1 = await getTOTP1(region)
           
-          // Get TOTP2 with latency
           const { token: totp2, latency } = await getTOTP2(region, totp1)
           
-          const clientFinishTime = Date.now()
 
           onMessage({
             region: region.name,
@@ -111,10 +103,6 @@ export async function performLatencyMeasurements(
 
           round.timestamps.push({
             region: region.name_long,
-            clientStartTime,
-            serverStartTime: clientStartTime, // Not needed anymore but keeping for compatibility
-            serverFinishTime: clientFinishTime, // Not needed anymore but keeping for compatibility
-            clientFinishTime,
             TOTP2: totp2
           })
 

@@ -30,3 +30,5 @@ export const CAPTCHA_THRESHOLD = 10000
 export const VALID_TAGS = ['all', 'global', 'approval rating', 'national', 'other']
 
 export const PUBLIC_PROFILES_HOST = `${IPVOTES_S3_BUCKET_HOST}/public_profiles/`
+
+export const LOG_TRIANGULATION_TEST_HOST = 'https://lzajzm5uwcrbkn3ndakafsfsga0rcqib.lambda-url.us-east-1.on.aws'

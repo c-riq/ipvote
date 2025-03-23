@@ -30,6 +30,7 @@ interface CountryData {
 // @ts-ignore
 import countriesData from '@geo-maps/countries-land-10km'
 import { IpInfoResponse } from '../../App'
+import { LOG_TRIANGULATION_TEST_HOST } from '../../constants'
 const countries = countriesData() as CountryData
 
 // Replace with your Mapbox access token
@@ -423,11 +424,11 @@ function Geolocation({ privacyAccepted, userIpInfo, onPrivacyAcceptChange, captc
       userIpInfo: {ip: userIpInfo?.ip || '', country: userIpInfo?.geo.country || ''},
       measurementRounds: allMeasurementRounds,
       possibleCountries: detectedCountries,
-      ...(browserCoordinates && shareCoordinates ? { browserCoordinates } : {})
+      browserCoordinates: shareCoordinates && browserCoordinates ? browserCoordinates : undefined
     };
 
     try {
-      await fetch(`${dataCenters.find(dc => dc.name_long === 'us-east-1')?.url}?nonce=${Math.random().toString(36).substring(2, 15)}`, {
+      await fetch(`${LOG_TRIANGULATION_TEST_HOST}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
