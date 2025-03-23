@@ -1,6 +1,7 @@
 import { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command, ListObjectsV2CommandOutput } from '@aws-sdk/client-s3';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { normalizeText } from './normalize';
+import { S3ServiceException } from '@aws-sdk/client-s3';
 
 const s3Client = new S3Client();
 const BUCKET_NAME = 'ipvotes';
@@ -87,11 +88,27 @@ function generateRandomSelection(
     return combinedPolls.slice(offset, offset + limit);
 }
 
+async function checkIfPollDisabled(poll: string): Promise<boolean> {
+    try {
+        await s3Client.send(new GetObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: `votes/poll=${poll}/disabled`
+        }));
+        return true;
+    } catch (error) {
+        if (error instanceof S3ServiceException && error.$metadata?.httpStatusCode === 404) {
+            return false;
+        }
+        console.error(`Error checking disabled status for ${poll}:`, error);
+        return false;
+    }
+}
+
 async function aggregateAllPollsData(specificPoll: string | null = null): Promise<PollData[]> {
     // Get all vote data first
     const files = await listAllVoteFiles();
-    const pollsData = new Map<string, number>(); // Map to store vote counts for each poll
-    const recentCounts = new Map<string, number>(); // Map to store recent vote counts
+    const pollsData = new Map<string, number>();
+    const recentCounts = new Map<string, number>();
     const sevenDaysAgo = (new Date()).getTime() - (7 * 24 * 60 * 60 * 1000);
     
     // Process all vote files
@@ -103,6 +120,13 @@ async function aggregateAllPollsData(specificPoll: string | null = null): Promis
             
             // Skip if we're looking for a specific poll and this isn't it
             if (specificPoll && pollFromPath !== specificPoll) continue;
+
+            // Skip disabled polls
+            const isDisabled = await checkIfPollDisabled(pollFromPath);
+            if (isDisabled) {
+                console.log(`Skipping disabled poll: ${pollFromPath}`);
+                continue;
+            }
 
             const response = await s3Client.send(new GetObjectCommand({
                 Bucket: BUCKET_NAME,
