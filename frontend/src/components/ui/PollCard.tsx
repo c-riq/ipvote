@@ -116,7 +116,7 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
                   }
                 }}
               >
-                {option}
+                {loading ? <CircularProgress size={20} color="inherit" /> : option}
               </Button>
             </div>
           </Tooltip>
