@@ -413,9 +413,9 @@ export const handler = async (event: APIGatewayEvent): Promise<APIResponse> => {
     if (missingRegions.length > 0) {
         console.log('Missing latency tokens for regions:', missingRegions);
         return {
-            statusCode: 400,
+            statusCode: 460,
             body: JSON.stringify({
-                message: 'Missing latency measurements for some regions',
+                message: 'Missing or invalid proxy detection. Please try again.',
                 missingRegions,
                 time: new Date()
             }),

@@ -56,9 +56,19 @@ export const submitVote = async ({
   });
   
   const data = await response.text();
+  let parsedData;
+  try {
+    parsedData = JSON.parse(data);
+  } catch (e) {
+    parsedData = { message: data };
+  }
+  
+  if (response.status === 460) {
+    localStorage.removeItem('latencyTokens');
+  }
   
   return {
     success: response.status === 200,
-    message: response.status === 200 ? 'Vote submitted successfully!' : JSON.parse(data)?.message || data
+    message: response.status === 200 ? 'Vote submitted successfully!' : parsedData?.message || data
   };
 };
