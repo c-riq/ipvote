@@ -1,37 +1,35 @@
-set -x
+#!/bin/bash
+set -e
 trap "exit" INT
 
+# Configuration
 aws_profile=rix-admin-chris
 s3_bucket=ip-vote.com
 cf_id=E1LRNVH9OSGJT9
 
-echo Profile: $aws_profile
-echo S3_Bucket: $s3_bucket
-echo CloudFront Distribution: $cf_id
+echo "Profile: $aws_profile"
+echo "S3 Bucket: $s3_bucket"
+echo "CloudFront Distribution: $cf_id"
 
-if [ -z "$aws_profile" ]; then
-  echo AWS_PROFILE not found
-  exit
-fi
-if [ -z "$s3_bucket" ]; then
-  echo S3_BUCKET not found
-  exit
+# Validate required variables
+if [ -z "$aws_profile" ] || [ -z "$s3_bucket" ]; then
+  echo "Error: Missing required configuration"
+  exit 1
 fi
 
 export AWS_PROFILE=$aws_profile
+
+# Build the project
+echo "Building project..."
+npm run build
 
 # Generate random string for cache busting
 random_string=$(openssl rand -hex 4)
 echo "Generated random suffix: $random_string"
 
-if [ ! -d "dist" ]; then
-    echo "${red}dist folder not found${reset}"
-    exit 0;
-fi
-
-# Check if index.html exists
-if [ ! -f "dist/index.html" ]; then
-    echo "dist/index.html not found"
+# Validate build output
+if [ ! -d "dist" ] || [ ! -f "dist/index.html" ]; then
+    echo "Error: Build failed or dist/index.html not found"
     exit 1
 fi
 
@@ -42,23 +40,15 @@ mv dist/index.html "dist/index_${random_string}.html"
 echo Synching Build Folder: $s3_bucket...
 aws s3 sync dist/ s3://$s3_bucket --delete --exclude "*.html" --exclude "**/.DS_Store" --cache-control max-age=31530000,public
 
-# Upload static HTML files (privacy policy and terms of service) with standard caching
-aws s3 cp "dist/privacy_policy.html" "s3://$s3_bucket/privacy_policy.html" \
-    --cache-control "max-age=3600" \
-    --content-type "text/html; charset=UTF-8"
-
-aws s3 cp "dist/terms_of_service.html" "s3://$s3_bucket/terms_of_service.html" \
-    --cache-control "max-age=3600" \
-    --content-type "text/html; charset=UTF-8"
-
-aws s3 cp "dist/ip_based_polls_as_a_proxy_for_popular_opinion.html" "s3://$s3_bucket/ip_based_polls_as_a_proxy_for_popular_opinion.html" \
-    --cache-control "max-age=3600" \
-    --content-type "text/html; charset=UTF-8"
-
-
-aws s3 cp "dist/world_presidential_election.html" "s3://$s3_bucket/world_presidential_election.html" \
-    --cache-control "max-age=3600" \
-    --content-type "text/html; charset=UTF-8"
+# Upload static HTML files with standard caching
+echo "Uploading static HTML files..."
+for html_file in privacy_policy.html terms_of_service.html ip_based_polls_as_a_proxy_for_popular_opinion.html world_presidential_election.html; do
+    if [ -f "dist/$html_file" ]; then
+        aws s3 cp "dist/$html_file" "s3://$s3_bucket/$html_file" \
+            --cache-control "max-age=3600" \
+            --content-type "text/html; charset=UTF-8"
+    fi
+done
 
 # Upload index HTML file with no-cache headers
 aws s3 cp "dist/index_${random_string}.html" "s3://$s3_bucket/index_${random_string}.html" \
