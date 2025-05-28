@@ -90,7 +90,7 @@ function PrivacyAccept({ userIpInfo, accepted, onAcceptChange, setCaptchaToken, 
 
   const maskedIp = maskIP(userIpInfo.ip);
   return (
-    <div style={{ textAlign, maxWidth: '500px' }}>
+    <div style={{ textAlign, maxWidth: '500px', margin: '0 auto' }}>
       <FormControlLabel
         control={
           <Checkbox
@@ -135,4 +135,4 @@ function PrivacyAccept({ userIpInfo, accepted, onAcceptChange, setCaptchaToken, 
   );
 }
 
-export default PrivacyAccept; 
+export default PrivacyAccept;
