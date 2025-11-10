@@ -71,7 +71,9 @@ module.exports.handler = async (event) => {
             Bucket: bucketName,
             Key: RECENT_VOTES_FILE,
             Body: JSON.stringify(recentVotes, null, 2),
-            ContentType: 'application/json'
+            ContentType: 'application/json',
+            CacheControl: 'no-cache, no-store, must-revalidate',
+            Expires: new Date(0)
         });
         await s3Client.send(putCommand);
 
