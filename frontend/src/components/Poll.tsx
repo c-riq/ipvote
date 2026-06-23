@@ -300,22 +300,65 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     });
     setVotesByCountry(countryVotes);
 
-    // Process historical data
-    const dailyVotes: { [key: string]: { [key: string]: number } } = {};
+    // Process historical data with dynamic time resolution
+    const timeVotes: { [key: string]: { [key: string]: number } } = {};
+    
+    // Determine time resolution based on age of oldest vote
+    let oldestTimestamp = Infinity;
+    let newestTimestamp = 0;
     filteredVotes.forEach(vote => {
       try {
-        const date = new Date(vote.time).toISOString().split('T')[0];
-        
-        if (!dailyVotes[date]) {
-          dailyVotes[date] = {};
-        }
-        dailyVotes[date][vote.vote] = (dailyVotes[date][vote.vote] || 0) + 1;
+        const timestamp = new Date(vote.time).getTime();
+        if (timestamp < oldestTimestamp) oldestTimestamp = timestamp;
+        if (timestamp > newestTimestamp) newestTimestamp = timestamp;
       } catch (error) {
         console.warn('Invalid timestamp in vote:', vote);
       }
     });
 
-    const history = Object.entries(dailyVotes)
+    const ageInMs = newestTimestamp - oldestTimestamp;
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const oneWeekMs = 7 * oneDayMs;
+
+    // Determine bucket size: hourly, 4-hour, or daily
+    let getTimeBucket: (timestamp: number) => string;
+    
+    if (ageInMs < oneDayMs) {
+      // Less than 1 day: hourly buckets
+      getTimeBucket = (timestamp: number) => {
+        const date = new Date(timestamp);
+        return `${date.toISOString().split('T')[0]} ${String(date.getUTCHours()).padStart(2, '0')}:00`;
+      };
+    } else if (ageInMs < oneWeekMs) {
+      // Less than 1 week: 4-hour buckets
+      getTimeBucket = (timestamp: number) => {
+        const date = new Date(timestamp);
+        const hour = date.getUTCHours();
+        const bucketHour = Math.floor(hour / 4) * 4;
+        return `${date.toISOString().split('T')[0]} ${String(bucketHour).padStart(2, '0')}:00`;
+      };
+    } else {
+      // 1 week or more: daily buckets
+      getTimeBucket = (timestamp: number) => {
+        return new Date(timestamp).toISOString().split('T')[0];
+      };
+    }
+
+    filteredVotes.forEach(vote => {
+      try {
+        const timestamp = new Date(vote.time).getTime();
+        const bucket = getTimeBucket(timestamp);
+        
+        if (!timeVotes[bucket]) {
+          timeVotes[bucket] = {};
+        }
+        timeVotes[bucket][vote.vote] = (timeVotes[bucket][vote.vote] || 0) + 1;
+      } catch (error) {
+        console.warn('Invalid timestamp in vote:', vote);
+      }
+    });
+
+    const history = Object.entries(timeVotes)
       .map(([date, votes]) => ({
         date,
         votes
