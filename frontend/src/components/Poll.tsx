@@ -134,7 +134,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
     const pathParts = location.pathname.split('/')
     const isOpen = pathParts[1] === 'open'
     setIsOpenPoll(isOpen)
-    let pollFromPath = decodeURIComponent(isOpen ? pathParts[2] : pathParts[1])
+    const pollFromPath = decodeURIComponent(isOpen ? pathParts[2] : pathParts[1])
     
     // Only redirect if the poll name ends with specific file extensions
     if (/\.(html|js|css|jpg)$/i.test(pollFromPath)) {
