@@ -55,17 +55,20 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
 
   return (
     <div style={{
-      backgroundColor: '#f5f5f5',
-      padding: '10px',
-      borderRadius: '8px',
-      marginBottom: '20px',
+      backgroundColor: '#FFFFFF',
+      border: '1px solid #C8DDEF',
+      padding: '14px 16px',
+      borderRadius: '12px',
+      marginBottom: '24px',
       maxHeight: '200px',
       overflow: 'auto',
-      maxWidth: '500px',
+      width: '100%',
+      maxWidth: '600px',
       minWidth: 0,
-      width: '100%'
+      boxSizing: 'border-box',
+      boxShadow: '0 1px 3px rgba(45, 125, 197, 0.06)'
     }}>
-      <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>Recent Votes</h4>
+      <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#1A2B3C', fontWeight: 600 }}>Recent Votes</h4>
       <div style={{ 
         display: 'flex', 
         flexDirection: 'column', 
@@ -100,8 +103,8 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
               minWidth: 0,
               width: '100%'
             }}>
-              <span style={{ 
-                color: '#666',
+              <span style={{
+                color: '#7A9DBB',
                 whiteSpace: 'pre-line',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -114,10 +117,10 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
                 {getCountryFlag(vote.country)} {vote.country} {'\n'}{timeDisplay}
               </span>
               <span 
-                style={{ 
-                  fontWeight: 'bold', 
+                style={{
+                  fontWeight: 600,
                   cursor: 'pointer',
-                  color: '#1976d2',
+                  color: '#2D7DC5',
                   textDecoration: 'underline',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',

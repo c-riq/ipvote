@@ -141,11 +141,60 @@ function App() {
     palette: {
       mode: 'light',
       background: {
-        default: '#DAE0E6',
+        default: '#F0F6FC',
         paper: '#FFFFFF',
       },
       primary: {
-        main: '#0079d3',
+        main: '#2D7DC5',
+      },
+      secondary: {
+        main: '#589dd8',
+      },
+      text: {
+        primary: '#1A2B3C',
+        secondary: '#4A6480',
+      },
+    },
+    typography: {
+      fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      h6: {
+        fontWeight: 600,
+      },
+    },
+    components: {
+      MuiButton: {
+        styleOverrides: {
+          root: {
+            borderRadius: '8px',
+            textTransform: 'none',
+            fontWeight: 600,
+          },
+          contained: {
+            backgroundColor: '#2D7DC5',
+            color: '#FFFFFF',
+            '&:hover': {
+              backgroundColor: '#1E6AAD',
+              boxShadow: '0 4px 12px rgba(45, 125, 197, 0.35)',
+            },
+          },
+          outlined: {
+            borderColor: '#2D7DC5',
+            color: '#2D7DC5',
+            '&:hover': {
+              backgroundColor: 'rgba(45, 125, 197, 0.08)',
+              borderColor: '#1E6AAD',
+            },
+          },
+        },
+      },
+      MuiCard: {
+        styleOverrides: {
+          root: {
+            borderRadius: '12px',
+            border: '1px solid #C8DDEF',
+            boxShadow: '0 1px 3px rgba(45, 125, 197, 0.08)',
+          },
+        },
       },
     },
   })

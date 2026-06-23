@@ -55,21 +55,24 @@ function Header({ isSidebarOpen, setIsSidebarOpen, onSearchChange, phoneVerifica
         ☰
       </button>
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <img 
-          src="/img/logo.png" 
-          alt="IP Vote Logo" 
-          style={{ height: '24px', marginRight: '8px', cursor: 'pointer' }}
+        <img
+          src="/img/logo.png"
+          alt="IP Vote Logo"
+          style={{ height: '32px', marginRight: '12px', cursor: 'pointer' }}
           onClick={() => navigate('/ui/popular')}
         />
-        <Typography 
-          variant="h6" 
-          component="div" 
+        <Typography
+          variant="h6"
+          component="div"
           className="site-title"
-          sx={{ 
-            cursor: 'pointer', 
+          sx={{
+            cursor: 'pointer',
             mr: 2,
-            fontWeight: 'bold',
-            '&:hover': { color: 'primary.main' }
+            fontWeight: 700,
+            fontSize: '1.25rem',
+            color: '#1A2B3C',
+            transition: 'color 0.2s',
+            '&:hover': { color: '#2D7DC5' }
           }}
           onClick={() => navigate('/')}
         >
@@ -101,32 +104,43 @@ function Header({ isSidebarOpen, setIsSidebarOpen, onSearchChange, phoneVerifica
       <button className="create-button desktop-only" onClick={() => navigate('/ui/create')}>
         Create Poll
       </button>
-      <div 
+      <div
         onClick={() => navigate('/ui/identity')}
-        style={{ 
+        style={{
           cursor: 'pointer',
-          width: '40px',
-          height: '40px',
+          width: '44px',
+          height: '44px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           borderRadius: '50%',
-          backgroundColor: 'rgba(255, 255, 255, 0.1)',
-          marginLeft: '12px',
-          position: 'relative'
+          backgroundColor: '#F0F6FC',
+          border: '1px solid #C8DDEF',
+          marginLeft: '16px',
+          position: 'relative',
+          transition: 'all 0.2s'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = '#D6EBFA';
+          e.currentTarget.style.borderColor = '#2D7DC5';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = '#F0F6FC';
+          e.currentTarget.style.borderColor = '#C8DDEF';
         }}
       >
-        <PersonIcon />
+        <PersonIcon sx={{ color: '#4A6480' }} />
         {phoneVerification && (
           <CheckCircleIcon
             sx={{
               position: 'absolute',
-              bottom: 5,
-              right: 5,
-              color: '#4caf50',
-              backgroundColor: 'white',
+              bottom: 2,
+              right: 2,
+              color: '#22C55E',
+              backgroundColor: '#FFFFFF',
               borderRadius: '50%',
-              fontSize: '14px'
+              fontSize: '16px',
+              border: '2px solid #FFFFFF'
             }}
           />
         )}

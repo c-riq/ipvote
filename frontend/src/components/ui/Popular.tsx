@@ -204,24 +204,52 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
 
   return (
     <div>
-      <h2 style={{ margin: '0 0 20px 0' }}>Let the internet vote!</h2>
+      <h2 style={{
+        margin: '0 0 32px 0',
+        fontSize: '2rem',
+        fontWeight: 700,
+        color: '#1A2B3C',
+        textAlign: 'center'
+      }}>
+        Let the internet vote!
+      </h2>
 
       <RecentVotes onPollClick={handlePollClick} />
 
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'row', 
+      <div style={{
+        display: 'flex',
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: '20px'
+        marginBottom: '24px',
+        marginTop: '32px'
       }}>
-        <h3 style={{ margin: 0 }}>Popular Polls</h3>
+        <h3 style={{
+          margin: 0,
+          fontSize: '1.5rem',
+          fontWeight: 600,
+          color: '#1A2B3C'
+        }}>
+          Popular Polls
+        </h3>
         <Button
           ref={anchorRef}
           variant="outlined"
           onClick={handleFilterClick}
           startIcon={<FilterListIcon />}
-          size="small"
+          size="medium"
+          sx={{
+            borderColor: '#2D7DC5',
+            color: '#2D7DC5',
+            borderRadius: '8px',
+            textTransform: 'none',
+            fontWeight: 600,
+            '&:hover': {
+              borderColor: '#1E6AAD',
+              backgroundColor: 'rgba(45, 125, 197, 0.08)',
+              color: '#1E6AAD'
+            }
+          }}
         >
           Filter by Tags
         </Button>
@@ -241,9 +269,26 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
         }}
         disablePortal
       >
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{
+          p: 3,
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #C8DDEF',
+          borderRadius: '12px',
+          minWidth: '250px',
+          boxShadow: '0 4px 16px rgba(45, 125, 197, 0.12)'
+        }}>
           <FormControl component="fieldset">
-            <FormLabel component="legend">Filter by Tags</FormLabel>
+            <FormLabel
+              component="legend"
+              sx={{
+                color: '#1A2B3C',
+                fontWeight: 600,
+                fontSize: '1rem',
+                mb: 2
+              }}
+            >
+              Filter by Tags
+            </FormLabel>
             <FormGroup>
               {VALID_TAGS.map((tagOption) => (
                 <FormControlLabel
@@ -252,9 +297,21 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
                     <Checkbox
                       checked={selectedTags.has(tagOption)}
                       onChange={() => handleTagChange(tagOption)}
+                      sx={{
+                        color: '#7A9DBB',
+                        '&.Mui-checked': {
+                          color: '#2D7DC5',
+                        }
+                      }}
                     />
                   }
                   label={tagOption.charAt(0).toUpperCase() + tagOption.slice(1)}
+                  sx={{
+                    color: '#4A6480',
+                    '& .MuiFormControlLabel-label': {
+                      fontSize: '0.95rem'
+                    }
+                  }}
                 />
               ))}
             </FormGroup>
@@ -305,32 +362,52 @@ function Popular({ privacyAccepted, userIpInfo, onPrivacyAcceptChange,
       ) : (
         <div style={{
           textAlign: 'center',
-          padding: '40px',
-          color: '#666',
-          backgroundColor: '#f5f5f5',
-          borderRadius: '8px',
-          marginTop: '20px'
+          padding: '48px',
+          color: '#4A6480',
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #C8DDEF',
+          borderRadius: '12px',
+          marginTop: '24px'
         }}>
-          <p>No polls found {query ? 'matching your search' : 'in this category'}</p>
+          <p style={{ fontSize: '1.1rem', marginBottom: '8px' }}>
+            No polls found {query ? 'matching your search' : 'in this category'}
+          </p>
           {selectedTags.size > 1 && (
-            <p>Try selecting a different category or view all polls</p>
+            <p style={{ fontSize: '0.95rem', color: '#7A9DBB' }}>
+              Try selecting a different category or view all polls
+            </p>
           )}
         </div>
       ))}
       
       {hasMore && !loading && (
-        <button 
+        <Button
           onClick={loadMore}
           disabled={loadingMore}
-          style={{ 
-            width: '100%', 
-            padding: '10px', 
-            marginTop: '10px',
-            cursor: loadingMore ? 'default' : 'pointer'
+          variant="outlined"
+          fullWidth
+          sx={{
+            marginTop: '24px',
+            padding: '14px',
+            borderRadius: '10px',
+            borderColor: '#2D7DC5',
+            color: '#2D7DC5',
+            fontSize: '1rem',
+            fontWeight: 600,
+            textTransform: 'none',
+            '&:hover': {
+              borderColor: '#1E6AAD',
+              backgroundColor: 'rgba(45, 125, 197, 0.08)',
+              color: '#1E6AAD'
+            },
+            '&.Mui-disabled': {
+              borderColor: '#C8DDEF',
+              color: '#7A9DBB'
+            }
           }}
         >
           {loadingMore ? <CircularProgress size={20} /> : 'Load More'}
-        </button>
+        </Button>
       )}
     </div>
   )

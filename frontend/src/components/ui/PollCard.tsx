@@ -81,9 +81,10 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
     return (
       <Box sx={{
         display: 'flex',
-        gap: 2,
+        gap: 1.5,
         justifyContent: 'center',
-        mt: 2
+        mt: 3,
+        flexWrap: 'wrap'
       }}>
         {options.map(option => (
           <Tooltip
@@ -100,7 +101,7 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
             enterTouchDelay={0}
             leaveTouchDelay={5000}
           >
-            <div style={{ display: 'inline-block' }}>
+            <div style={{ display: 'inline-block', flex: '1 1 auto', minWidth: '120px' }}>
               <Button
                 variant="contained"
                 disabled={!allowVote || loading}
@@ -109,10 +110,27 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
                   vote(option)
                 }}
                 sx={{
-                  minWidth: '100px',
-                  textTransform: 'none',
+                  width: '100%',
+                  minWidth: '120px',
+                  textTransform: 'capitalize',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  padding: '12px 24px',
+                  borderRadius: '10px',
+                  backgroundColor: '#2D7DC5',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: '#1E6AAD',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 8px 16px rgba(45, 125, 197, 0.35)',
+                  },
                   '&.Mui-disabled': {
-                    pointerEvents: 'auto'
+                    pointerEvents: 'auto',
+                    backgroundColor: '#E8F2FB',
+                    color: '#7A9DBB',
+                    border: '1px solid #C8DDEF',
                   }
                 }}
               >
@@ -123,10 +141,22 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
         ))}
 
         {requireCaptcha && !captchaToken && (
-          <Button onClick={(e) => {
-            setShowCaptcha(true)
-            e.stopPropagation()
-          }}>
+          <Button
+            onClick={(e) => {
+              setShowCaptcha(true)
+              e.stopPropagation()
+            }}
+            sx={{
+              minWidth: '120px',
+              padding: '12px 24px',
+              borderRadius: '10px',
+              backgroundColor: '#2D7DC5',
+              color: '#FFFFFF',
+              '&:hover': {
+                backgroundColor: '#1E6AAD',
+              }
+            }}
+          >
             I am human
           </Button>
         )}
@@ -138,16 +168,23 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
     <Card
       id={`poll-${poll}`}
       sx={{
-        mb: 2,
+        mb: 3,
         cursor: 'pointer',
         position: 'relative',
-        transition: 'transform 0.3s ease-in-out',
+        transition: 'all 0.3s ease',
+        background: '#FFFFFF',
+        border: '1px solid #C8DDEF',
+        borderRadius: '16px',
+        overflow: 'visible',
+        boxShadow: '0 1px 3px rgba(45, 125, 197, 0.06)',
         '&:hover': {
-          transform: 'scale(1.01)',
+          transform: 'translateY(-4px)',
+          boxShadow: '0 12px 24px rgba(45, 125, 197, 0.18)',
+          borderColor: '#589dd8',
         },
         width: {
           xs: '100%',
-          sm: '500px'
+          sm: '600px'
         },
         ...((!isVisible) && {
           animation: 'pulse 1s ease-in-out',
@@ -160,9 +197,18 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
       }}
       onClick={onClick}
     >
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-start' }}>
-          <Typography variant="h6" sx={{ textAlign: 'left' }}>
+      <CardContent sx={{ padding: '24px !important' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: 'flex-start', mb: 2 }}>
+          <Typography
+            variant="h6"
+            sx={{
+              textAlign: 'left',
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              color: '#1A2B3C',
+              lineHeight: 1.4
+            }}
+          >
             {displayPoll.includes('_or_')
               ? displayPoll.replace('_or_', ' or ') + '?' :
               displayPoll.startsWith('open_') ? displayPoll.replace(/^open_/g, '') :
@@ -170,17 +216,27 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
           </Typography>
           {hasAttachment && (
             <Tooltip title="This poll has an attachment. Click to view details.">
-              <AttachmentIcon color="action" />
+              <AttachmentIcon sx={{ color: '#2D7DC5' }} />
             </Tooltip>
           )}
         </Box>
-        <Typography color="textSecondary">
-          {votes} votes {isUpdating && <CircularProgress size={10} sx={{ ml: 1 }} />}
+        <Typography
+          sx={{
+            color: '#4A6480',
+            fontSize: '0.9rem',
+            mb: 2,
+            fontWeight: 500
+          }}
+        >
+          {votes.toLocaleString()} votes {isUpdating && <CircularProgress size={12} sx={{ ml: 1 }} />}
         </Typography>
         {(message || measuringLatency) && (
           <Alert
             severity={message === 'Vote submitted successfully!' ? 'success' : 'warning'}
-            sx={{ mb: 2 }}
+            sx={{
+              mb: 2,
+              borderRadius: '8px',
+            }}
           >
             {message}
             {measuringLatency && (
@@ -192,15 +248,14 @@ function PollCard({ poll, votes, onClick, handleVote, privacyAccepted, isUpdatin
           </Alert>
         )}
         {renderVoteButtons()}
-        <Typography 
-          sx={{ 
-            position: 'absolute',
-            right: 16,
-            bottom: 4,
-            fontSize: '0.8rem',
-            color: 'text.secondary',
-            opacity: 0.7,
-            mt: 3
+        <Typography
+          sx={{
+            fontSize: '0.75rem',
+            color: '#7A9DBB',
+            opacity: 0.8,
+            mt: 3,
+            textAlign: 'center',
+            fontWeight: 500
           }}
         >
           Click to view details{hasAttachment ? ' and attachment' : ''}

@@ -46,7 +46,7 @@ function Sidebar({ isOpen }: SidebarProps) {
               Delegate voting (beta)
             </a>
           </li>
-          <hr style={{ margin: '1rem 0', border: 'none', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }} />
+          <hr style={{ margin: '1.5rem 0', border: 'none', borderTop: '1px solid #1F2937' }} />
           <li>
             <a href="/ip_based_polls_as_a_proxy_for_popular_opinion.html" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Lightbulb sx={{ fontSize: 20 }} />
@@ -78,11 +78,38 @@ function Sidebar({ isOpen }: SidebarProps) {
             </a>
           </li>
         </ul>
-        <div style={{ marginTop: 'auto', fontSize: '0.8rem', textAlign: 'center', padding: '1rem 0' }}>
-          <a href="/privacy_policy.html" target="_blank" rel="noopener noreferrer" style={{ marginRight: '1rem' }}>
-            Privacy Policy
-          </a>
-          <a href="/terms_of_service.html" target="_blank" rel="noopener noreferrer">
+        <div style={{
+          marginTop: 'auto',
+          fontSize: '0.75rem',
+          textAlign: 'center',
+          padding: '1.5rem 0',
+          borderTop: '1px solid #1F2937'
+        }}>
+          <a
+            href="/privacy_policy.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                marginRight: '1rem',
+                color: '#7A9DBB',
+                transition: 'color 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#2D7DC5'}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#7A9DBB'}
+            >
+              Privacy Policy
+            </a>
+            <a
+              href="/terms_of_service.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: '#7A9DBB',
+                transition: 'color 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#2D7DC5'}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#7A9DBB'}
+          >
             Terms of Service
           </a>
         </div>
