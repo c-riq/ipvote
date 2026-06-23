@@ -33,6 +33,7 @@ import PollMetadata from './PollMetadata'
 import SearchIcon from '@mui/icons-material/Search'
 import { Helmet } from 'react-helmet-async'
 import { submitVote } from '../api/vote'
+import RecentVotes from './ui/RecentVotes'
 
 interface VoteHistory {
   date: string;
@@ -1116,7 +1117,7 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
               </Box>
 
               <Box sx={{ mt: 4 }}>
-                <PollMetadata 
+                <PollMetadata
                   poll={poll}
                   phoneVerification={phoneVerification}
                   isOpen={isOpenPoll}
@@ -1124,6 +1125,18 @@ function Poll({ privacyAccepted, userIpInfo, captchaToken,
               </Box>
             </>
           )}
+
+          <Box sx={{ mt: 6 }}>
+            <RecentVotes onPollClick={(pollName, event) => {
+              const isOpen = pollName.startsWith('open_')
+              const path = isOpen ? `/open/${encodeURIComponent(pollName.replace(/^open_/g, ''))}` : `/${encodeURIComponent(pollName)}`
+              if (event.metaKey || event.ctrlKey) {
+                window.open(path, '_blank')
+              } else {
+                navigate(path)
+              }
+            }} />
+          </Box>
         </>
       )}
     </div>
