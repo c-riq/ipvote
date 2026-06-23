@@ -17,10 +17,10 @@ interface RecentVotesProps {
 
 function RecentVotes({ onPollClick }: RecentVotesProps) {
   const [recentVotes, setRecentVotes] = useState<RecentVote[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const fetchRecentVotes = async () => {
     try {
-      // Add cache-busting parameter to prevent browser caching
       const cacheBuster = `?t=${Date.now()}`;
       const response = await fetch(RECENT_VOTES_FILE + cacheBuster, {
         cache: 'no-store',
@@ -34,6 +34,8 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
       setRecentVotes(data.votes);
     } catch (error) {
       console.error('Error fetching recent votes:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -60,7 +62,7 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
       padding: '14px 16px',
       borderRadius: '12px',
       marginBottom: '24px',
-      maxHeight: '200px',
+      height: '200px',
       overflow: 'auto',
       width: '100%',
       maxWidth: '600px',
@@ -69,89 +71,99 @@ function RecentVotes({ onPollClick }: RecentVotesProps) {
       boxShadow: '0 1px 3px rgba(45, 125, 197, 0.06)'
     }}>
       <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#1A2B3C', fontWeight: 600 }}>Recent Votes</h4>
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        gap: '4px',
-        minWidth: 0
-      }}>
-        {recentVotes.slice(0, 200).map((vote, index) => {
-          const voteDate = new Date(vote.timestamp);
-          const today = new Date();
-          let timeDisplay;
-          
-          if (voteDate.toDateString() === today.toDateString()) {
-            timeDisplay = voteDate.toLocaleTimeString();
-          } else if (
-            voteDate.toDateString() === new Date(today.setDate(today.getDate() - 1)).toDateString()
-          ) {
-            timeDisplay = `Yesterday\n${voteDate.toLocaleTimeString()}`;
-          } else {
-            timeDisplay = `${voteDate.toLocaleDateString()}\n${voteDate.toLocaleTimeString()}`;
-          }
-          
-          timeDisplay = timeDisplay.length > MAX_CHARS ? timeDisplay.slice(0, MAX_CHARS - 3) + '...' : timeDisplay;
-          
-          return (
-            <div key={index} style={{ 
-              fontSize: '12px',
-              display: 'grid',
-              gridTemplateColumns: 'minmax(68px, 80px) minmax(100px, 2fr) minmax(40px, 0.7fr)',
-              gap: '4px',
-              alignItems: 'start',
-              padding: '4px 0',
-              minWidth: 0,
-              width: '100%'
-            }}>
-              <span style={{
-                color: '#7A9DBB',
-                whiteSpace: 'pre-line',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                lineHeight: '1.2',
-                textAlign: 'left',
+      {loading ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '120px', color: '#7A9DBB', fontSize: '13px' }}>
+          Loading recent votes...
+        </div>
+      ) : recentVotes.length === 0 ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '120px', color: '#7A9DBB', fontSize: '13px' }}>
+          No recent votes yet
+        </div>
+      ) : (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px',
+          minWidth: 0
+        }}>
+          {recentVotes.slice(0, 200).map((vote, index) => {
+            const voteDate = new Date(vote.timestamp);
+            const today = new Date();
+            let timeDisplay;
+            
+            if (voteDate.toDateString() === today.toDateString()) {
+              timeDisplay = voteDate.toLocaleTimeString();
+            } else if (
+              voteDate.toDateString() === new Date(today.setDate(today.getDate() - 1)).toDateString()
+            ) {
+              timeDisplay = `Yesterday\n${voteDate.toLocaleTimeString()}`;
+            } else {
+              timeDisplay = `${voteDate.toLocaleDateString()}\n${voteDate.toLocaleTimeString()}`;
+            }
+            
+            timeDisplay = timeDisplay.length > MAX_CHARS ? timeDisplay.slice(0, MAX_CHARS - 3) + '...' : timeDisplay;
+            
+            return (
+              <div key={index} style={{ 
+                fontSize: '12px',
+                display: 'grid',
+                gridTemplateColumns: 'minmax(68px, 80px) minmax(100px, 2fr) minmax(40px, 0.7fr)',
+                gap: '4px',
+                alignItems: 'start',
+                padding: '4px 0',
                 minWidth: 0,
-                fontSize: '11px'
-              }}
-              title={`${timeDisplay} - ${vote.country}`}>
-                {getCountryFlag(vote.country)} {vote.country} {'\n'}{timeDisplay}
-              </span>
-              <span 
-                style={{
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  color: '#2D7DC5',
-                  textDecoration: 'underline',
+                width: '100%'
+              }}>
+                <span style={{
+                  color: '#7A9DBB',
+                  whiteSpace: 'pre-line',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  lineHeight: '1.2',
+                  textAlign: 'left',
+                  minWidth: 0,
+                  fontSize: '11px'
+                }}
+                title={`${timeDisplay} - ${vote.country}`}>
+                  {getCountryFlag(vote.country)} {vote.country} {'\n'}{timeDisplay}
+                </span>
+                <span 
+                  style={{
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    color: '#2D7DC5',
+                    textDecoration: 'underline',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    textAlign: 'left',
+                    minWidth: 0
+                  }}
+                  onClick={(e) => onPollClick(vote.poll, e)}
+                  title={vote.poll.replace(/^open_/, '').replace(/%2C/g, ',')}
+                >
+                  {(vote.poll.replace(/^open_/, '').replace(/%2C/g, ',').length > MAX_CHARS 
+                    ? vote.poll.replace(/^open_/, '').replace(/%2C/g, ',').slice(0, MAX_CHARS - 3) + '...'
+                    : vote.poll.replace(/^open_/, '').replace(/%2C/g, ',')
+                  )}
+                </span>
+                <span style={{
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   textAlign: 'left',
                   minWidth: 0
                 }}
-                onClick={(e) => onPollClick(vote.poll, e)}
-                title={vote.poll.replace(/^open_/, '').replace(/%2C/g, ',')}
-              >
-                {(vote.poll.replace(/^open_/, '').replace(/%2C/g, ',').length > MAX_CHARS 
-                  ? vote.poll.replace(/^open_/, '').replace(/%2C/g, ',').slice(0, MAX_CHARS - 3) + '...'
-                  : vote.poll.replace(/^open_/, '').replace(/%2C/g, ',')
-                )}
-              </span>
-              <span style={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                textAlign: 'left',
-                minWidth: 0
-              }}
-              title={vote.vote}>
-                {vote.vote.length > MAX_CHARS * 0.6 
-                  ? vote.vote.slice(0, Math.floor(MAX_CHARS * 0.6) - 3) + '...' 
-                  : vote.vote}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+                title={vote.vote}>
+                  {vote.vote.length > MAX_CHARS * 0.6 
+                    ? vote.vote.slice(0, Math.floor(MAX_CHARS * 0.6) - 3) + '...' 
+                    : vote.vote}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-export default RecentVotes; 
+export default RecentVotes;
